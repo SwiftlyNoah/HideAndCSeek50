@@ -73,7 +73,7 @@ class DatabaseManager: ObservableObject {
     
     // MARK: - Lobby Management
     
-    func createLobby(hostUID: String, hostName: String, gameName: String, isPublic: Bool = true, maxHiders: Int = 2, maxSeekers: Int = 2) async throws -> String {
+    func createLobby(hostUID: String, hostName: String, gameName: String, isPublic: Bool = true, maxHiders: Int = 2, maxSeekers: Int = 2, hidingTime: Int = 30, city: GameCity = .boston) async throws -> String {
         let code = generateGameCode()
         let gameId = UUID().uuidString
         
@@ -85,6 +85,8 @@ class DatabaseManager: ObservableObject {
             isPublic: isPublic,
             maxHiders: maxHiders,
             maxSeekers: maxSeekers,
+            hidingTime: hidingTime,
+            city: city,
             createdAt: Date(),
             expiresAt: Date().addingTimeInterval(3600) // Expire in 1 hour
         )
@@ -183,12 +185,14 @@ class DatabaseManager: ObservableObject {
         return lobby
     }
     
-    func updateLobbySettings(code: String, maxHiders: Int, maxSeekers: Int, isPublic: Bool) async throws {
+    func updateLobbySettings(code: String, maxHiders: Int, maxSeekers: Int, isPublic: Bool, hidingTime: Int, city: GameCity) async throws {
         let lobbyRef = DatabaseReference.lobby(code)
         let updates: [String: Any] = [
             "maxHiders": maxHiders,
             "maxSeekers": maxSeekers,
-            "isPublic": isPublic
+            "isPublic": isPublic,
+            "hidingTime": hidingTime,
+            "city": city.rawValue
         ]
         try await lobbyRef.updateChildValues(updates)
     }

@@ -19,6 +19,8 @@ struct CreateLobbyView: View {
     @State private var maxHiders = 2
     @State private var maxSeekers = 2
     @State private var isPublic = true
+    @State private var hidingTime: Int = 30 // 30 minutes
+    @State private var selectedCity: GameCity = .boston
     @State private var isLoading = false
     @State private var errorMessage: String?
     
@@ -36,6 +38,38 @@ struct CreateLobbyView: View {
                 Section("Game Details") {
                     TextField("Game Name", text: $gameName)
                         .textInputAutocapitalization(.words)
+                    
+                    Picker("City", selection: $selectedCity) {
+                        ForEach(GameCity.allCases, id: \.self) { city in
+                            HStack {
+                                Text(city.displayName)
+                                Spacer()
+                                Text(city.shortCode)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .tag(city)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+                
+                Section("Game Timing") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Hiding Time")
+                            Spacer()
+                            Text("\(hidingTime) min")
+                                .foregroundColor(.blue)
+                                .fontWeight(.semibold)
+                        }
+                        
+                        Slider(value: Binding(
+                            get: { Double(hidingTime) },
+                            set: { hidingTime = Int($0) }
+                        ), in: 20...90, step: 5)
+                            .accentColor(.blue)
+                    }
                 }
                 
                 Section("Team Sizes") {
@@ -155,7 +189,9 @@ struct CreateLobbyView: View {
                 gameName: trimmedName,
                 isPublic: isPublic,
                 maxHiders: maxHiders,
-                maxSeekers: maxSeekers
+                maxSeekers: maxSeekers,
+                hidingTime: hidingTime,
+                city: selectedCity
             )
             
             await MainActor.run {

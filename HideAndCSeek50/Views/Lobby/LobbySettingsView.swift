@@ -17,6 +17,8 @@ struct LobbySettingsView: View {
     @State private var maxHiders: Int
     @State private var maxSeekers: Int
     @State private var isPublic: Bool
+    @State private var hidingTime: Int
+    @State private var selectedCity: GameCity
     @State private var isLoading = false
     @State private var errorMessage: String?
     
@@ -26,11 +28,47 @@ struct LobbySettingsView: View {
         self._maxHiders = State(initialValue: lobby.maxHiders)
         self._maxSeekers = State(initialValue: lobby.maxSeekers)
         self._isPublic = State(initialValue: lobby.isPublic)
+        self._hidingTime = State(initialValue: lobby.hidingTime)
+        self._selectedCity = State(initialValue: lobby.city)
     }
     
     var body: some View {
         NavigationStack {
             Form {
+                Section("Game Location") {
+                    Picker("City", selection: $selectedCity) {
+                        ForEach(GameCity.allCases, id: \.self) { city in
+                            HStack {
+                                Text(city.displayName)
+                                Spacer()
+                                Text(city.shortCode)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .tag(city)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+                
+                Section("Game Timing") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Hiding Time")
+                            Spacer()
+                            Text("\(hidingTime) min")
+                                .foregroundColor(.blue)
+                                .fontWeight(.semibold)
+                        }
+                        
+                        Slider(value: Binding(
+                            get: { Double(hidingTime) },
+                            set: { hidingTime = Int($0) }
+                        ), in: 20...90, step: 5)
+                            .accentColor(.blue)
+                    }
+                }
+                
                 Section("Team Sizes") {
                     HStack {
                         Text("Maximum Hiders")
@@ -125,9 +163,10 @@ struct LobbySettingsView: View {
     private var hasChanges: Bool {
         return maxHiders != lobby.maxHiders ||
                maxSeekers != lobby.maxSeekers ||
-               isPublic != lobby.isPublic
+               isPublic != lobby.isPublic ||
+               hidingTime != lobby.hidingTime ||
+               selectedCity != lobby.city
     }
-    
     private func saveSettings() async {
         isLoading = true
         
@@ -136,7 +175,9 @@ struct LobbySettingsView: View {
                 code: lobbyCode,
                 maxHiders: maxHiders,
                 maxSeekers: maxSeekers,
-                isPublic: isPublic
+                isPublic: isPublic,
+                hidingTime: hidingTime,
+                city: selectedCity
             )
             
             await MainActor.run {
@@ -160,6 +201,8 @@ struct LobbySettingsView: View {
         isPublic: true,
         maxHiders: 2,
         maxSeekers: 2,
+        hidingTime: 30,
+        city: .boston,
         createdAt: Date(),
         expiresAt: Date().addingTimeInterval(3600),
         players: [:]

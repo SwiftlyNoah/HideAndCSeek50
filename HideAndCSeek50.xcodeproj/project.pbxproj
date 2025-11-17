@@ -56,9 +56,9 @@
 		140B02A92EC8791E0005EE81 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		140B02AA2EC8791E0005EE81 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		140B02AB2EC8791E0005EE81 /* QuickMatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickMatchView.swift; sourceTree = "<group>"; };
+		142066B02ECBCBB40084F53C /* HideAndCSeek50.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HideAndCSeek50.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		14E268ED2EC9647900FBCF90 /* Stats+History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Stats+History.swift"; sourceTree = "<group>"; };
 		14E268EF2EC9649300FBCF90 /* Lobby.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lobby.swift; sourceTree = "<group>"; };
-		14E268F32EC966F900FBCF90 /* HideAndCSeek50.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = HideAndCSeek50.app; path = "/Users/noahbrauner/Desktop/iOS_Dev/HideAndCSeek50/build/Debug-iphoneos/HideAndCSeek50.app"; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -168,6 +168,7 @@
 			isa = PBXGroup;
 			children = (
 				140B02AC2EC8791E0005EE81 /* HideAndCSeek50 */,
+				142066B02ECBCBB40084F53C /* HideAndCSeek50.app */,
 			);
 			sourceTree = "<group>";
 		};
@@ -196,7 +197,7 @@
 				14F2BEEB2EC844D400B5F06B /* GoogleSignInSwift */,
 			);
 			productName = HideAndCSeek50;
-			productReference = 14E268F32EC966F900FBCF90 /* HideAndCSeek50.app */;
+			productReference = 142066B02ECBCBB40084F53C /* HideAndCSeek50.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -403,7 +404,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 859DBKXQPY;
+				DEVELOPMENT_TEAM = RGM9JAFXFM;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = HideAndCSeek50/Resources/Info.plist;
@@ -436,7 +437,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 859DBKXQPY;
+				DEVELOPMENT_TEAM = RGM9JAFXFM;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = HideAndCSeek50/Resources/Info.plist;

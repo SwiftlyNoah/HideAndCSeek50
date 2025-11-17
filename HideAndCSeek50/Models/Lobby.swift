@@ -7,6 +7,29 @@
 
 import Foundation
 
+enum GameCity: String, Codable, CaseIterable {
+    case boston = "boston"
+    case newYork = "newYork"
+    
+    var displayName: String {
+        switch self {
+        case .boston:
+            return "Boston"
+        case .newYork:
+            return "New York"
+        }
+    }
+    
+    var shortCode: String {
+        switch self {
+        case .boston:
+            return "BOS"
+        case .newYork:
+            return "NYC"
+        }
+    }
+}
+
 struct Lobby: Codable {
     let code: String
     let hostUID: String
@@ -15,6 +38,8 @@ struct Lobby: Codable {
     var isPublic: Bool = true
     var maxHiders: Int = 2
     var maxSeekers: Int = 2
+    var hidingTime: Int = 30 // 30 minutes default
+    var city: GameCity = .boston
     let createdAt: Date
     let expiresAt: Date
     var isActive: Bool = true
@@ -55,6 +80,8 @@ extension Lobby {
             "isPublic": isPublic,
             "maxHiders": maxHiders,
             "maxSeekers": maxSeekers,
+            "hidingTime": hidingTime,
+            "city": city.rawValue,
             "createdAt": createdAt.toFirebaseTimestamp(),
             "expiresAt": expiresAt.toFirebaseTimestamp(),
             "isActive": isActive
@@ -83,6 +110,9 @@ extension Lobby {
         let isPublic = dictionary["isPublic"] as? Bool ?? true
         let maxHiders = dictionary["maxHiders"] as? Int ?? 2
         let maxSeekers = dictionary["maxSeekers"] as? Int ?? 2
+        let hidingTime = dictionary["hidingTime"] as? Int ?? 30 // 30 minutes default
+        let cityRaw = dictionary["city"] as? String ?? "boston"
+        let city = GameCity(rawValue: cityRaw) ?? .boston
         let isActive = dictionary["isActive"] as? Bool ?? true
         
         let createdAt = Date.fromFirebaseTimestamp(createdAtTimestamp)
@@ -105,6 +135,8 @@ extension Lobby {
             isPublic: isPublic,
             maxHiders: maxHiders,
             maxSeekers: maxSeekers,
+            hidingTime: hidingTime,
+            city: city,
             createdAt: createdAt,
             expiresAt: expiresAt,
             isActive: isActive,

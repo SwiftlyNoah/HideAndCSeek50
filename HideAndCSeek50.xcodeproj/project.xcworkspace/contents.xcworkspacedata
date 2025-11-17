@@ -5,9 +5,9 @@
       location = "self:">
    </FileRef>
    <FileRef
-      location = "group:ServicesServiceContainer.swift">
+      location = "group:LocationManager.swift">
    </FileRef>
    <FileRef
-      location = "group:ServicesAuthenticationService.swift">
+      location = "group:GameChat.swift">
    </FileRef>
 </Workspace>

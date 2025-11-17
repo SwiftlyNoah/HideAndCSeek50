@@ -8,7 +8,80 @@
 import Foundation
 import Firebase
 import FirebaseDatabase
+import CoreLocation
 internal import Combine
+
+enum DatabaseError: LocalizedError {
+    case userNotFound
+    case lobbyNotFound
+    case gameNotFound
+    case gameNotJoinable
+    case invalidData
+    case invalidOperation
+    case networkError
+    case permissionDenied
+    
+    var errorDescription: String? {
+        switch self {
+        case .userNotFound:
+            return "User not found"
+        case .lobbyNotFound:
+            return "Lobby not found"
+        case .gameNotFound:
+            return "Game not found"
+        case .gameNotJoinable:
+            return "Game cannot be joined"
+        case .invalidData:
+            return "Invalid data received"
+        case .invalidOperation:
+            return "Invalid operation"
+        case .networkError:
+            return "Network error occurred"
+        case .permissionDenied:
+            return "Permission denied"
+        }
+    }
+}
+
+extension DatabaseReference {
+    static var root: DatabaseReference {
+        return Database.database().reference()
+    }
+    
+    static func user(_ uid: String) -> DatabaseReference {
+        return root.child("users").child(uid)
+    }
+    
+    static func lobby(_ code: String) -> DatabaseReference {
+        return root.child("lobbies").child(code)
+    }
+    
+    static func lobbies() -> DatabaseReference {
+        return root.child("lobbies")
+    }
+    
+    static func game(_ gameId: String) -> DatabaseReference {
+        return root.child("games").child(gameId)
+    }
+    
+    static func activeGames() -> DatabaseReference {
+        return root.child("activeGames")
+    }
+    
+    static func games() -> DatabaseReference {
+        return root.child("games")
+    }
+}
+
+extension Date {
+    func toFirebaseTimestamp() -> Int64 {
+        return Int64(self.timeIntervalSince1970 * 1000)
+    }
+    
+    static func fromFirebaseTimestamp(_ timestamp: Int64) -> Date {
+        return Date(timeIntervalSince1970: Double(timestamp) / 1000.0)
+    }
+}
 
 class DatabaseManager: ObservableObject {
     static let shared = DatabaseManager()
@@ -75,12 +148,11 @@ class DatabaseManager: ObservableObject {
     
     func createLobby(hostUID: String, hostName: String, gameName: String, isPublic: Bool = true, maxHiders: Int = 2, maxSeekers: Int = 2, hidingTime: Int = 30, city: GameCity = .boston) async throws -> String {
         let code = generateGameCode()
-        let gameId = UUID().uuidString
         
         var lobby = Lobby(
             code: code,
             hostUID: hostUID,
-            gameId: gameId,
+            gameId: nil, // No gameId until game is started
             name: gameName,
             isPublic: isPublic,
             maxHiders: maxHiders,
@@ -159,6 +231,8 @@ class DatabaseManager: ObservableObject {
                     isPublic: lobby.isPublic,
                     maxHiders: lobby.maxHiders,
                     maxSeekers: lobby.maxSeekers,
+                    hidingTime: lobby.hidingTime,
+                    city: lobby.city,
                     createdAt: lobby.createdAt,
                     expiresAt: lobby.expiresAt,
                     isActive: lobby.isActive,
@@ -197,7 +271,165 @@ class DatabaseManager: ObservableObject {
         try await lobbyRef.updateChildValues(updates)
     }
     
-    func movePlayerToTeam(code: String, playerUID: String, team: Team) async throws {
+    // MARK: - Game Management
+    
+    func startGameFromLobby(lobbyCode: String) async throws -> String {
+        guard let lobby = currentLobby,
+              lobby.code == lobbyCode,
+              lobby.canStart else {
+            throw DatabaseError.invalidOperation
+        }
+        
+        let gameId = UUID().uuidString
+        
+        let gameInfo = GameInfo(
+            gameId: gameId,
+            gameCode: lobbyCode,
+            name: lobby.name,
+            hostUID: lobby.hostUID,
+            state: .starting,
+            gameMode: .classic,
+            maxPlayers: lobby.maxPlayers,
+            currentPlayers: lobby.totalPlayers,
+            createdAt: Date(),
+            startedAt: Date(),
+            settings: GameSettings(
+                hidingTime: lobby.hidingTime,
+                city: lobby.city
+            )
+        )
+        
+        // Create game in database with initial game structure
+        let gameRef = DatabaseReference.game(gameId)
+        try await gameRef.child("info").setValue(try gameInfo.toDictionary())
+        
+        // Initialize empty teams structure
+        let teamsData: [String: Any] = [
+            "hiders": ["members": [:], "teamScore": 0, "membersFound": 0, "averageHidingTime": 0],
+            "seekers": ["members": [:], "teamScore": 0, "totalHidersFound": 0, "averageFindTime": 0]
+        ]
+        try await gameRef.child("teams").setValue(teamsData)
+        
+        // Add all lobby players to the game teams
+        for (uid, player) in lobby.players {
+            let teamMember: [String: Any] = [
+                "uid": uid,
+                "displayName": player.displayName,
+                "isReady": true, // All players are ready when game starts
+                "joinedAt": Date().toFirebaseTimestamp(),
+                "isOnline": true,
+                "score": 0,
+                "isAlive": player.team == .hiders ? true : false, // Only hiders start "alive"
+                "hidersFound": player.team == .seekers ? 0 : 0
+            ]
+            
+            let teamPath = "teams/\(player.team.rawValue)/members/\(uid)"
+            try await gameRef.child(teamPath).setValue(teamMember)
+        }
+        
+        // Update lobby to point to game and mark as inactive
+        // This change will trigger navigation for all players monitoring the lobby
+        let lobbyRef = DatabaseReference.lobby(lobbyCode)
+        try await lobbyRef.updateChildValues([
+            "gameId": gameId,
+            "isActive": false
+        ])
+        
+        return gameId
+    }
+    
+    func getGameInfo(gameId: String) async throws -> GameInfo {
+        let snapshot = try await DatabaseReference.game(gameId).child("info").getData()
+        guard let data = snapshot.value as? [String: Any] else {
+            throw DatabaseError.gameNotFound
+        }
+        return try GameInfo.fromDictionary(data)
+    }
+    
+    func updatePlayerLocation(gameId: String, playerUID: String, location: CLLocation) async throws {
+        let locationData: [String: Any] = [
+            "latitude": location.coordinate.latitude,
+            "longitude": location.coordinate.longitude,
+            "timestamp": Date().toFirebaseTimestamp(),
+            "accuracy": location.horizontalAccuracy
+        ]
+        
+        let locationRef = DatabaseReference.game(gameId).child("locations").child(playerUID)
+        try await locationRef.setValue(locationData)
+    }
+    
+    func sendGameMessage(gameId: String, message: GameMessage) async throws {
+        let messageRef = DatabaseReference.game(gameId).child("messages").child(message.id)
+        let messageData = try message.toDictionary()
+        try await messageRef.setValue(messageData)
+    }
+    
+    func getGameMessages(gameId: String) async throws -> [GameMessage] {
+        let snapshot = try await DatabaseReference.game(gameId).child("messages").getData()
+        guard let data = snapshot.value as? [String: [String: Any]] else {
+            return []
+        }
+        
+        var messages: [GameMessage] = []
+        for (_, messageData) in data {
+            if let message = try? GameMessage.fromDictionary(messageData) {
+                messages.append(message)
+            }
+        }
+        
+        return messages.sorted { $0.timestamp < $1.timestamp }
+    }
+    
+    func observeGame(gameId: String, completion: @escaping (GameInfo) -> Void) {
+        let gameRef = DatabaseReference.game(gameId).child("info")
+        gameRef.observe(.value) { snapshot in
+            guard let data = snapshot.value as? [String: Any],
+                  let gameInfo = try? GameInfo.fromDictionary(data) else {
+                return
+            }
+            completion(gameInfo)
+        }
+    }
+    
+    func observePlayerLocations(gameId: String, completion: @escaping ([String: CLLocation]) -> Void) {
+        let locationsRef = DatabaseReference.game(gameId).child("locations")
+        locationsRef.observe(.value) { snapshot in
+            guard let data = snapshot.value as? [String: [String: Any]] else {
+                completion([:])
+                return
+            }
+            
+            var locations: [String: CLLocation] = [:]
+            for (playerUID, locationData) in data {
+                if let lat = locationData["latitude"] as? Double,
+                   let lng = locationData["longitude"] as? Double {
+                    locations[playerUID] = CLLocation(latitude: lat, longitude: lng)
+                }
+            }
+            completion(locations)
+        }
+    }
+    
+    func observeGameMessages(gameId: String, completion: @escaping ([GameMessage]) -> Void) {
+        let messagesRef = DatabaseReference.game(gameId).child("messages")
+        messagesRef.observe(.value) { snapshot in
+            guard let data = snapshot.value as? [String: [String: Any]] else {
+                completion([])
+                return
+            }
+            
+            var messages: [GameMessage] = []
+            for (_, messageData) in data {
+                if let message = try? GameMessage.fromDictionary(messageData) {
+                    messages.append(message)
+                }
+            }
+            
+            completion(messages.sorted { $0.timestamp < $1.timestamp })
+        }
+    }
+    
+    func switchPlayerTeam(code: String, playerUID: String, team: Team) async throws {
         let lobbyRef = DatabaseReference.lobby(code)
         try await lobbyRef.child("players/\(playerUID)/team").setValue(team.rawValue)
     }
@@ -611,8 +843,9 @@ class DatabaseManager: ObservableObject {
     }
     
     func startGameFromLobby(lobby: Lobby) async throws -> String {
+        let gameId = UUID().uuidString
         let gameInfo = GameInfo(
-            gameId: lobby.gameId,
+            gameId: gameId,
             gameCode: lobby.code,
             name: lobby.name,
             hostUID: lobby.hostUID,
@@ -622,19 +855,12 @@ class DatabaseManager: ObservableObject {
             currentPlayers: lobby.totalPlayers,
             createdAt: lobby.createdAt,
             settings: GameSettings(
-                timeLimit: 0,
-                hidingTime: 300, // 5 minutes
-                boundaryRadius: 1000, // 1km
-                centerLatitude: 0,
-                centerLongitude: 0,
-                allowPhotos: true,
-                allowVoiceChat: false,
-                questionCategories: ["location", "landmark"],
-                bonusPoints: true
+                hidingTime: lobby.hidingTime,
+                city: lobby.city
             )
         )
         
-        let gameId = try await createGame(info: gameInfo)
+        _ = try await createGame(info: gameInfo)
         
         // Move all lobby players to the game
         for (uid, player) in lobby.players {
@@ -725,36 +951,7 @@ class DatabaseManager: ObservableObject {
     }
 }
 
-// MARK: - Database Errors
 
-enum DatabaseError: LocalizedError {
-    case userNotFound
-    case gameNotFound
-    case gameNotJoinable
-    case lobbyNotFound
-    case invalidData
-    case networkError
-    case permissionDenied
-    
-    var errorDescription: String? {
-        switch self {
-        case .userNotFound:
-            return "User not found"
-        case .gameNotFound:
-            return "Game not found"
-        case .gameNotJoinable:
-            return "Game cannot be joined"
-        case .lobbyNotFound:
-            return "Lobby not found or expired"
-        case .invalidData:
-            return "Invalid data format"
-        case .networkError:
-            return "Network connection error"
-        case .permissionDenied:
-            return "Permission denied"
-        }
-    }
-}
 
 // MARK: - Codable Extensions
 

@@ -8,6 +8,7 @@
 import Foundation
 import Firebase
 import FirebaseDatabase
+import MapKit
 
 // MARK: - Game Models
 
@@ -37,16 +38,122 @@ struct GameInfo: Codable {
     let settings: GameSettings
 }
 
+extension GameInfo {
+    func toDictionary() throws -> [String: Any] {
+        var dict: [String: Any] = [
+            "gameId": gameId,
+            "gameCode": gameCode,
+            "name": name,
+            "hostUID": hostUID,
+            "state": state.rawValue,
+            "gameMode": gameMode.rawValue,
+            "maxPlayers": maxPlayers,
+            "currentPlayers": currentPlayers,
+            "createdAt": createdAt.toFirebaseTimestamp(),
+            "duration": duration,
+            "settings": [
+                "hidingTime": settings.hidingTime,
+                "city": settings.city.rawValue,
+                "timeLimit": settings.timeLimit,
+                "boundaryRadius": settings.boundaryRadius,
+                "centerLatitude": settings.centerLatitude,
+                "centerLongitude": settings.centerLongitude,
+                "allowPhotos": settings.allowPhotos,
+                "allowVoiceChat": settings.allowVoiceChat,
+                "questionCategories": settings.questionCategories,
+                "bonusPoints": settings.bonusPoints
+            ]
+        ]
+        
+        if let startedAt = startedAt {
+            dict["startedAt"] = startedAt.toFirebaseTimestamp()
+        }
+        
+        if let endedAt = endedAt {
+            dict["endedAt"] = endedAt.toFirebaseTimestamp()
+        }
+        
+        if let winner = winner {
+            dict["winner"] = winner.rawValue
+        }
+        
+        return dict
+    }
+    
+    static func fromDictionary(_ dict: [String: Any]) throws -> GameInfo {
+        guard let gameId = dict["gameId"] as? String,
+              let gameCode = dict["gameCode"] as? String,
+              let name = dict["name"] as? String,
+              let hostUID = dict["hostUID"] as? String,
+              let stateRaw = dict["state"] as? String,
+              let state = GameState(rawValue: stateRaw),
+              let gameModeRaw = dict["gameMode"] as? String,
+              let gameMode = GameMode(rawValue: gameModeRaw),
+              let maxPlayers = dict["maxPlayers"] as? Int,
+              let currentPlayers = dict["currentPlayers"] as? Int,
+              let createdAtTimestamp = dict["createdAt"] as? Int64,
+              let settingsDict = dict["settings"] as? [String: Any],
+              let hidingTime = settingsDict["hidingTime"] as? Int,
+              let cityRaw = settingsDict["city"] as? String,
+              let city = GameCity(rawValue: cityRaw) else {
+            throw DatabaseError.invalidData
+        }
+        
+        let createdAt = Date.fromFirebaseTimestamp(createdAtTimestamp)
+        let duration = dict["duration"] as? TimeInterval ?? 0
+        
+        var startedAt: Date?
+        if let startedAtTimestamp = dict["startedAt"] as? Int64 {
+            startedAt = Date.fromFirebaseTimestamp(startedAtTimestamp)
+        }
+        
+        var endedAt: Date?
+        if let endedAtTimestamp = dict["endedAt"] as? Int64 {
+            endedAt = Date.fromFirebaseTimestamp(endedAtTimestamp)
+        }
+        
+        var winner: Team?
+        if let winnerRaw = dict["winner"] as? String {
+            winner = Team(rawValue: winnerRaw)
+        }
+        
+        let settings = GameSettings(hidingTime: hidingTime, city: city)
+        
+        return GameInfo(
+            gameId: gameId,
+            gameCode: gameCode,
+            name: name,
+            hostUID: hostUID,
+            state: state,
+            gameMode: gameMode,
+            maxPlayers: maxPlayers,
+            currentPlayers: currentPlayers,
+            createdAt: createdAt,
+            startedAt: startedAt,
+            endedAt: endedAt,
+            duration: duration,
+            winner: winner,
+            settings: settings
+        )
+    }
+}
+
 struct GameSettings: Codable {
-    let timeLimit: TimeInterval        // Game time limit (0 = no limit)
-    let hidingTime: TimeInterval       // Initial hiding time
-    let boundaryRadius: Double         // Game area radius in meters
-    let centerLatitude: Double         // Game area center
-    let centerLongitude: Double
-    let allowPhotos: Bool
-    let allowVoiceChat: Bool
-    let questionCategories: [String]
-    let bonusPoints: Bool
+    var hidingTime: Int // minutes
+    var city: GameCity
+    let timeLimit: TimeInterval = 0        // Game time limit (0 = no limit) - kept for compatibility
+    let boundaryRadius: Double = 1000         // Game area radius in meters - kept for compatibility
+    let centerLatitude: Double = 0         // Game area center - kept for compatibility
+    let centerLongitude: Double = 0
+    let allowPhotos: Bool = true
+    let allowVoiceChat: Bool = true
+    let questionCategories: [String] = []
+    let bonusPoints: Bool = false
+    
+    init(hidingTime: Int, city: GameCity) {
+        self.hidingTime = hidingTime
+        self.city = city
+    }
 }
 
 struct GameTeams: Codable {
@@ -83,13 +190,32 @@ struct PlayerLocation: Codable {
     var locationHistory: [String: LocationPoint] = [:]
 }
 
+extension PlayerLocation {
+    func toDictionary() throws -> [String: Any] {
+        return [
+            "latitude": latitude,
+            "longitude": longitude,
+            "accuracy": accuracy,
+            "timestamp": timestamp.toFirebaseTimestamp(),
+            "isVisible": isVisible,
+            "locationHistory": locationHistory.mapValues { point in
+                [
+                    "lat": point.lat,
+                    "lng": point.lng,
+                    "timestamp": point.timestamp.toFirebaseTimestamp()
+                ]
+            }
+        ]
+    }
+}
+
 struct LocationPoint: Codable {
     let lat: Double
     let lng: Double
     let timestamp: Date
 }
 
-struct GameMessage: Codable {
+struct GameMessage: Codable, Identifiable {
     let id: String
     let senderUID: String
     let senderName: String
@@ -100,6 +226,93 @@ struct GameMessage: Codable {
     let attachments: MessageAttachments?
     let questionData: QuestionData?
     var reactions: [String: String] = [:]  // userUID: emoji
+}
+
+extension GameMessage {
+    func toDictionary() throws -> [String: Any] {
+        var dict: [String: Any] = [
+            "id": id,
+            "senderUID": senderUID,
+            "senderName": senderName,
+            "content": content,
+            "type": type.rawValue,
+            "timestamp": timestamp.toFirebaseTimestamp(),
+            "team": team.rawValue,
+            "reactions": reactions
+        ]
+        
+        if let attachments = attachments {
+            dict["attachments"] = [
+                "photoURL": attachments.photoURL as Any,
+                "audioURL": attachments.audioURL as Any,
+                "duration": attachments.duration as Any
+            ]
+        }
+        
+        if let questionData = questionData {
+            dict["questionData"] = [
+                "questionId": questionData.questionId,
+                "questionText": questionData.questionText,
+                "isAnswered": questionData.isAnswered,
+                "correctAnswer": questionData.correctAnswer as Any,
+                "playerAnswer": questionData.playerAnswer as Any
+            ]
+        }
+        
+        return dict
+    }
+    
+    static func fromDictionary(_ dict: [String: Any]) throws -> GameMessage {
+        guard let id = dict["id"] as? String,
+              let senderUID = dict["senderUID"] as? String,
+              let senderName = dict["senderName"] as? String,
+              let content = dict["content"] as? String,
+              let typeRaw = dict["type"] as? String,
+              let type = MessageType(rawValue: typeRaw),
+              let timestampInt = dict["timestamp"] as? Int64,
+              let teamRaw = dict["team"] as? String,
+              let team = MessageTarget(rawValue: teamRaw) else {
+            throw DatabaseError.invalidData
+        }
+        
+        let timestamp = Date.fromFirebaseTimestamp(timestampInt)
+        let reactions = dict["reactions"] as? [String: String] ?? [:]
+        
+        var attachments: MessageAttachments?
+        if let attachmentsDict = dict["attachments"] as? [String: Any] {
+            attachments = MessageAttachments(
+                photoURL: attachmentsDict["photoURL"] as? String,
+                audioURL: attachmentsDict["audioURL"] as? String,
+                duration: attachmentsDict["duration"] as? TimeInterval
+            )
+        }
+        
+        var questionData: QuestionData?
+        if let questionDict = dict["questionData"] as? [String: Any],
+           let questionId = questionDict["questionId"] as? String,
+           let questionText = questionDict["questionText"] as? String {
+            questionData = QuestionData(
+                questionId: questionId,
+                questionText: questionText,
+                isAnswered: questionDict["isAnswered"] as? Bool ?? false,
+                correctAnswer: questionDict["correctAnswer"] as? String,
+                playerAnswer: questionDict["playerAnswer"] as? String
+            )
+        }
+        
+        return GameMessage(
+            id: id,
+            senderUID: senderUID,
+            senderName: senderName,
+            content: content,
+            type: type,
+            timestamp: timestamp,
+            team: team,
+            attachments: attachments,
+            questionData: questionData,
+            reactions: reactions
+        )
+    }
 }
 
 struct MessageAttachments: Codable {
@@ -257,6 +470,25 @@ enum Team: String, Codable {
     }
 }
 
+enum GameCity: String, Codable, CaseIterable {
+    case boston = "boston"
+    case newYork = "newYork"
+    
+    var displayName: String {
+        switch self {
+        case .boston: return "Boston"
+        case .newYork: return "New York"
+        }
+    }
+    
+    var shortCode: String {
+        switch self {
+        case .boston: return "BOS"
+        case .newYork: return "NYC"
+        }
+    }
+}
+
 enum GameResult: String, Codable {
     case won = "won"
     case lost = "lost"
@@ -348,54 +580,5 @@ extension GameInfo {
     var isTimeUp: Bool {
         guard let remaining = remainingTime else { return false }
         return remaining <= 0
-    }
-}
-
-// MARK: - Firebase Database Reference Extensions
-
-extension DatabaseReference {
-    
-    // User references
-    static func users() -> DatabaseReference {
-        return Database.database().reference().child("users")
-    }
-    
-    static func user(_ uid: String) -> DatabaseReference {
-        return users().child(uid)
-    }
-    
-    // Game references
-    static func games() -> DatabaseReference {
-        return Database.database().reference().child("games")
-    }
-    
-    static func game(_ gameId: String) -> DatabaseReference {
-        return games().child(gameId)
-    }
-    
-    // Lobby references
-    static func lobbies() -> DatabaseReference {
-        return Database.database().reference().child("lobbies")
-    }
-    
-    static func lobby(_ code: String) -> DatabaseReference {
-        return lobbies().child(code)
-    }
-    
-    // Active games references
-    static func activeGames() -> DatabaseReference {
-        return Database.database().reference().child("activeGames")
-    }
-}
-
-// MARK: - Date Formatting
-
-extension Date {
-    func toFirebaseTimestamp() -> Int64 {
-        return Int64(self.timeIntervalSince1970 * 1000)
-    }
-    
-    static func fromFirebaseTimestamp(_ timestamp: Int64) -> Date {
-        return Date(timeIntervalSince1970: Double(timestamp) / 1000)
     }
 }

@@ -120,15 +120,16 @@ games: {
       "winner": "hiders|seekers|null",
 
       "settings": {
+        "hidingTime": 30,
+        "city": "boston|newYork",
         "timeLimit": 0,
-        "hidingTime": 0,
-        "boundaryRadius": 0,
+        "boundaryRadius": 1000,
         "centerLatitude": 0,
         "centerLongitude": 0,
         "allowPhotos": true,
         "allowVoiceChat": true,
         "questionCategories": ["string"],
-        "bonusPoints": true
+        "bonusPoints": false
       }
     },
 ```
@@ -299,9 +300,26 @@ lobbies: {
     "code": "string",
     "hostUID": "string",
     "gameId": "string",
+    "name": "string",
+    "isPublic": true,
+    "maxHiders": 2,
+    "maxSeekers": 2,
+    "hidingTime": 30,
+    "city": "boston|newYork",
     "createdAt": "timestamp",
     "expiresAt": "timestamp",
-    "isActive": true
+    "isActive": true,
+    
+    "players": {
+      "userUID1": {
+        "uid": "string",
+        "displayName": "string",
+        "team": "hiders|seekers",
+        "isReady": false,
+        "joinedAt": "timestamp",
+        "isOnline": true
+      }
+    }
   }
 }
 ```
@@ -346,6 +364,7 @@ invitations: {
 ```jsonc
 {
   "rules": {
+    // User data - users can only read/write their own data
     "users": {
       "$uid": {
         ".read": "$uid === auth.uid",
@@ -353,42 +372,102 @@ invitations: {
       }
     },
 
+    // Game data - only game participants can access
     "games": {
       "$gameId": {
-        ".read":
-          "auth != null && (" +
-            "root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || " +
-            "root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists() || " +
-            "root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid" +
-          ")",
+        ".read": "auth != null && (data.child('teams/hiders/members/' + auth.uid).exists() || data.child('teams/seekers/members/' + auth.uid).exists() || data.child('info/hostUID').val() == auth.uid)",
+        
+        // Game info can be modified by host or participants (for ready status, etc.)
+        "info": {
+          ".write": "auth != null && (root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid || root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists())"
+        },
 
-        ".write":
-          "auth != null && (" +
-            "root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || " +
-            "root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists() || " +
-            "root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid" +
-          ")",
+        // Teams - players can join teams and update their own status
+        "teams": {
+          "hiders": {
+            "members": {
+              "$uid": {
+                ".write": "$uid === auth.uid || root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
+              }
+            },
+            "teamScore": {
+              ".write": "auth != null && root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
+            }
+          },
+          "seekers": {
+            "members": {
+              "$uid": {
+                ".write": "$uid === auth.uid || root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
+              }
+            },
+            "teamScore": {
+              ".write": "auth != null && root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
+            }
+          }
+        },
 
+        // Locations - users can only update their own location
         "locations": {
           "$uid": {
-            ".write": "$uid === auth.uid"
+            ".write": "$uid === auth.uid",
+            ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists())"
+          }
+        },
+
+        // Messages - game participants can send messages
+        "messages": {
+          "$messageId": {
+            ".write": "auth != null && newData.child('senderUID').val() == auth.uid && (root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists())",
+            ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists())"
+          }
+        },
+
+        // Questions - seekers can ask, hiders can answer
+        "questions": {
+          "$questionId": {
+            ".write": "auth != null && ((newData.child('askedBy').val() == auth.uid && root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists()) || (newData.child('answeredBy').val() == auth.uid && root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists()))",
+            ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists())"
+          }
+        },
+
+        // Events - read-only for participants, write access for system/host
+        "events": {
+          ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists())",
+          "$eventId": {
+            ".write": "auth != null && root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
           }
         }
       }
     },
 
+    // Lobbies - authenticated users can read, participants can write
     "lobbies": {
       "$code": {
         ".read": "auth != null",
-        ".write": "auth != null"
+        ".write": "auth != null && (newData.child('hostUID').val() == auth.uid || data.child('hostUID').val() == auth.uid || data.child('players/' + auth.uid).exists())",
+        
+        // Players can update their own status in lobby
+        "players": {
+          "$uid": {
+            ".write": "$uid === auth.uid || data.parent().child('hostUID').val() == auth.uid"
+          }
+        }
       }
     },
 
+    // Active games - readable by authenticated users, writable by hosts
     "activeGames": {
       ".read": "auth != null",
       "$gameId": {
-        ".write":
-          "auth != null && root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
+        ".write": "auth != null && (root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid || newData.child('hostUID').val() == auth.uid)"
+      }
+    },
+
+    // Invitations - users can read their own invitations
+    "invitations": {
+      "$inviteId": {
+        ".read": "auth != null && (data.child('fromUID').val() == auth.uid || data.child('toUID').val() == auth.uid)",
+        ".write": "auth != null && (data.child('fromUID').val() == auth.uid || data.child('toUID').val() == auth.uid || newData.child('fromUID').val() == auth.uid)"
       }
     }
   }
@@ -403,18 +482,21 @@ invitations: {
 {
   "rules": {
     "games": {
-      ".indexOn": ["info/state", "info/createdAt", "info/hostUID"]
+      ".indexOn": ["info/state", "info/createdAt", "info/hostUID", "info/settings/city"]
     },
     "activeGames": {
       ".indexOn": ["state", "lastActivity", "hostUID"]
     },
     "lobbies": {
-      ".indexOn": ["isActive", "createdAt"]
+      ".indexOn": ["isActive", "createdAt", "isPublic", "city", "hostUID"]
     },
     "users": {
       "$uid": {
         "gameHistory": {
-          ".indexOn": ["datePlayed", "result"]
+          ".indexOn": ["datePlayed", "result", "role"]
+        },
+        "stats": {
+          ".indexOn": ["totalGamesPlayed", "totalGamesWon"]
         }
       }
     }

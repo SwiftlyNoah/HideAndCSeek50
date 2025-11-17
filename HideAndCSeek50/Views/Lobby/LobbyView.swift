@@ -16,7 +16,10 @@ struct LobbyView: View {
     @State private var showingSettings = false
     @State private var showingLeaveLobby = false
     @State private var isLoading = false
+    @State private var gameId: String?
+    @State private var navigateToGame = false
     @State private var errorMessage: String?
+    @State private var isGameStarting = false
     
     private var currentUser: User? {
         Auth.auth().currentUser
@@ -74,13 +77,19 @@ struct LobbyView: View {
                 }
                 
                 // Loading overlay
-                if isLoading {
+                if isLoading || isGameStarting {
                     Color.black.opacity(0.3)
                         .ignoresSafeArea()
                     
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(1.5)
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.5)
+                        
+                        Text(isGameStarting ? "Game Starting..." : "Loading...")
+                            .foregroundColor(.white)
+                            .font(.headline)
+                    }
                 }
             }
             .navigationTitle("Lobby")
@@ -107,7 +116,29 @@ struct LobbyView: View {
             .onDisappear {
                 stopListening()
             }
-            .sheet(isPresented: $showingSettings) {
+            .onChange(of: lobby?.gameId) { newGameId in
+                // Monitor for game start - when gameId is set and lobby becomes inactive
+                handleGameStart()
+            }
+            .onChange(of: lobby?.isActive) { isActive in
+                // Also monitor isActive status changes
+                if isActive == false {
+                    handleGameStart()
+                }
+            }
+            .fullScreenCover(isPresented: $navigateToGame) {
+            if let gameId = gameId,
+               let lobby = lobby,
+               let currentUID = currentUser?.uid,
+               let currentPlayer = lobby.players[currentUID] {
+                GameView(
+                    gameId: gameId,
+                    lobbyCode: lobbyCode,
+                    playerTeam: currentPlayer.team
+                )
+            }
+        }
+        .sheet(isPresented: $showingSettings) {
                 if let lobby = lobby {
                     LobbySettingsView(lobby: lobby, lobbyCode: lobbyCode)
                 }
@@ -392,6 +423,24 @@ struct LobbyView: View {
     
     // MARK: - Actions
     
+    private func handleGameStart() {
+        // Check if game has started (lobby has gameId and is inactive)
+        guard let currentLobby = lobby,
+              let lobbyGameId = currentLobby.gameId,
+              !currentLobby.isActive,
+              !navigateToGame else {
+            return
+        }
+        
+        // Show loading state for non-host players
+        if !isHost {
+            isGameStarting = true
+        }
+        
+        gameId = lobbyGameId
+        navigateToGame = true
+    }
+    
     private func startListening() {
         databaseManager.startListeningToLobby(code: lobbyCode)
     }
@@ -433,7 +482,7 @@ struct LobbyView: View {
         guard let currentUID = currentUser?.uid else { return }
         
         do {
-            try await databaseManager.movePlayerToTeam(code: lobbyCode, playerUID: currentUID, team: team)
+            try await databaseManager.switchPlayerTeam(code: lobbyCode, playerUID: currentUID, team: team)
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
@@ -443,7 +492,7 @@ struct LobbyView: View {
     
     private func movePlayerToTeam(_ playerUID: String, team: Team) async {
         do {
-            try await databaseManager.movePlayerToTeam(code: lobbyCode, playerUID: playerUID, team: team)
+            try await databaseManager.switchPlayerTeam(code: lobbyCode, playerUID: playerUID, team: team)
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
@@ -456,15 +505,14 @@ struct LobbyView: View {
         
         isLoading = true
         do {
-            let gameId = try await databaseManager.startGameFromLobby(lobby: lobby)
-            
-            // Close the lobby
-            try await databaseManager.closeLobby(code: lobbyCode)
+            // Start the game - this will update the lobby's gameId and isActive status
+            // All players monitoring the lobby will automatically navigate to the game
+            let _ = try await databaseManager.startGameFromLobby(lobbyCode: lobbyCode)
             
             await MainActor.run {
-                // Navigate to game view
                 isLoading = false
-                dismiss()
+                // Don't navigate here - let the onChange handler do it
+                // This ensures all players (including host) follow the same path
             }
             
         } catch {

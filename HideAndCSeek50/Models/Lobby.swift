@@ -7,33 +7,10 @@
 
 import Foundation
 
-enum GameCity: String, Codable, CaseIterable {
-    case boston = "boston"
-    case newYork = "newYork"
-    
-    var displayName: String {
-        switch self {
-        case .boston:
-            return "Boston"
-        case .newYork:
-            return "New York"
-        }
-    }
-    
-    var shortCode: String {
-        switch self {
-        case .boston:
-            return "BOS"
-        case .newYork:
-            return "NYC"
-        }
-    }
-}
-
 struct Lobby: Codable {
     let code: String
     let hostUID: String
-    let gameId: String
+    var gameId: String?
     let name: String
     var isPublic: Bool = true
     var maxHiders: Int = 2
@@ -75,7 +52,6 @@ extension Lobby {
         var dict: [String: Any] = [
             "code": code,
             "hostUID": hostUID,
-            "gameId": gameId,
             "name": name,
             "isPublic": isPublic,
             "maxHiders": maxHiders,
@@ -86,6 +62,10 @@ extension Lobby {
             "expiresAt": expiresAt.toFirebaseTimestamp(),
             "isActive": isActive
         ]
+        
+        if let gameId = gameId {
+            dict["gameId"] = gameId
+        }
         
         // Convert players dictionary
         var playersDict: [String: [String: Any]] = [:]
@@ -100,13 +80,13 @@ extension Lobby {
     static func fromDictionary(_ dictionary: [String: Any]) throws -> Lobby {
         guard let code = dictionary["code"] as? String,
               let hostUID = dictionary["hostUID"] as? String,
-              let gameId = dictionary["gameId"] as? String,
               let name = dictionary["name"] as? String,
               let createdAtTimestamp = dictionary["createdAt"] as? Int64,
               let expiresAtTimestamp = dictionary["expiresAt"] as? Int64 else {
             throw DatabaseError.invalidData
         }
         
+        let gameId = dictionary["gameId"] as? String // Now optional
         let isPublic = dictionary["isPublic"] as? Bool ?? true
         let maxHiders = dictionary["maxHiders"] as? Int ?? 2
         let maxSeekers = dictionary["maxSeekers"] as? Int ?? 2

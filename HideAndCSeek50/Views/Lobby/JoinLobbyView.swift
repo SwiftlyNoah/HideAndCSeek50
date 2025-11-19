@@ -13,13 +13,14 @@ struct JoinLobbyView: View {
     
     @StateObject private var databaseManager = DatabaseManager.shared
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authManager: AuthenticationManager
     
     @State private var lobbyCode = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
     
     private var currentUser: User? {
-        Auth.auth().currentUser
+        authManager.currentUser
     }
     
     private var displayName: String {
@@ -169,7 +170,7 @@ struct JoinLobbyView: View {
         isLoading = true
         
         do {
-            let joinedLobby = try await databaseManager.joinLobby(
+            _ = try await databaseManager.joinLobby(
                 code: formattedLobbyCode,
                 playerUID: currentUID,
                 displayName: displayName
@@ -194,4 +195,5 @@ struct JoinLobbyView: View {
 
 #Preview {
     JoinLobbyView { _ in }
+        .environmentObject(AuthenticationManager.shared)
 }

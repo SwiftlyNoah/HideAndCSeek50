@@ -11,7 +11,7 @@ import FirebaseAuth
 
 struct MainView: View {
     let user: User?
-    @StateObject private var authManager = AuthenticationManager.shared
+    @EnvironmentObject private var authManager: AuthenticationManager
     @StateObject private var databaseManager = DatabaseManager.shared
     @State private var showingSignOut = false
     @State private var showingCreateGame = false
@@ -388,4 +388,5 @@ struct LobbyDestination: Identifiable {
 
 #Preview {
     MainView(user: nil)
+        .environmentObject(AuthenticationManager.shared)
 }

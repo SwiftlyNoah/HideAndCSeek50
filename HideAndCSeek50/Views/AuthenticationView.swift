@@ -12,9 +12,8 @@ import GoogleSignIn
 import AuthenticationServices
 
 struct AuthenticationView: View {
+    @EnvironmentObject private var authManager: AuthenticationManager
     @State private var isShowingEmailSignIn = false
-    @State private var isAuthenticated = false
-    @State private var currentUser: User?
     @State private var isLoading = false
     @State private var errorMessage = ""
     @State private var showingError = false
@@ -175,9 +174,6 @@ struct AuthenticationView: View {
         } message: {
             Text(errorMessage)
         }
-        .fullScreenCover(isPresented: $isAuthenticated) {
-            MainView(user: currentUser)
-        }
     }
     
     // MARK: - Authentication Methods
@@ -193,10 +189,8 @@ struct AuthenticationView: View {
             isLoading = true
             Task {
                 do {
-                    let user = try await AuthenticationManager.shared.signInWithApple(authorization)
+                    _ = try await AuthenticationManager.shared.signInWithApple(authorization)
                     await MainActor.run {
-                        self.currentUser = user
-                        self.isAuthenticated = true
                         self.isLoading = false
                     }
                 } catch {
@@ -214,10 +208,8 @@ struct AuthenticationView: View {
         isLoading = true
         Task {
             do {
-                let user = try await AuthenticationManager.shared.signInWithGoogle()
+                _ = try await AuthenticationManager.shared.signInWithGoogle()
                 await MainActor.run {
-                    self.currentUser = user
-                    self.isAuthenticated = true
                     self.isLoading = false
                 }
             } catch {
@@ -232,10 +224,8 @@ struct AuthenticationView: View {
         isLoading = true
         Task {
             do {
-                let user = try await AuthenticationManager.shared.signInAnonymously()
+                _ = try await AuthenticationManager.shared.signInAnonymously()
                 await MainActor.run {
-                    self.currentUser = user
-                    self.isAuthenticated = true
                     self.isLoading = false
                 }
             } catch {
@@ -246,9 +236,9 @@ struct AuthenticationView: View {
         }
     }
     
-    private func handleEmailSignInComplete(_ user: User) {
-        currentUser = user
-        isAuthenticated = true
+    private func handleEmailSignInComplete() {
+        // The AuthenticationManager will automatically update the authentication state
+        // No local state management needed
     }
     
     private func handleAuthError(_ error: Error) {
@@ -260,4 +250,5 @@ struct AuthenticationView: View {
 
 #Preview {
     AuthenticationView()
+        .environmentObject(AuthenticationManager.shared)
 }

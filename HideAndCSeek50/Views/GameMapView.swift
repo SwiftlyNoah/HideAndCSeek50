@@ -10,20 +10,20 @@ import MapKit
 import CoreLocation
 
 class PlayerAnnotation: NSObject, MKAnnotation {
-    let playerUID: String
+    let displayName: String
     let coordinate: CLLocationCoordinate2D
     let team: Team
     
     var title: String? {
-        return team == .hiders ? "Hider" : "Seeker"
+        return displayName
     }
     
     var subtitle: String? {
-        return playerUID
+        return team.displayName
     }
     
-    init(playerUID: String, coordinate: CLLocationCoordinate2D, team: Team) {
-        self.playerUID = playerUID
+    init(displayName: String, coordinate: CLLocationCoordinate2D, team: Team) {
+        self.displayName = displayName
         self.coordinate = coordinate
         self.team = team
         super.init()
@@ -33,9 +33,29 @@ class PlayerAnnotation: NSObject, MKAnnotation {
 struct GameMapView: UIViewRepresentable {
     @Binding var region: MKCoordinateRegion
     let playerLocations: [String: CLLocation]
+    let playerTeams: [String: Team]
+    let playerNames: [String: String] // Add player names mapping
+    let currentUserUID: String
     let currentUserTeam: Team
     let hidableRegions: [MKPolygon]
-    let showAllPlayers: Bool
+    
+    private var visiblePlayerLocations: [String: CLLocation] {
+        // Filter out current user from annotations and apply team visibility rules
+        var filteredLocations = playerLocations.filter { playerUID, _ in
+            playerUID != currentUserUID // Don't show annotation for current user
+        }
+        
+        // Team visibility rules:
+        // - Seekers can't see hiders
+        if currentUserTeam == .seekers {
+            // Seekers can see other seekers
+            filteredLocations = filteredLocations.filter { (playerUID, _) in
+                playerTeams[playerUID] == .seekers
+            }
+        }
+        
+        return filteredLocations
+    }
     
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView()
@@ -71,21 +91,21 @@ struct GameMapView: UIViewRepresentable {
         }
         mapView.removeAnnotations(existingAnnotations)
         
-        // Add new player annotations
-        for (playerUID, location) in playerLocations {
+        // Add new player annotations based on visibility rules (excludes current user)
+        for (playerUID, location) in visiblePlayerLocations {
+            let team = playerTeams[playerUID] ?? .hiders
+            let displayName = playerNames[playerUID] ?? "Unknown Player"
             let annotation = PlayerAnnotation(
-                playerUID: playerUID,
+                displayName: displayName,
                 coordinate: location.coordinate,
-                team: determinePlayerTeam(for: playerUID)
+                team: team
             )
             mapView.addAnnotation(annotation)
         }
     }
     
     private func determinePlayerTeam(for playerUID: String) -> Team {
-        // This would ideally come from game data, but for now we'll use a simple approach
-        // In a real implementation, you'd pass player team information
-        return .hiders // Placeholder - should be determined from game data
+        return playerTeams[playerUID] ?? .hiders
     }
     
     class Coordinator: NSObject, MKMapViewDelegate {
@@ -105,21 +125,15 @@ struct GameMapView: UIViewRepresentable {
             
             if annotationView == nil {
                 annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
-                annotationView?.canShowCallout = false
+                annotationView?.canShowCallout = true
                 annotationView?.isDraggable = false
             } else {
                 annotationView?.annotation = annotation
             }
             
-            // Customize based on team
-            switch playerAnnotation.team {
-            case .hiders:
-                annotationView?.markerTintColor = .systemBlue
-                annotationView?.glyphImage = UIImage(systemName: "eye.slash.fill")
-            case .seekers:
-                annotationView?.markerTintColor = .systemRed
-                annotationView?.glyphImage = UIImage(systemName: "eye.fill")
-            }
+            // Customize based on team using Team enum properties
+            annotationView?.markerTintColor = playerAnnotation.team.color
+            annotationView?.glyphImage = UIImage(systemName: playerAnnotation.team.iconName)
             
             return annotationView
         }

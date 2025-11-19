@@ -9,6 +9,7 @@ import SwiftUI
 import MapKit
 import CoreLocation
 import FirebaseAuth
+internal import Combine
 
 struct GameView: View {
     let gameId: String
@@ -18,9 +19,13 @@ struct GameView: View {
     @StateObject private var locationManager = LocationManager.shared
     @StateObject private var databaseManager = DatabaseManager.shared
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authManager: AuthenticationManager
     
+    @State private var cancellables = Set<AnyCancellable>()
     @State private var region = MKCoordinateRegion()
     @State private var playerLocations: [String: CLLocation] = [:]
+    @State private var playerTeams: [String: Team] = [:] // Add player team tracking
+    @State private var playerNames: [String: String] = [:] // Add player names tracking
     @State private var showingChat = false
     @State private var showingSettings = false
     @State private var gameState: GameState = .inProgress
@@ -28,7 +33,7 @@ struct GameView: View {
     @State private var gameCity: GameCity = .boston
     
     private var currentUser: User? {
-        Auth.auth().currentUser
+        authManager.currentUser
     }
     
     private var hidableRegions: [MKPolygon] {
@@ -43,45 +48,81 @@ struct GameView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Map View
+                // Full-screen Map View
                 GameMapView(
                     region: $region,
                     playerLocations: playerLocations,
+                    playerTeams: playerTeams,
+                    playerNames: playerNames,
+                    currentUserUID: currentUser?.uid ?? "",
                     currentUserTeam: playerTeam,
-                    hidableRegions: hidableRegions,
-                    showAllPlayers: playerTeam == .seekers
+                    hidableRegions: hidableRegions
                 )
+                .ignoresSafeArea(.all) // Make map take up entire screen
                 .onAppear {
                     setupMapRegion()
                     requestLocationPermission()
                     startLocationUpdates()
                     loadGameData()
                 }
-                .onChange(of: locationManager.location) { location in
+                .onChange(of: locationManager.location) { _, location in
                     updatePlayerLocation(location)
                 }
                 
-                // Overlay UI
+                // Minimal overlay controls
                 VStack {
-                    // Top HUD
-                    GameHUDView(
-                        timeRemaining: timeRemaining,
-                        playerTeam: playerTeam,
-                        gameState: gameState,
-                        onSettingsPressed: { showingSettings = true }
-                    )
+                    // Top minimal HUD
+                    HStack {
+                        Button(action: { showingSettings = true }) {
+                            Image(systemName: "gearshape.fill")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                                .padding(12)
+                                .background(Color.black.opacity(0.7))
+                                .clipShape(Circle())
+                        }
+                        
+                        Spacer()
+                        
+                        // Timer and team indicator
+                        VStack(spacing: 4) {
+                            if gameState == .inProgress {
+                                Text(timeString)
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(Color.black.opacity(0.7))
+                                    .clipShape(Capsule())
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        // Team indicator
+                        Circle()
+                            .fill(playerTeam.swiftUIColor)
+                            .frame(width: 40, height: 40)
+                            .overlay {
+                                Image(systemName: playerTeam.iconName)
+                                    .foregroundColor(.white)
+                                    .font(.title3)
+                            }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 60)
                     
                     Spacer()
                     
-                    // Bottom Controls
+                    // Bottom floating chat button
                     HStack {
                         Spacer()
                         
-                        // Chat Button
                         Button(action: { showingChat = true }) {
                             ZStack {
                                 Circle()
-                                    .fill(Color.black.opacity(0.7))
+                                    .fill(Color.black.opacity(0.8))
                                     .frame(width: 56, height: 56)
                                 
                                 Image(systemName: "message.fill")
@@ -90,7 +131,7 @@ struct GameView: View {
                             }
                         }
                         .padding(.trailing, 20)
-                        .padding(.bottom, 30)
+                        .padding(.bottom, 50)
                     }
                 }
             }
@@ -123,6 +164,12 @@ struct GameView: View {
                 )
             }
         }
+    }
+    
+    private var timeString: String {
+        let minutes = Int(timeRemaining) / 60
+        let seconds = Int(timeRemaining) % 60
+        return String(format: "%02d:%02d", minutes, seconds)
     }
     
     private func setupMapRegion() {
@@ -177,97 +224,81 @@ struct GameView: View {
                     setupMapRegion()
                 }
                 
+                // Load player teams from the current game
+                if let currentGame = databaseManager.currentGame {
+                    await MainActor.run {
+                        // Extract player teams and names from game data
+                        var updatedTeams: [String: Team] = [:]
+                        var updatedNames: [String: String] = [:]
+                        
+                        for (uid, member) in currentGame.teams.hiders.members {
+                            updatedTeams[uid] = .hiders
+                            updatedNames[uid] = member.displayName
+                        }
+                        for (uid, member) in currentGame.teams.seekers.members {
+                            updatedTeams[uid] = .seekers
+                            updatedNames[uid] = member.displayName
+                        }
+                        
+                        playerTeams = updatedTeams
+                        playerNames = updatedNames
+                    }
+                }
+                
                 // Start observing game updates
                 observeGameUpdates()
                 observePlayerLocations()
             } catch {
-                // Handle error
+                print("Error loading game data: \(error)")
             }
         }
     }
     
     private func observeGameUpdates() {
         // Set up real-time game state listener
-        databaseManager.observeGame(gameId: gameId) { gameInfo in
-            DispatchQueue.main.async {
-                self.gameState = gameInfo.state
-                // Calculate time remaining based on game start time and hiding time
-                if let startTime = gameInfo.startedAt {
-                    let elapsed = Date().timeIntervalSince(startTime)
-                    self.timeRemaining = max(0, TimeInterval(gameInfo.settings.hidingTime * 60) - elapsed)
+        databaseManager.startListeningToGame(gameId: gameId)
+        
+        // Listen to changes in currentGame to update player teams
+        databaseManager.$currentGame
+            .sink { game in
+                guard let game = game else { return }
+                
+                DispatchQueue.main.async {
+                    gameState = game.info.state
+                    
+                    // Update player teams and names
+                    var updatedTeams: [String: Team] = [:]
+                    var updatedNames: [String: String] = [:]
+                    
+                    for (uid, member) in game.teams.hiders.members {
+                        updatedTeams[uid] = .hiders
+                        updatedNames[uid] = member.displayName
+                    }
+                    for (uid, member) in game.teams.seekers.members {
+                        updatedTeams[uid] = .seekers
+                        updatedNames[uid] = member.displayName
+                    }
+                    
+                    playerTeams = updatedTeams
+                    playerNames = updatedNames
+                    
+                    // Calculate time remaining based on game start time and hiding time
+                    if let startTime = game.info.startedAt {
+                        let elapsed = Date().timeIntervalSince(startTime)
+                        timeRemaining = max(0, TimeInterval(game.info.settings.hidingTime * 60) - elapsed)
+                    }
                 }
             }
-        }
+            .store(in: &cancellables)
     }
     
     private func observePlayerLocations() {
         // Set up real-time player location listener
         databaseManager.observePlayerLocations(gameId: gameId) { locations in
             DispatchQueue.main.async {
-                self.playerLocations = locations
+                playerLocations = locations
             }
         }
-    }
-}
-
-struct GameHUDView: View {
-    let timeRemaining: TimeInterval
-    let playerTeam: Team
-    let gameState: GameState
-    let onSettingsPressed: () -> Void
-    
-    private var timeString: String {
-        let minutes = Int(timeRemaining) / 60
-        let seconds = Int(timeRemaining) % 60
-        return String(format: "%02d:%02d", minutes, seconds)
-    }
-    
-    var body: some View {
-        HStack {
-            // Settings Button
-            Button(action: onSettingsPressed) {
-                Image(systemName: "gearshape.fill")
-                    .font(.title2)
-                    .foregroundColor(.white)
-                    .padding(12)
-                    .background(Color.black.opacity(0.7))
-                    .clipShape(Circle())
-            }
-            
-            Spacer()
-            
-            // Game Status
-            VStack(spacing: 4) {
-                Text(playerTeam.displayName)
-                    .font(.headline)
-                    .foregroundColor(playerTeam == .hiders ? .blue : .red)
-                
-                if gameState == .inProgress {
-                    Text(timeString)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.black.opacity(0.7))
-                        .clipShape(Capsule())
-                }
-            }
-            
-            Spacer()
-            
-            // Team indicator
-            Circle()
-                .fill(playerTeam == .hiders ? Color.blue : Color.red)
-                .frame(width: 40, height: 40)
-                .overlay {
-                    Image(systemName: playerTeam == .hiders ? "eye.slash.fill" : "eye.fill")
-                        .foregroundColor(.white)
-                        .font(.title3)
-                }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 60)
     }
 }
 

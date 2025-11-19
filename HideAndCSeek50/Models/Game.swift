@@ -9,6 +9,7 @@ import Foundation
 import Firebase
 import FirebaseDatabase
 import MapKit
+import SwiftUI
 
 // MARK: - Game Models
 
@@ -141,14 +142,14 @@ extension GameInfo {
 struct GameSettings: Codable {
     var hidingTime: Int // minutes
     var city: GameCity
-    let timeLimit: TimeInterval = 0        // Game time limit (0 = no limit) - kept for compatibility
-    let boundaryRadius: Double = 1000         // Game area radius in meters - kept for compatibility
-    let centerLatitude: Double = 0         // Game area center - kept for compatibility
-    let centerLongitude: Double = 0
-    let allowPhotos: Bool = true
-    let allowVoiceChat: Bool = true
-    let questionCategories: [String] = []
-    let bonusPoints: Bool = false
+    var timeLimit: TimeInterval = 0        // Game time limit (0 = no limit) - kept for compatibility
+    var boundaryRadius: Double = 1000         // Game area radius in meters - kept for compatibility
+    var centerLatitude: Double = 0         // Game area center - kept for compatibility
+    var centerLongitude: Double = 0
+    var allowPhotos: Bool = true
+    var allowVoiceChat: Bool = true
+    var questionCategories: [String] = []
+    var bonusPoints: Bool = false
     
     init(hidingTime: Int, city: GameCity) {
         self.hidingTime = hidingTime
@@ -466,6 +467,27 @@ enum Team: String, Codable {
         switch self {
         case .hiders: return "Hiders"
         case .seekers: return "Seekers"
+        }
+    }
+    
+    var iconName: String {
+        switch self {
+        case .hiders: return "eye.slash.fill"
+        case .seekers: return "magnifyingglass"
+        }
+    }
+    
+    var color: UIColor {
+        switch self {
+        case .hiders: return .systemBlue
+        case .seekers: return .systemRed
+        }
+    }
+    
+    var swiftUIColor: Color {
+        switch self {
+        case .hiders: return .blue
+        case .seekers: return .red
         }
     }
 }

@@ -83,6 +83,7 @@ extension Lobby {
               let name = dictionary["name"] as? String,
               let createdAtTimestamp = dictionary["createdAt"] as? Int64,
               let expiresAtTimestamp = dictionary["expiresAt"] as? Int64 else {
+            print("invalid", dictionary)
             throw DatabaseError.invalidData
         }
         

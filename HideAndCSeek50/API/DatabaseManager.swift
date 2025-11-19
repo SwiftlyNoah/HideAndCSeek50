@@ -181,13 +181,24 @@ class DatabaseManager: ObservableObject {
         
         return code
     }
+        
+    func getLobby(code: String) async throws -> Lobby {
+        let snapshot = try await DatabaseReference.lobby(code).getData()
+        
+        guard let lobbyData = extractLobbyData(from: snapshot, code: code),
+              let lobby = try? Lobby.fromDictionary(lobbyData),
+              lobby.isActive else {
+            throw DatabaseError.lobbyNotFound
+        }
+        return lobby
+    }
     
     func joinLobby(code: String, playerUID: String, displayName: String) async throws -> Lobby {
         let lobbyRef = DatabaseReference.lobby(code)
         let snapshot = try await lobbyRef.getData()
         
-        guard let data = snapshot.value as? [String: Any],
-              var lobby = try? Lobby.fromDictionary(data),
+        guard let lobbyData = extractLobbyData(from: snapshot, code: code),
+              var lobby = try? Lobby.fromDictionary(lobbyData),
               lobby.canJoin else {
             throw DatabaseError.lobbyNotFound
         }
@@ -213,8 +224,8 @@ class DatabaseManager: ObservableObject {
         let lobbyRef = DatabaseReference.lobby(code)
         let snapshot = try await lobbyRef.getData()
         
-        guard let data = snapshot.value as? [String: Any],
-              var lobby = try? Lobby.fromDictionary(data) else {
+        guard let lobbyData = extractLobbyData(from: snapshot, code: code),
+              var lobby = try? Lobby.fromDictionary(lobbyData) else {
             throw DatabaseError.lobbyNotFound
         }
         
@@ -247,16 +258,6 @@ class DatabaseManager: ObservableObject {
         } else {
             try await lobbyRef.setValue(try lobby.toDictionary())
         }
-    }
-    
-    func getLobby(code: String) async throws -> Lobby {
-        let snapshot = try await DatabaseReference.lobby(code).getData()
-        guard let data = snapshot.value as? [String: Any],
-              let lobby = try? Lobby.fromDictionary(data),
-              lobby.isActive else {
-            throw DatabaseError.lobbyNotFound
-        }
-        return lobby
     }
     
     func updateLobbySettings(code: String, maxHiders: Int, maxSeekers: Int, isPublic: Bool, hidingTime: Int, city: GameCity) async throws {
@@ -786,8 +787,8 @@ class DatabaseManager: ObservableObject {
         
         let lobbyRef = DatabaseReference.lobby(code)
         let handle = lobbyRef.observe(.value) { [weak self] snapshot in
-            guard let data = snapshot.value as? [String: Any],
-                  let lobby = try? Lobby.fromDictionary(data) else {
+            guard let lobbyData = self?.extractLobbyData(from: snapshot, code: code),
+                  let lobby = try? Lobby.fromDictionary(lobbyData) else {
                 DispatchQueue.main.async {
                     self?.currentLobby = nil
                 }
@@ -879,6 +880,17 @@ class DatabaseManager: ObservableObject {
     }
     
     // MARK: - Helper Methods
+    
+    private func extractLobbyData(from snapshot: DataSnapshot, code: String) -> [String: Any]? {
+        // Handle both cases: direct lobby data or wrapped in code key
+        if let wrappedData = snapshot.value as? [String: [String: Any]], 
+           let innerData = wrappedData[code] {
+            return innerData
+        } else if let directData = snapshot.value as? [String: Any] {
+            return directData
+        }
+        return nil
+    }
     
     private func generateGameCode() -> String {
         let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

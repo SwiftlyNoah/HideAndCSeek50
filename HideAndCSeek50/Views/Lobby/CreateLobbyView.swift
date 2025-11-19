@@ -12,8 +12,8 @@ struct CreateLobbyView: View {
     let onLobbyCreated: (String) -> Void
     
     @StateObject private var databaseManager = DatabaseManager.shared
-    @StateObject private var authManager = AuthenticationManager.shared
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authManager: AuthenticationManager
     
     @State private var gameName = ""
     @State private var maxHiders = 2
@@ -25,7 +25,7 @@ struct CreateLobbyView: View {
     @State private var errorMessage: String?
     
     private var currentUser: User? {
-        Auth.auth().currentUser
+        authManager.currentUser
     }
     
     private var displayName: String {
@@ -209,4 +209,5 @@ struct CreateLobbyView: View {
 
 #Preview {
     CreateLobbyView { _ in }
+        .environmentObject(AuthenticationManager.shared)
 }

@@ -13,13 +13,14 @@ struct QuickMatchView: View {
     
     @StateObject private var databaseManager = DatabaseManager.shared
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authManager: AuthenticationManager
     
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var selectedLobby: Lobby?
     
     private var currentUser: User? {
-        Auth.auth().currentUser
+        authManager.currentUser
     }
     
     private var displayName: String {
@@ -247,7 +248,7 @@ struct QuickMatchView: View {
         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
         
         do {
-            let lobbies = try await databaseManager.getPublicLobbies()
+            _ = try await databaseManager.getPublicLobbies()
             await MainActor.run {
                 // The listener will update the UI automatically
                 isLoading = false
@@ -269,7 +270,8 @@ struct QuickMatchView: View {
         isLoading = true
         
         do {
-            let joinedLobby = try await databaseManager.joinLobby(
+            print(lobby.code)
+            let _ = try await databaseManager.joinLobby(
                 code: lobby.code,
                 playerUID: currentUID,
                 displayName: displayName
@@ -281,6 +283,7 @@ struct QuickMatchView: View {
             }
         } catch {
             await MainActor.run {
+                print(error.localizedDescription)
                 errorMessage = error.localizedDescription
                 isLoading = false
             }
@@ -290,4 +293,5 @@ struct QuickMatchView: View {
 
 #Preview {
     QuickMatchView { _ in }
+        .environmentObject(AuthenticationManager.shared)
 }

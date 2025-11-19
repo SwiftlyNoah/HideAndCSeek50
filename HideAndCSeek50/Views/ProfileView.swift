@@ -13,7 +13,7 @@ struct ProfileView: View {
     let user: User?
     let stats: UserStats?
     
-    @StateObject private var authManager = AuthenticationManager.shared
+    @EnvironmentObject private var authManager: AuthenticationManager
     @StateObject private var databaseManager = DatabaseManager.shared
     @Environment(\.dismiss) private var dismiss
     

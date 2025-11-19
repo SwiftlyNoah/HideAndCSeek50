@@ -11,7 +11,7 @@ import FirebaseAuth
 
 struct EmailSignInView: View {
     @Binding var isPresented: Bool
-    let onSignInComplete: (User) -> Void
+    let onSignInComplete: () -> Void
     
     @State private var email = ""
     @State private var password = ""
@@ -212,17 +212,16 @@ struct EmailSignInView: View {
         
         Task {
             do {
-                let user: User
                 if isSignUp {
-                    user = try await AuthenticationManager.shared.createAccount(email: email, password: password)
+                    _ = try await AuthenticationManager.shared.createAccount(email: email, password: password)
                 } else {
-                    user = try await AuthenticationManager.shared.signInWithEmail(email: email, password: password)
+                    _ = try await AuthenticationManager.shared.signInWithEmail(email: email, password: password)
                 }
                 
                 await MainActor.run {
                     self.isLoading = false
                     self.isPresented = false
-                    self.onSignInComplete(user)
+                    self.onSignInComplete()
                 }
             } catch {
                 await MainActor.run {
@@ -271,8 +270,4 @@ struct CustomTextFieldStyle: TextFieldStyle {
                     .stroke(Color.white.opacity(0.3), lineWidth: 1)
             )
     }
-}
-
-#Preview {
-    EmailSignInView(isPresented: .constant(true)) { _ in }
 }

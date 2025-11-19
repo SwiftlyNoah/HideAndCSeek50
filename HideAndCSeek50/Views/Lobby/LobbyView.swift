@@ -13,6 +13,7 @@ struct LobbyView: View {
     let isHost: Bool
     @StateObject private var databaseManager = DatabaseManager.shared
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authManager: AuthenticationManager
     @State private var showingSettings = false
     @State private var showingLeaveLobby = false
     @State private var isLoading = false
@@ -22,7 +23,7 @@ struct LobbyView: View {
     @State private var isGameStarting = false
     
     private var currentUser: User? {
-        Auth.auth().currentUser
+        authManager.currentUser
     }
     
     private var lobby: Lobby? {
@@ -116,11 +117,11 @@ struct LobbyView: View {
             .onDisappear {
                 stopListening()
             }
-            .onChange(of: lobby?.gameId) { newGameId in
+            .onChange(of: lobby?.gameId) { _, newGameId in
                 // Monitor for game start - when gameId is set and lobby becomes inactive
                 handleGameStart()
             }
-            .onChange(of: lobby?.isActive) { isActive in
+            .onChange(of: lobby?.isActive) { _, isActive in
                 // Also monitor isActive status changes
                 if isActive == false {
                     handleGameStart()
@@ -501,7 +502,7 @@ struct LobbyView: View {
     }
     
     private func startGame() async {
-        guard let lobby = lobby else { return }
+        guard lobby != nil else { return }
         
         isLoading = true
         do {
@@ -526,4 +527,5 @@ struct LobbyView: View {
 
 #Preview {
     LobbyView(lobbyCode: "ABC123", isHost: true)
+        .environmentObject(AuthenticationManager.shared)
 }

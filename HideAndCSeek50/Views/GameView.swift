@@ -67,6 +67,9 @@ struct GameView: View {
                     loadGameData()
                     // Start monitoring chat messages
                     chatViewModel.startMonitoring(gameId: gameId)
+                    
+                    // Upload initial location for simulators
+                    uploadInitialLocation()
                 }
                 .onChange(of: locationManager.location) { _, location in
                     updatePlayerLocation(location)
@@ -229,6 +232,25 @@ struct GameView: View {
         }
     }
     
+    private func uploadInitialLocation() {
+        // For simulators, try to upload current location immediately
+        Task {
+            // Wait a moment for location to be available
+            try? await Task.sleep(for: .seconds(1))
+            
+            if let currentLocation = locationManager.location {
+                updatePlayerLocation(currentLocation)
+            } else {
+                // Fallback: Use map center as initial location for simulators
+                let fallbackLocation = CLLocation(
+                    latitude: region.center.latitude,
+                    longitude: region.center.longitude
+                )
+                updatePlayerLocation(fallbackLocation)
+            }
+        }
+    }
+    
     private func loadGameData() {
         Task {
             do {
@@ -259,6 +281,10 @@ struct GameView: View {
                         playerNames = updatedNames
                     }
                 }
+                
+                print(playerTeams)
+                print(playerNames)
+
                 
                 // Start observing game updates
                 observeGameUpdates()

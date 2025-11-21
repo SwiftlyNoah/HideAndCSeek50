@@ -654,6 +654,53 @@ class DatabaseManager: ObservableObject {
         return locations
     }
     
+    // MARK: - Question Management
+    
+    func getGameQuestions(gameId: String) async throws -> [GameQuestion] {
+        let snapshot = try await DatabaseReference.game(gameId).child("questions").getData()
+        guard let data = snapshot.value as? [String: [String: Any]] else {
+            return []
+        }
+        
+        var questions: [GameQuestion] = []
+        for (_, questionData) in data {
+            if let question = try? GameQuestion.fromDictionary(questionData) {
+                questions.append(question)
+            }
+        }
+        
+        return questions.sorted { $0.askedAt < $1.askedAt }
+    }
+    
+    func getUnansweredQuestions(gameId: String) async throws -> [GameQuestion] {
+        let allQuestions = try await getGameQuestions(gameId: gameId)
+        return allQuestions.filter { $0.answeredBy == nil }
+    }
+    
+    func getQuestionsByType(gameId: String, type: QuestionType) async throws -> [GameQuestion] {
+        let allQuestions = try await getGameQuestions(gameId: gameId)
+        return allQuestions.filter { $0.type == type }
+    }
+    
+    func observeGameQuestions(gameId: String, completion: @escaping ([GameQuestion]) -> Void) {
+        let questionsRef = DatabaseReference.game(gameId).child("questions")
+        questionsRef.observe(.value) { snapshot in
+            guard let data = snapshot.value as? [String: [String: Any]] else {
+                completion([])
+                return
+            }
+            
+            var questions: [GameQuestion] = []
+            for (_, questionData) in data {
+                if let question = try? GameQuestion.fromDictionary(questionData) {
+                    questions.append(question)
+                }
+            }
+            
+            completion(questions.sorted { $0.askedAt < $1.askedAt })
+        }
+    }
+    
     // MARK: - Messaging
     
     func sendMessage(gameId: String, message: GameMessage) async throws {
@@ -685,33 +732,20 @@ class DatabaseManager: ObservableObject {
         
         try await sendMessage(gameId: gameId, message: message)
         
-        try await logGameEvent(
-            gameId: gameId,
-            type: .questionAsked,
-            playerUID: question.askedBy,
-            details: "Question asked: \(question.question)"
-        )
+        // Don't log question events - questions are stored separately under questions node
     }
     
     func answerQuestion(gameId: String, questionId: String, answer: String, answeredBy: String) async throws {
         let questionRef = DatabaseReference.game(gameId).child("questions").child(questionId)
-        
         let updates: [String: Any] = [
             "answeredBy": answeredBy,
             "answeredAt": Date().toFirebaseTimestamp(),
-            "answer": answer,
-            "isCorrect": true // Logic to determine correctness
+            "answer": answer
         ]
         
         try await questionRef.updateChildValues(updates)
-        
-        try await logGameEvent(
-            gameId: gameId,
-            type: .questionAnswered,
-            playerUID: answeredBy,
-            details: "Question answered: \(answer)"
-        )
     }
+
     
     // MARK: - Real-time Listeners
     

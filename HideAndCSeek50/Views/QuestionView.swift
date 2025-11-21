@@ -22,6 +22,7 @@ struct GameQuestionView: View {
     @State private var showingError = false
     @State private var successMessage: String?
     @State private var showingSuccess = false
+    @State private var showingCategorySelector = true
     
     var body: some View {
         NavigationStack {
@@ -70,8 +71,8 @@ struct GameQuestionView: View {
                             // Category Selection
                             categorySelector
                             
-                            // Question Selection
-                            if let questions = questionsForCategory(selectedCategory) {
+                            // Question Selection - only show when category is selected
+                            if !showingCategorySelector, let questions = questionsForCategory(selectedCategory) {
                                 questionSelector(questions: questions)
                             }
                             
@@ -146,54 +147,82 @@ struct GameQuestionView: View {
                 .font(.headline)
                 .fontWeight(.semibold)
             
-            VStack(spacing: 8) {
-                ForEach(QuestionCategory.allCases, id: \.self) { category in
-                    Button(action: {
-                        selectedCategory = category
-                        selectedQuestion = nil
-                    }) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Image(systemName: category.iconName)
-                                        .font(.headline)
+            if showingCategorySelector {
+                // Show all categories
+                VStack(spacing: 8) {
+                    ForEach(QuestionCategory.allCases, id: \.self) { category in
+                        Button(action: {
+                            selectedCategory = category
+                            selectedQuestion = nil
+                            showingCategorySelector = false
+                        }) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Image(systemName: category.iconName)
+                                            .font(.headline)
+                                        
+                                        Text(category.displayName)
+                                            .font(.headline)
+                                            .fontWeight(.semibold)
+                                    }
                                     
-                                    Text(category.displayName)
-                                        .font(.headline)
-                                        .fontWeight(.semibold)
+                                    Text(category.description)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
                                 }
                                 
-                                Text(category.description)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                Spacer()
                             }
-                            
-                            Spacer()
-                            
-                            if selectedCategory == category {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.red)
-                            }
+                            .padding(16)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
                         }
-                        .padding(16)
-                        .background(
-                            selectedCategory == category ?
-                            Color.red.opacity(0.1) :
-                            Color(.systemGray6)
-                        )
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(
-                                    selectedCategory == category ?
-                                    Color.red.opacity(0.5) :
-                                    Color.clear,
-                                    lineWidth: 2
-                                )
-                        )
+                        .foregroundColor(.primary)
                     }
-                    .foregroundColor(.primary)
                 }
+            } else {
+                // Show selected category with change button
+                HStack {
+                    HStack {
+                        Image(systemName: selectedCategory.iconName)
+                            .font(.headline)
+                            .foregroundColor(.red)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(selectedCategory.displayName)
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            
+                            Text(selectedCategory.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        showingCategorySelector = true
+                        selectedQuestion = nil
+                    }) {
+                        Text("Change Category")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.red.opacity(0.1))
+                            .foregroundColor(.red)
+                            .cornerRadius(8)
+                    }
+                }
+                .padding(16)
+                .background(Color.red.opacity(0.05))
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                )
             }
         }
         .padding(16)
@@ -235,7 +264,7 @@ struct GameQuestionView: View {
                         .background(
                             selectedQuestion == question ?
                             Color.red.opacity(0.05) :
-                            Color(.systemGray6)
+                                Color(.systemGray6)
                         )
                         .cornerRadius(12)
                         .overlay(
@@ -243,7 +272,7 @@ struct GameQuestionView: View {
                                 .stroke(
                                     selectedQuestion == question ?
                                     Color.red.opacity(0.3) :
-                                    Color.clear,
+                                        Color.clear,
                                     lineWidth: 1
                                 )
                         )
@@ -255,50 +284,6 @@ struct GameQuestionView: View {
         .padding(16)
         .background(Color(.systemBackground))
         .cornerRadius(12)
-    }
-    
-    // MARK: - Helpers
-    
-    private func questionsForCategory(_ category: QuestionCategory) -> [String]? {
-        // TODO: Replace with actual questions once provided
-        switch category {
-        case .matching:
-            return [
-                "Are you hiding near a red building?",
-                "Can you see a parking lot?",
-                "Are you inside or outside?"
-            ]
-        case .measuring:
-            return [
-                "Are you within 100 meters of a street sign?",
-                "Is the hiding spot taller than 20 feet?",
-                "Are you less than 50 meters from water?"
-            ]
-        case .thermometer:
-            return [
-                "Are you in direct sunlight?",
-                "Is it warmer where you are than in the open?",
-                "Are you in a shaded area?"
-            ]
-        case .radar:
-            return [
-                "Can you see the city skyline?",
-                "Is there a vehicle nearby?",
-                "Are there people within 50 meters?"
-            ]
-        case .tentacles:
-            return [
-                "Are you on public property?",
-                "Can you reach something metal from where you are?",
-                "Are you touching any plants?"
-            ]
-        case .photos:
-            return [
-                "Take a photo of your hiding spot",
-                "Photograph something red near you",
-                "Show us what the ground looks like"
-            ]
-        }
     }
     
     private func sendQuestion() async {
@@ -321,8 +306,6 @@ struct GameQuestionView: View {
                 answeredBy: nil,
                 answeredAt: nil,
                 answer: nil,
-                isCorrect: false,
-                pointsAwarded: 0,
                 attachments: nil,
                 mapUpdate: nil
             )
@@ -340,6 +323,117 @@ struct GameQuestionView: View {
                 showingError = true
                 isLoading = false
             }
+        }
+    }
+    // MARK: - Helpers
+    
+    private func questionsForCategory(_ category: QuestionCategory) -> [String]? {
+        switch category {
+        case .matching:
+            return [
+                // From screenshot (Matching column)
+                "Commercial Airport",
+                "Transit Line",
+                "Station's Name Length",
+                "Street or Path",
+                "1st Level Administrative Division",
+                "2nd Level Administrative Division",
+                "3rd Level Administrative Division",
+                "Mountain",
+                "Landmass",
+                "Park",
+                "Amusement Park",
+                "Zoo",
+                "Aquarium",
+                "Golf Course",
+                "Museum",
+                "Movie Theater",
+                "Hospital",
+                "Library",
+                "Foreign Consulate"
+            ]
+            
+        case .measuring:
+            return [
+                // From screenshot (Measuring column - various place types)
+                "A Commercial Airport",
+                "A High Speed Train Line (Interstates: H1, H2, H3, H201)",
+                "A Transit Station",
+                "A 1st Level Administrative Division Border",
+                "A 2nd Level Administrative Division Border",
+                "Sea Level",
+                "A Body of Water",
+                "A Coastline",
+                "A Mountain",
+                "A Park",
+                "An Amusement Park",
+                "A Zoo",
+                "An Aquarium",
+                "A Golf Course",
+                "A Museum",
+                "A Movie Theater",
+                "A Hospital",
+                "A Library",
+                "A Foreign Consulate"
+            ]
+            
+        case .thermometer:
+            return [
+                // Template question plus distance-specific rows from screenshot
+                "I've just traveled (at least) 0.5 miles. Am I hotter or colder?",
+                "I've just traveled (at least) 1 mile. Am I hotter or colder?",
+                "I've just traveled (at least) 3 miles. Am I hotter or colder?",
+                "I've just traveled (at least) 5 miles. Am I hotter or colder?",
+                "I've just traveled (at least) 10 miles. Am I hotter or colder?",
+                "I've just traveled (at least) 25 miles. Am I hotter or colder?",
+                "I've just traveled (at least) 50 miles. Am I hotter or colder?",
+                "I've just traveled (at least) 100 miles. Am I hotter or colder?",
+                "I've just traveled (at least) [Distance of your choosing]. Am I hotter or colder?"
+            ]
+            
+        case .radar:
+            return [
+                // Distances from screenshot (Radar column)
+                "Are you within 0.25 miles of me?",
+                "Are you within 0.5 miles of me?",
+                "Are you within 1 mile of me?",
+                "Are you within 3 miles of me?",
+                "Are you within 5 miles of me?",
+                "Are you within 10 miles of me?",
+                "Are you within 25 miles of me?",
+                "Are you within 50 miles of me?",
+                "Are you within 100 miles of me?",
+            ]
+            
+        case .tentacles:
+            return [
+                // From screenshot (Tentacles)
+                "Of all the places within 1 mile of me, which are you closest to? — Museums",
+                "Of all the places within 1 mile of me, which are you closest to? — Libraries",
+                "Of all the places within 1 mile of me, which are you closest to? — Movie Theaters",
+                "Of all the places within 1 mile of me, which are you closest to? — Hospitals",
+                "Of all the places within 1 mile of me, which are you closest to? — Parks",
+                "Of all the places within 1 mile of me, which are you closest to? — Bodies of Water",
+            ]
+            
+        case .photos:
+            return [
+                // From screenshot (Photos)
+                "A Tree",
+                "The Sky",
+                "You",
+                "Widest Street",
+                "Tallest Structure in Your Sightline",
+                "Any Building Visible from Station",
+                "Tallest Building Visible from Station",
+                "Trace Nearest Street/Path",
+                "Two Buildings",
+                "Restaurant Interior",
+                "Train Platform",
+                "Park",
+                "Grocery Store Aisle",
+                "Place of Worship",
+            ]
         }
     }
 }
@@ -368,17 +462,17 @@ enum QuestionCategory: String, CaseIterable, Codable {
     var description: String {
         switch self {
         case .matching:
-            return "Visual matching and landmark questions"
+            return "Is your nearest ___ the same as mine?"
         case .measuring:
-            return "Distance and dimension questions"
+            return "Compared to me, are you closer or further from a ___?"
         case .thermometer:
-            return "Temperature and environmental conditions"
+            return "I've traveled [distance], am I hotter or colder?"
         case .radar:
-            return "Presence and proximity detection"
+            return "Are you within [distance] of me?"
         case .tentacles:
-            return "Physical interaction and accessibility"
+            return "Of all the [places] within [distance], which one are you closest to?"
         case .photos:
-            return "Photo evidence and visual proof"
+            return "Send a photo of [object] within 10 minutes."
         }
     }
     
@@ -394,26 +488,13 @@ enum QuestionCategory: String, CaseIterable, Codable {
     }
     
     var questionType: QuestionType {
-        // Map categories to QuestionType enum
         switch self {
-        case .matching, .photos:
-            return .photo
-        case .measuring:
-            return .distance
-        case .thermometer:
-            return .location
-        case .radar:
-            return .direction
-        case .tentacles:
-            return .landmark
+        case .matching: .yesNo
+        case .measuring: .closerFurther
+        case .thermometer: .hotterColder
+        case .radar: .yesNo
+        case .tentacles: .text
+        case .photos: .photo
         }
     }
-}
-
-#Preview {
-    GameQuestionView(
-        gameId: "game123",
-        currentUser: nil
-    )
-    .environmentObject(DatabaseManager.shared)
 }

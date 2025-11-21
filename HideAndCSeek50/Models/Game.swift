@@ -339,8 +339,6 @@ struct GameQuestion: Codable {
     var answeredBy: String?           // Hider UID
     var answeredAt: Date?
     var answer: String?
-    var isCorrect: Bool = false
-    var pointsAwarded: Int = 0
     let attachments: QuestionAttachments?
     let mapUpdate: MapUpdate?
 }
@@ -533,19 +531,19 @@ enum MessageTarget: String, Codable {
 }
 
 enum QuestionType: String, Codable {
-    case location = "location"         // "Are you near X location?"
-    case photo = "photo"               // "Take a photo of your surroundings"
-    case distance = "distance"         // "How far are you from X?"
-    case landmark = "landmark"         // "What landmark can you see?"
-    case direction = "direction"       // "Which direction is X from you?"
+    case yesNo = "yesNo"               // Yes/No questions
+    case closerFurther = "closerFurther" // Closer/Further questions
+    case hotterColder = "hotterColder" // Hotter/Colder questions
+    case photo = "photo"               // Photo questions
+    case text = "text"                 // Open text questions
     
     var displayName: String {
         switch self {
-        case .location: return "Location"
+        case .yesNo: return "Yes/No"
+        case .closerFurther: return "Closer/Further"
+        case .hotterColder: return "Hotter/Colder"
         case .photo: return "Photo"
-        case .distance: return "Distance"
-        case .landmark: return "Landmark"
-        case .direction: return "Direction"
+        case .text: return "Text"
         }
     }
 }

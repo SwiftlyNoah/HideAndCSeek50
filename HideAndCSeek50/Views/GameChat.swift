@@ -8,16 +8,94 @@
 import Foundation
 import SwiftUI
 import FirebaseAuth
+internal import Combine
+
+@MainActor
+class ChatViewModel: ObservableObject {
+    @Published var messages: [GameMessage] = []
+    @Published var hasUnreadMessages = false
+    @Published var isLoading = false
+    
+    private let databaseManager = DatabaseManager.shared
+    private var cancellables = Set<AnyCancellable>()
+    private var lastReadMessageId: String?
+    private var isViewVisible = false
+    
+    func startMonitoring(gameId: String) {
+        databaseManager.observeGameMessages(gameId: gameId) { [weak self] newMessages in
+            Task { @MainActor in
+                guard let self = self else { return }
+                
+                let sortedMessages = newMessages.sorted { $0.timestamp < $1.timestamp }
+                
+                // Check for unread messages before updating self.messages
+                if !self.isViewVisible,
+                   let lastMessage = sortedMessages.last,
+                   lastMessage.id != self.lastReadMessageId {
+                    self.hasUnreadMessages = true
+                }
+                
+                self.messages = sortedMessages
+            }
+        }
+    }
+    
+    func markAsRead() {
+        hasUnreadMessages = false
+        lastReadMessageId = messages.last?.id
+    }
+    
+    func setViewVisibility(_ isVisible: Bool) {
+        isViewVisible = isVisible
+        if isVisible {
+            markAsRead()
+        }
+    }
+    
+    func sendMessage(
+        gameId: String,
+        content: String,
+        currentUser: User?,
+        currentUserName: String,
+        currentPlayerTeam: Team
+    ) async {
+        guard let currentUID = currentUser?.uid,
+              !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+        
+        isLoading = true
+        
+        let message = GameMessage(
+            id: UUID().uuidString,
+            senderUID: currentUID,
+            senderName: currentUserName,
+            content: content.trimmingCharacters(in: .whitespacesAndNewlines),
+            type: .text,
+            timestamp: Date(),
+            team: currentPlayerTeam == .hiders ? .hiders : .seekers,
+            attachments: nil,
+            questionData: nil,
+            reactions: [:]
+        )
+        
+        do {
+            try await databaseManager.sendGameMessage(gameId: gameId, message: message)
+        } catch {
+            // Handle error silently or show alert
+        }
+        
+        isLoading = false
+    }
+}
 
 struct GameChatView: View {
     let gameId: String
     let currentUser: User? // FirebaseAuth.User
     let currentPlayerTeam: Team
     
-    @StateObject private var databaseManager = DatabaseManager.shared
-    @State private var messages: [GameMessage] = []
+    @EnvironmentObject private var chatViewModel: ChatViewModel
     @State private var messageText = ""
-    @State private var isLoading = false
     
     private var currentUserName: String {
         currentUser?.displayName ?? "Anonymous"
@@ -29,7 +107,7 @@ struct GameChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 8) {
-                        ForEach(messages) { message in
+                        ForEach(chatViewModel.messages) { message in
                             MessageBubble(
                                 message: message,
                                 isCurrentUser: message.senderUID == currentUser?.uid
@@ -39,8 +117,8 @@ struct GameChatView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                 }
-                .onChange(of: messages.count) {
-                    if let lastMessage = messages.last {
+                .onChange(of: chatViewModel.messages.count) {
+                    if let lastMessage = chatViewModel.messages.last {
                         withAnimation(.easeOut(duration: 0.3)) {
                             proxy.scrollTo(lastMessage.id, anchor: .bottom)
                         }
@@ -53,6 +131,9 @@ struct GameChatView: View {
                 TextField("Type a message...", text: $messageText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...4)
+                    .onSubmit {
+                        sendMessage()
+                    }
                 
                 Button(action: sendMessage) {
                     Image(systemName: "paperplane.fill")
@@ -61,7 +142,7 @@ struct GameChatView: View {
                         .background(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.blue)
                         .clipShape(Circle())
                 }
-                .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
+                .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chatViewModel.isLoading)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -69,69 +150,23 @@ struct GameChatView: View {
         }
         .background(Color(.systemGroupedBackground))
         .onAppear {
-            loadMessages()
-            observeMessages()
+            // View visibility is handled by GameView's onChange modifier
+        }
+        .onDisappear {
+            // View visibility is handled by GameView's onChange modifier  
         }
     }
     
     private func sendMessage() {
-        guard let currentUID = currentUser?.uid,
-              !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return
-        }
-        
-        isLoading = true
-        
-        // Create GameMessage using the struct from Game.swift with all required parameters
-        let message = GameMessage(
-            id: UUID().uuidString,
-            senderUID: currentUID,
-            senderName: currentUserName,
-            content: messageText.trimmingCharacters(in: .whitespacesAndNewlines),
-            type: .text,
-            timestamp: Date(),
-            team: currentPlayerTeam == .hiders ? .hiders : .seekers,
-            attachments: nil,
-            questionData: nil,
-            reactions: [:]
-        )
-        
         Task {
-            do {
-                try await databaseManager.sendGameMessage(gameId: gameId, message: message)
-                await MainActor.run {
-                    messageText = ""
-                    isLoading = false
-                }
-            } catch {
-                await MainActor.run {
-                    // Handle error silently or show alert
-                    isLoading = false
-                }
-            }
-        }
-    }
-    
-    private func loadMessages() {
-        // Load initial messages
-        Task {
-            do {
-                let loadedMessages = try await databaseManager.getGameMessages(gameId: gameId)
-                await MainActor.run {
-                    messages = loadedMessages.sorted { $0.timestamp < $1.timestamp }
-                }
-            } catch {
-                // Handle error
-            }
-        }
-    }
-    
-    private func observeMessages() {
-        // Set up real-time message listener
-        databaseManager.observeGameMessages(gameId: gameId) { newMessages in
-            DispatchQueue.main.async {
-                self.messages = newMessages.sorted { $0.timestamp < $1.timestamp }
-            }
+            await chatViewModel.sendMessage(
+                gameId: gameId,
+                content: messageText,
+                currentUser: currentUser,
+                currentUserName: currentUserName,
+                currentPlayerTeam: currentPlayerTeam
+            )
+            messageText = ""
         }
     }
 }

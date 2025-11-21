@@ -18,6 +18,7 @@ struct GameView: View {
     
     @StateObject private var locationManager = LocationManager.shared
     @StateObject private var databaseManager = DatabaseManager.shared
+    @StateObject private var chatViewModel = ChatViewModel()
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authManager: AuthenticationManager
     
@@ -64,6 +65,8 @@ struct GameView: View {
                     requestLocationPermission()
                     startLocationUpdates()
                     loadGameData()
+                    // Start monitoring chat messages
+                    chatViewModel.startMonitoring(gameId: gameId)
                 }
                 .onChange(of: locationManager.location) { _, location in
                     updatePlayerLocation(location)
@@ -128,6 +131,14 @@ struct GameView: View {
                                 Image(systemName: "message.fill")
                                     .font(.title2)
                                     .foregroundColor(.white)
+                                
+                                // Unread message indicator
+                                if chatViewModel.hasUnreadMessages {
+                                    Circle()
+                                        .fill(Color.red)
+                                        .frame(width: 16, height: 16)
+                                        .offset(x: 20, y: -20)
+                                }
                             }
                         }
                         .padding(.trailing, 20)
@@ -143,6 +154,7 @@ struct GameView: View {
                         currentUser: currentUser,
                         currentPlayerTeam: playerTeam
                     )
+                    .environmentObject(chatViewModel)
                     .navigationTitle("Game Chat")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
@@ -154,6 +166,9 @@ struct GameView: View {
                     }
                 }
                 .presentationDetents([.medium, .large])
+            }
+            .onChange(of: showingChat) { _, isShowing in
+                chatViewModel.setViewVisibility(isShowing)
             }
             .sheet(isPresented: $showingSettings) {
                 GameSettingsView(

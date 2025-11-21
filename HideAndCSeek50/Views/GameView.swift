@@ -28,6 +28,7 @@ struct GameView: View {
     @State private var playerTeams: [String: Team] = [:] // Add player team tracking
     @State private var playerNames: [String: String] = [:] // Add player names tracking
     @State private var showingChat = false
+    @State private var showingQuestionView = false
     @State private var showingSettings = false
     @State private var gameState: GameState = .inProgress
     @State private var timeRemaining: TimeInterval = 0
@@ -121,32 +122,49 @@ struct GameView: View {
                     
                     Spacer()
                     
-                    // Bottom floating chat button
                     HStack {
                         Spacer()
                         
-                        Button(action: { showingChat = true }) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.black.opacity(0.8))
-                                    .frame(width: 56, height: 56)
-                                
-                                Image(systemName: "message.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.white)
-                                
-                                // Unread message indicator
-                                if chatViewModel.hasUnreadMessages {
+                        VStack(spacing: 12) {
+                            // Question button (for seekers only)
+                            if playerTeam == .seekers {
+                                Button(action: { showingQuestionView = true }) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.orange.opacity(0.9))
+                                            .frame(width: 56, height: 56)
+                                        
+                                        Image(systemName: "questionmark.circle.fill")
+                                            .font(.title2)
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                            }
+                            
+                            // Chat button
+                            Button(action: { showingChat = true }) {
+                                ZStack {
                                     Circle()
-                                        .fill(Color.red)
-                                        .frame(width: 16, height: 16)
-                                        .offset(x: 20, y: -20)
+                                        .fill(Color.black.opacity(0.8))
+                                        .frame(width: 56, height: 56)
+                                    
+                                    Image(systemName: "message.fill")
+                                        .font(.title2)
+                                        .foregroundColor(.white)
+                                    
+                                    // Unread message indicator
+                                    if chatViewModel.hasUnreadMessages {
+                                        Circle()
+                                            .fill(Color.red)
+                                            .frame(width: 16, height: 16)
+                                            .offset(x: 20, y: -20)
+                                    }
                                 }
                             }
                         }
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 50)
                     }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 50)
                 }
             }
             .navigationBarHidden(true)
@@ -179,6 +197,12 @@ struct GameView: View {
                     onLeaveGame: {
                         dismiss()
                     }
+                )
+            }
+            .sheet(isPresented: $showingQuestionView) {
+                GameQuestionView(
+                    gameId: gameId,
+                    currentUser: currentUser
                 )
             }
         }

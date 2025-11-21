@@ -29,6 +29,7 @@
 		142066B62ECBDE200084F53C /* CityRegions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 142066B52ECBDE200084F53C /* CityRegions.swift */; };
 		142066B82ECBDFC90084F53C /* GameChat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 142066B72ECBDFC90084F53C /* GameChat.swift */; };
 		142066BA2ECBDFF50084F53C /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 142066B92ECBDFF50084F53C /* LocationManager.swift */; };
+		1484464C2ED01B940045935A /* QuestionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1484464B2ED01B940045935A /* QuestionView.swift */; };
 		14E268EE2EC9648000FBCF90 /* Stats+History.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E268ED2EC9647900FBCF90 /* Stats+History.swift */; };
 		14E268F02EC9649700FBCF90 /* Lobby.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E268EF2EC9649300FBCF90 /* Lobby.swift */; };
 		14F2BED12EC842A400B5F06B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 14F2BED02EC842A400B5F06B /* FirebaseAuth */; };
@@ -67,6 +68,7 @@
 		142066B52ECBDE200084F53C /* CityRegions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CityRegions.swift; sourceTree = "<group>"; };
 		142066B72ECBDFC90084F53C /* GameChat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameChat.swift; sourceTree = "<group>"; };
 		142066B92ECBDFF50084F53C /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
+		1484464B2ED01B940045935A /* QuestionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionView.swift; sourceTree = "<group>"; };
 		14E268ED2EC9647900FBCF90 /* Stats+History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Stats+History.swift"; sourceTree = "<group>"; };
 		14E268EF2EC9649300FBCF90 /* Lobby.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lobby.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -142,6 +144,7 @@
 				142066B72ECBDFC90084F53C /* GameChat.swift */,
 				142066B32ECBDE100084F53C /* GameMapView.swift */,
 				142066B12ECBDDFF0084F53C /* GameView.swift */,
+				1484464B2ED01B940045935A /* QuestionView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -292,6 +295,7 @@
 				142066B42ECBDE100084F53C /* GameMapView.swift in Sources */,
 				140B02BA2EC8791E0005EE81 /* ProfileView.swift in Sources */,
 				140B02BB2EC8791E0005EE81 /* QuickMatchView.swift in Sources */,
+				1484464C2ED01B940045935A /* QuestionView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -56,15 +56,28 @@ struct LobbySettingsView: View {
                         HStack {
                             Text("Hiding Time")
                             Spacer()
-                            Text("\(hidingTime) min")
-                                .foregroundColor(.blue)
-                                .fontWeight(.semibold)
+                            HStack(spacing: 4) {
+                                TextField("", value: $hidingTime, format: .number)
+                                    .textFieldStyle(.roundedBorder)
+                                    .keyboardType(.numberPad)
+                                    .frame(width: 50)
+                                    .toolbar {
+                                        ToolbarItemGroup(placement: .keyboard) {
+                                            Spacer()
+                                            Button("Done") {
+                                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                                            }
+                                        }
+                                    }
+                                Text("min")
+                                    .foregroundColor(.secondary)
+                            }
                         }
                         
                         Slider(value: Binding(
                             get: { Double(hidingTime) },
                             set: { hidingTime = Int($0) }
-                        ), in: 20...90, step: 5)
+                        ), in: 1...120, step: 1)
                             .accentColor(.blue)
                     }
                 }

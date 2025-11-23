@@ -23,6 +23,7 @@ struct CreateLobbyView: View {
     @State private var selectedCity: GameCity = .boston
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @FocusState private var isHidingTimeFieldFocused: Bool
     
     private var currentUser: User? {
         authManager.currentUser
@@ -59,15 +60,21 @@ struct CreateLobbyView: View {
                         HStack {
                             Text("Hiding Time")
                             Spacer()
-                            Text("\(hidingTime) min")
-                                .foregroundColor(.blue)
-                                .fontWeight(.semibold)
+                            HStack(spacing: 4) {
+                                TextField("", value: $hidingTime, format: .number)
+                                    .textFieldStyle(.roundedBorder)
+                                    .keyboardType(.numberPad)
+                                    .frame(width: 50)
+                                    .focused($isHidingTimeFieldFocused)
+                                Text("min")
+                                    .foregroundColor(.secondary)
+                            }
                         }
                         
                         Slider(value: Binding(
                             get: { Double(hidingTime) },
                             set: { hidingTime = Int($0) }
-                        ), in: 20...90, step: 5)
+                        ), in: 1...120, step: 1)
                             .accentColor(.blue)
                     }
                 }
@@ -148,6 +155,14 @@ struct CreateLobbyView: View {
                         dismiss()
                     }
                     .disabled(isLoading)
+                }
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        isHidingTimeFieldFocused = false
+                    }
                 }
             }
             .alert("Error", isPresented: .constant(errorMessage != nil)) {

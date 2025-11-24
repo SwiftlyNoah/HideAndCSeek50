@@ -64,9 +64,6 @@ struct MainView: View {
                         // Main Action Buttons
                         actionButtons
                         
-                        // Recent Games Section
-                        recentGamesSection
-                        
                         Spacer(minLength: 100)
                     }
                     .padding(.horizontal, 20)

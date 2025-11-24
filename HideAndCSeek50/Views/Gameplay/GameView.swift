@@ -30,6 +30,7 @@ struct GameView: View {
     @State private var showingChat = false
     @State private var showingQuestionView = false
     @State private var showingSettings = false
+    @State private var showingTimerView = false
     @State private var gameState: GameState = .inProgress
     @State private var timeRemaining: TimeInterval = 0
     @State private var gameCity: GameCity = .boston
@@ -126,6 +127,19 @@ struct GameView: View {
                         Spacer()
                         
                         VStack(spacing: 12) {
+                            // Timer button
+                            Button(action: { showingTimerView = true }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.purple.opacity(0.9))
+                                        .frame(width: 56, height: 56)
+                                    
+                                    Image(systemName: "timer")
+                                        .font(.title2)
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            
                             // Question button (for seekers only)
                             if playerTeam == .seekers {
                                 Button(action: { showingQuestionView = true }) {
@@ -205,6 +219,22 @@ struct GameView: View {
                     currentUser: currentUser
                 )
             }
+            .sheet(isPresented: $showingTimerView) {
+                NavigationStack {
+                    HidingTimerView(
+                        gameId: gameId,
+                        playerTeam: playerTeam
+                    )
+                    .navigationTitle("Hiding Timer")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") { showingTimerView = false }
+                        }
+                    }
+                }
+                .presentationDetents([.medium, .large])
+            }
         }
     }
     
@@ -275,50 +305,40 @@ struct GameView: View {
         }
     }
     
-    private func loadGameData() {
-        Task {
-            do {
-                let gameInfo = try await databaseManager.getGameInfo(gameId: gameId)
-                await MainActor.run {
-                    gameState = gameInfo.state
-                    gameCity = gameInfo.settings.city
-                    setupMapRegion()
-                }
-                
-                // Load player teams from the current game
-                if let currentGame = databaseManager.currentGame {
+    // ...existing code...
+
+        private func loadGameData() {
+            Task {
+                do {
+                    // Start listening to game updates
+                    databaseManager.startListeningToGame(gameId: gameId)
+                    
+                    let gameInfo = try await databaseManager.getGameInfo(gameId: gameId)
                     await MainActor.run {
-                        // Extract player teams and names from game data
-                        var updatedTeams: [String: Team] = [:]
-                        var updatedNames: [String: String] = [:]
-                        
+                        gameState = gameInfo.state
+                        gameCity = gameInfo.settings.city
+                        setupMapRegion()
+                    }
+                    
+                    // Load player teams from the current game
+                    if let currentGame = databaseManager.currentGame {
                         for (uid, member) in currentGame.teams.hiders.members {
-                            updatedTeams[uid] = .hiders
-                            updatedNames[uid] = member.displayName
+                            playerTeams[uid] = .hiders
+                            playerNames[uid] = member.displayName
                         }
                         for (uid, member) in currentGame.teams.seekers.members {
-                            updatedTeams[uid] = .seekers
-                            updatedNames[uid] = member.displayName
+                            playerTeams[uid] = .seekers
+                            playerNames[uid] = member.displayName
                         }
-                        
-                        playerTeams = updatedTeams
-                        playerNames = updatedNames
                     }
+                    
+                    observePlayerLocations()
+                } catch {
+                    print("Error loading game data: \(error)")
                 }
-                
-                print(playerTeams)
-                print(playerNames)
-
-                
-                // Start observing game updates
-                observeGameUpdates()
-                observePlayerLocations()
-            } catch {
-                print("Error loading game data: \(error)")
             }
         }
-    }
-    
+
     private func observeGameUpdates() {
         // Set up real-time game state listener
         databaseManager.startListeningToGame(gameId: gameId)

@@ -37,6 +37,20 @@ struct GameInfo: Codable {
     var duration: TimeInterval = 0
     var winner: Team?
     let settings: GameSettings
+    
+    // Add hiding timer fields
+    var hidingTimerState: TimerState = .notStarted
+    var hidingTimerStartedAt: Date?
+    var hidingTimerPausedAt: Date?
+    var hidingTimerElapsed: TimeInterval = 0
+}
+
+enum TimerState: String, Codable {
+    case notStarted
+    case running
+    case paused
+    case completed
+    case skipped
 }
 
 extension GameInfo {
@@ -63,64 +77,58 @@ extension GameInfo {
                 "allowVoiceChat": settings.allowVoiceChat,
                 "questionCategories": settings.questionCategories,
                 "bonusPoints": settings.bonusPoints
-            ]
+            ],
+            "hidingTimerState": hidingTimerState.rawValue,
+            "hidingTimerElapsed": hidingTimerElapsed
         ]
-        
-        if let startedAt = startedAt {
-            dict["startedAt"] = startedAt.toFirebaseTimestamp()
-        }
-        
-        if let endedAt = endedAt {
-            dict["endedAt"] = endedAt.toFirebaseTimestamp()
-        }
-        
-        if let winner = winner {
-            dict["winner"] = winner.rawValue
-        }
-        
+        dict["startedAt"] = startedAt?.toFirebaseTimestamp() ?? NSNull()
+        dict["endedAt"] = endedAt?.toFirebaseTimestamp() ?? NSNull()
+        dict["winner"] = winner?.rawValue ?? NSNull()
+        dict["hidingTimerStartedAt"] = hidingTimerStartedAt?.toFirebaseTimestamp() ?? NSNull()
+        dict["hidingTimerPausedAt"] = hidingTimerPausedAt?.toFirebaseTimestamp() ?? NSNull()
         return dict
     }
-    
-    static func fromDictionary(_ dict: [String: Any]) throws -> GameInfo {
-        guard let gameId = dict["gameId"] as? String,
-              let gameCode = dict["gameCode"] as? String,
-              let name = dict["name"] as? String,
-              let hostUID = dict["hostUID"] as? String,
-              let stateRaw = dict["state"] as? String,
+    static func fromDictionary(_ dictionary: [String: Any]) throws -> GameInfo {
+        // Validate required primitive & enum fields
+        guard let gameId = dictionary["gameId"] as? String,
+              let gameCode = dictionary["gameCode"] as? String,
+              let name = dictionary["name"] as? String,
+              let hostUID = dictionary["hostUID"] as? String,
+              let stateRaw = dictionary["state"] as? String,
               let state = GameState(rawValue: stateRaw),
-              let gameModeRaw = dict["gameMode"] as? String,
+              let gameModeRaw = dictionary["gameMode"] as? String,
               let gameMode = GameMode(rawValue: gameModeRaw),
-              let maxPlayers = dict["maxPlayers"] as? Int,
-              let currentPlayers = dict["currentPlayers"] as? Int,
-              let createdAtTimestamp = dict["createdAt"] as? Int64,
-              let settingsDict = dict["settings"] as? [String: Any],
-              let hidingTime = settingsDict["hidingTime"] as? Int,
-              let cityRaw = settingsDict["city"] as? String,
-              let city = GameCity(rawValue: cityRaw) else {
+              let maxPlayers = dictionary["maxPlayers"] as? Int,
+              let currentPlayers = dictionary["currentPlayers"] as? Int,
+              let createdAtInt = dictionary["createdAt"] as? Int64,
+              let settingsDict = dictionary["settings"] as? [String: Any] else {
             throw DatabaseError.invalidData
         }
         
-        let createdAt = Date.fromFirebaseTimestamp(createdAtTimestamp)
-        let duration = dict["duration"] as? TimeInterval ?? 0
+        // Required timestamp
+        let createdAt = Date.fromFirebaseTimestamp(createdAtInt)
         
-        var startedAt: Date?
-        if let startedAtTimestamp = dict["startedAt"] as? Int64 {
-            startedAt = Date.fromFirebaseTimestamp(startedAtTimestamp)
-        }
+        // Optional timestamps
+        let startedAt: Date? = (dictionary["startedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
+        let endedAt: Date?   = (dictionary["endedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
         
-        var endedAt: Date?
-        if let endedAtTimestamp = dict["endedAt"] as? Int64 {
-            endedAt = Date.fromFirebaseTimestamp(endedAtTimestamp)
-        }
+        // Primitive numeric
+        let duration = dictionary["duration"] as? TimeInterval ?? 0
         
-        var winner: Team?
-        if let winnerRaw = dict["winner"] as? String {
-            winner = Team(rawValue: winnerRaw)
-        }
+        // Optional winner
+        let winner: Team? = (dictionary["winner"] as? String).flatMap(Team.init(rawValue:))
         
-        let settings = GameSettings(hidingTime: hidingTime, city: city)
+        // Settings (delegate)
+        let settings = try GameSettings.fromDictionary(settingsDict)
         
-        return GameInfo(
+        // Timer fields
+        let hidingTimerState = TimerState(rawValue: dictionary["hidingTimerState"] as? String ?? "") ?? .notStarted
+        let hidingTimerElapsed = dictionary["hidingTimerElapsed"] as? TimeInterval ?? 0
+        let hidingTimerStartedAt: Date? = (dictionary["hidingTimerStartedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
+        let hidingTimerPausedAt: Date?  = (dictionary["hidingTimerPausedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
+        
+        // Base instance
+        var info = GameInfo(
             gameId: gameId,
             gameCode: gameCode,
             name: name,
@@ -136,6 +144,14 @@ extension GameInfo {
             winner: winner,
             settings: settings
         )
+        
+        // Override timer fields using parsed database values
+        info.hidingTimerState = hidingTimerState
+        info.hidingTimerStartedAt = hidingTimerStartedAt
+        info.hidingTimerPausedAt = hidingTimerPausedAt
+        info.hidingTimerElapsed = hidingTimerElapsed
+        
+        return info
     }
 }
 
@@ -154,6 +170,27 @@ struct GameSettings: Codable {
     init(hidingTime: Int, city: GameCity) {
         self.hidingTime = hidingTime
         self.city = city
+    }
+    
+    static func fromDictionary(_ dictionary: [String: Any]) throws -> GameSettings {
+        guard let hidingTime = dictionary["hidingTime"] as? Int,
+              let cityRaw = dictionary["city"] as? String,
+              let city = GameCity(rawValue: cityRaw) else {
+            throw DatabaseError.invalidData
+        }
+        
+        var settings = GameSettings(hidingTime: hidingTime, city: city)
+        
+        settings.timeLimit = dictionary["timeLimit"] as? TimeInterval ?? 0
+        settings.boundaryRadius = dictionary["boundaryRadius"] as? Double ?? 1000
+        settings.centerLatitude = dictionary["centerLatitude"] as? Double ?? 0
+        settings.centerLongitude = dictionary["centerLongitude"] as? Double ?? 0
+        settings.allowPhotos = dictionary["allowPhotos"] as? Bool ?? true
+        settings.allowVoiceChat = dictionary["allowVoiceChat"] as? Bool ?? true
+        settings.questionCategories = dictionary["questionCategories"] as? [String] ?? []
+        settings.bonusPoints = dictionary["bonusPoints"] as? Bool ?? false
+        
+        return settings
     }
 }
 

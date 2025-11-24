@@ -74,12 +74,13 @@ extension DatabaseReference {
 }
 
 extension Date {
-    func toFirebaseTimestamp() -> Int64 {
-        return Int64(self.timeIntervalSince1970 * 1000)
+    // Pure helpers – keep them nonisolated
+    static func fromFirebaseTimestamp(_ timestamp: Int64) -> Date {
+        Date(timeIntervalSince1970: Double(timestamp) / 1000.0)
     }
     
-    static func fromFirebaseTimestamp(_ timestamp: Int64) -> Date {
-        return Date(timeIntervalSince1970: Double(timestamp) / 1000.0)
+    func toFirebaseTimestamp() -> Int64 {
+        Int64(timeIntervalSince1970 * 1000)
     }
 }
 
@@ -181,7 +182,7 @@ class DatabaseManager: ObservableObject {
         
         return code
     }
-        
+    
     func getLobby(code: String) async throws -> Lobby {
         let snapshot = try await DatabaseReference.lobby(code).getData()
         
@@ -283,7 +284,7 @@ class DatabaseManager: ObservableObject {
         
         let gameId = UUID().uuidString
         
-        let gameInfo = GameInfo(
+        var gameInfo = GameInfo(
             gameId: gameId,
             gameCode: lobbyCode,
             name: lobby.name,
@@ -299,6 +300,12 @@ class DatabaseManager: ObservableObject {
                 city: lobby.city
             )
         )
+        
+        // Initialize timer fields
+        gameInfo.hidingTimerState = .notStarted
+        gameInfo.hidingTimerElapsed = 0
+        gameInfo.hidingTimerStartedAt = nil
+        gameInfo.hidingTimerPausedAt = nil
         
         // Create game in database with initial game structure
         let gameRef = DatabaseReference.game(gameId)
@@ -629,6 +636,56 @@ class DatabaseManager: ObservableObject {
         )
     }
     
+    // MARK: - Hiding Timer Management
+    func startHidingTimer(gameId: String) async throws {
+        let ref = DatabaseReference.game(gameId).child("info")
+        let now = Date().toFirebaseTimestamp()
+        let updates: [String: Any] = [
+            "hidingTimerState": TimerState.running.rawValue,
+            "hidingTimerStartedAt": now,
+            "hidingTimerPausedAt": NSNull(),
+            "hidingTimerElapsed": 0
+        ]
+        try await ref.updateChildValues(updates)
+    }
+    
+    func pauseHidingTimer(gameId: String, elapsed: TimeInterval) async throws {
+        let ref = DatabaseReference.game(gameId).child("info")
+        let updates: [String: Any] = [
+            "hidingTimerState": TimerState.paused.rawValue,
+            "hidingTimerPausedAt": Date().toFirebaseTimestamp(),
+            "hidingTimerElapsed": elapsed
+        ]
+        try await ref.updateChildValues(updates)
+    }
+    
+    func resumeHidingTimer(gameId: String) async throws {
+        let ref = DatabaseReference.game(gameId).child("info")
+        let updates: [String: Any] = [
+            "hidingTimerState": TimerState.running.rawValue,
+            "hidingTimerStartedAt": Date().toFirebaseTimestamp(),
+            "hidingTimerPausedAt": NSNull()
+        ]
+        try await ref.updateChildValues(updates)
+    }
+    
+    func skipHidingTimer(gameId: String) async throws {
+        let ref = DatabaseReference.game(gameId).child("info")
+        let updates: [String: Any] = [
+            "hidingTimerState": TimerState.skipped.rawValue
+        ]
+        try await ref.updateChildValues(updates)
+    }
+    
+    func completeHidingTimer(gameId: String, totalElapsed: TimeInterval) async throws {
+        let ref = DatabaseReference.game(gameId).child("info")
+        let updates: [String: Any] = [
+            "hidingTimerState": TimerState.completed.rawValue,
+            "hidingTimerElapsed": totalElapsed
+        ]
+        try await ref.updateChildValues(updates)
+    }
+    
     // MARK: - Location Management
     
     func updatePlayerLocation(gameId: String, playerUID: String, location: PlayerLocation) async throws {
@@ -745,23 +802,25 @@ class DatabaseManager: ObservableObject {
         
         try await questionRef.updateChildValues(updates)
     }
-
+    
     
     // MARK: - Real-time Listeners
     
     func startListeningToGame(gameId: String) {
         stopListeningToGame(gameId: gameId)
-        
-        let gameRef = DatabaseReference.game(gameId)
-        let handle = gameRef.observe(.value) { [weak self] snapshot in
+        let ref = DatabaseReference.game(gameId)
+        let handle = ref.observe(.value) { [weak self] snapshot in
             guard let data = snapshot.value as? [String: Any],
-                  let game = try? Game.fromDictionary(data) else { return }
-            
-            DispatchQueue.main.async {
-                self?.currentGame = game
+                  let parsed = try? Game.fromDictionary(data) else {
+                // Fallback if only info exists
+                if let infoDict = (snapshot.value as? [String: Any])?["info"] as? [String: Any],
+                   let info = try? GameInfo.fromDictionary(infoDict) {
+                    DispatchQueue.main.async { self?.currentGame = Game(info: info, teams: GameTeams()) }
+                }
+                return
             }
+            DispatchQueue.main.async { self?.currentGame = parsed }
         }
-        
         gameListeners[gameId] = handle
     }
     
@@ -879,7 +938,7 @@ class DatabaseManager: ObservableObject {
     
     func startGameFromLobby(lobby: Lobby) async throws -> String {
         let gameId = UUID().uuidString
-        let gameInfo = GameInfo(
+        var info = GameInfo(
             gameId: gameId,
             gameCode: lobby.code,
             name: lobby.name,
@@ -894,22 +953,19 @@ class DatabaseManager: ObservableObject {
                 city: lobby.city
             )
         )
+        // Explicit initialization (safety for legacy data)
+        info.hidingTimerState = .notStarted
+        info.hidingTimerElapsed = 0
+        info.hidingTimerStartedAt = nil
+        info.hidingTimerPausedAt = nil
         
-        _ = try await createGame(info: gameInfo)
+        _ = try await createGame(info: info)
         
-        // Move all lobby players to the game
         for (uid, player) in lobby.players {
-            try await joinGame(
-                gameId: gameId,
-                playerUID: uid,
-                displayName: player.displayName,
-                team: player.team
-            )
+            try await joinGame(gameId: gameId, playerUID: uid, displayName: player.displayName, team: player.team)
         }
         
-        // Start the game
         try await startGame(gameId: gameId)
-        
         return gameId
     }
     
@@ -917,8 +973,8 @@ class DatabaseManager: ObservableObject {
     
     private func extractLobbyData(from snapshot: DataSnapshot, code: String) -> [String: Any]? {
         // Handle both cases: direct lobby data or wrapped in code key
-        if let wrappedData = snapshot.value as? [String: [String: Any]], 
-           let innerData = wrappedData[code] {
+        if let wrappedData = snapshot.value as? [String: [String: Any]],
+            let innerData = wrappedData[code] {
             return innerData
         } else if let directData = snapshot.value as? [String: Any] {
             return directData
@@ -963,9 +1019,9 @@ class DatabaseManager: ObservableObject {
             
             // Update other hider-specific stats
             if let duration = game.info.endedAt?.timeIntervalSince(game.info.startedAt ?? Date()) {
-                stats.hiderStats.averageHidingTime = 
-                    (stats.hiderStats.averageHidingTime * Double(stats.hiderStats.gamesPlayed - 1) + duration) / 
-                    Double(stats.hiderStats.gamesPlayed)
+                stats.hiderStats.averageHidingTime =
+                (stats.hiderStats.averageHidingTime * Double(stats.hiderStats.gamesPlayed - 1) + duration) /
+                Double(stats.hiderStats.gamesPlayed)
                 
                 if duration > stats.hiderStats.bestHidingTime {
                     stats.hiderStats.bestHidingTime = duration

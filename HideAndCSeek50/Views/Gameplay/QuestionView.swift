@@ -297,10 +297,11 @@ struct GameQuestionView: View {
         isLoading = true
         
         do {
+            let fullQuestion = "\(selectedCategory.questionTag) - \(selectedQuestion)"
             let question = GameQuestion(
                 id: UUID().uuidString,
                 type: selectedCategory.questionType,
-                question: selectedQuestion,
+                question: fullQuestion,
                 askedBy: currentUID,
                 askedAt: Date(),
                 answeredBy: nil,
@@ -331,7 +332,6 @@ struct GameQuestionView: View {
         switch category {
         case .matching:
             return [
-                // From screenshot (Matching column)
                 "Commercial Airport",
                 "Transit Line",
                 "Station's Name Length",
@@ -355,9 +355,8 @@ struct GameQuestionView: View {
             
         case .measuring:
             return [
-                // From screenshot (Measuring column - various place types)
                 "A Commercial Airport",
-                "A High Speed Train Line (Interstates: H1, H2, H3, H201)",
+                "A High Speed Train Line",
                 "A Transit Station",
                 "A 1st Level Administrative Division Border",
                 "A 2nd Level Administrative Division Border",
@@ -379,46 +378,44 @@ struct GameQuestionView: View {
             
         case .thermometer:
             return [
-                // Template question plus distance-specific rows from screenshot
-                "I've just traveled (at least) 0.5 miles. Am I hotter or colder?",
-                "I've just traveled (at least) 1 mile. Am I hotter or colder?",
-                "I've just traveled (at least) 3 miles. Am I hotter or colder?",
-                "I've just traveled (at least) 5 miles. Am I hotter or colder?",
-                "I've just traveled (at least) 10 miles. Am I hotter or colder?",
-                "I've just traveled (at least) 25 miles. Am I hotter or colder?",
-                "I've just traveled (at least) 50 miles. Am I hotter or colder?",
-                "I've just traveled (at least) 100 miles. Am I hotter or colder?",
-                "I've just traveled (at least) [Distance of your choosing]. Am I hotter or colder?"
+                "0.25 miles",
+                "0.5 miles",
+                "1 mile?",
+                "3 miles",
+                "5 miles",
+                "10 miles",
+                "25 miles",
+                "50 miles",
+                "100 miles",
+                "Custom Distance"
             ]
             
         case .radar:
             return [
                 // Distances from screenshot (Radar column)
-                "Are you within 0.25 miles of me?",
-                "Are you within 0.5 miles of me?",
-                "Are you within 1 mile of me?",
-                "Are you within 3 miles of me?",
-                "Are you within 5 miles of me?",
-                "Are you within 10 miles of me?",
-                "Are you within 25 miles of me?",
-                "Are you within 50 miles of me?",
-                "Are you within 100 miles of me?",
+                "0.25 miles",
+                "0.5 miles",
+                "1 mile?",
+                "3 miles",
+                "5 miles",
+                "10 miles",
+                "25 miles",
+                "50 miles",
+                "100 miles",
             ]
             
         case .tentacles:
             return [
-                // From screenshot (Tentacles)
-                "Of all the places within 1 mile of me, which are you closest to? — Museums",
-                "Of all the places within 1 mile of me, which are you closest to? — Libraries",
-                "Of all the places within 1 mile of me, which are you closest to? — Movie Theaters",
-                "Of all the places within 1 mile of me, which are you closest to? — Hospitals",
-                "Of all the places within 1 mile of me, which are you closest to? — Parks",
-                "Of all the places within 1 mile of me, which are you closest to? — Bodies of Water",
+                "Museums",
+                "Libraries",
+                "Movie Theaters",
+                "Hospitals",
+                "Parks",
+                "Bodies of Water",
             ]
             
         case .photos:
             return [
-                // From screenshot (Photos)
                 "A Tree",
                 "The Sky",
                 "You",
@@ -459,12 +456,23 @@ enum QuestionCategory: String, CaseIterable, Codable {
         }
     }
     
+    var questionTag: String {
+        switch self {
+        case .matching: return "Is your nearest [place] the same as mine?"
+        case .measuring: return "Compared to me, are you closer or further than [object]?"
+        case .thermometer: return "I've traveled [distance], am I hotter or colder?"
+        case .radar: return "Are you within [distance] of me?"
+        case .tentacles: return "Of all the [places] within 1 mile of me, which are you closest to?"
+        case .photos: return "Send a photo of [subject] within 10 minutes."
+        }
+    }
+    
     var description: String {
         switch self {
         case .matching:
-            return "Is your nearest ___ the same as mine?"
+            return "Is your nearest [place] the same as mine?"
         case .measuring:
-            return "Compared to me, are you closer or further from a ___?"
+            return "Compared to me, are you closer or further from a [place]?"
         case .thermometer:
             return "I've traveled [distance], am I hotter or colder?"
         case .radar:

@@ -686,6 +686,17 @@ class DatabaseManager: ObservableObject {
         try await ref.updateChildValues(updates)
     }
     
+    func resetHidingTimer(gameId: String) async throws {
+        let ref = DatabaseReference.game(gameId).child("info")
+        let updates: [String: Any] = [
+            "hidingTimerState": TimerState.notStarted.rawValue,
+            "hidingTimerStartedAt": NSNull(),
+            "hidingTimerPausedAt": NSNull(),
+            "hidingTimerElapsed": 0
+        ]
+        try await ref.updateChildValues(updates)
+    }
+    
     // MARK: - Seeking Timer Management (new)
     func startSeekingTimer(gameId: String) async throws {
         let ref = DatabaseReference.game(gameId).child("info")

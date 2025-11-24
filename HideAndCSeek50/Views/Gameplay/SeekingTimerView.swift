@@ -25,17 +25,15 @@ struct SeekingTimerView: View {
     private var startedAt: Date? { info?.seekingTimerStartedAt }
     private var remoteElapsed: TimeInterval { info?.seekingTimerElapsed ?? 0 }
     
-    enum TimerAction { case pause, stop }
+    enum TimerAction { case stop }
     
     var body: some View {
         VStack(spacing: 28) {
-            header
             elapsedDisplay
             controls
         }
         .padding(24)
         .frame(maxWidth: .infinity)
-        .background(Color(.systemBackground))
         .cornerRadius(24)
         .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 4)
         .onAppear {
@@ -51,19 +49,6 @@ struct SeekingTimerView: View {
             Button("Cancel", role: .cancel) { pendingAction = nil }
         } message: {
             Text(confirmMessage)
-        }
-    }
-    
-    private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Seeking Timer")
-                    .font(.title2).fontWeight(.bold)
-                Text(statusText)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
         }
     }
     
@@ -97,9 +82,11 @@ struct SeekingTimerView: View {
                 .buttonStyle(.borderedProminent)
             case .running:
                 HStack(spacing: 12) {
-                    Button { confirm(.pause) } label: { actionLabel("pause.fill", "Pause") }
-                        .buttonStyle(.bordered)
-                    Button { confirm(.stop) } label: { actionLabel("stop.fill", "Hiders Found / Stop") }
+                    Button {
+                        Task { try? await databaseManager.pauseSeekingTimer(gameId: gameId, elapsed: currentElapsed) }
+                    } label: { actionLabel("pause.fill", "Pause") }
+                    .buttonStyle(.bordered)
+                    Button { confirm(.stop) } label: { actionLabel("stop.fill", "Hiders Found") }
                         .buttonStyle(.bordered)
                         .tint(.red)
                 }
@@ -109,7 +96,6 @@ struct SeekingTimerView: View {
                         Task { try? await databaseManager.resumeSeekingTimer(gameId: gameId) }
                     } label: { actionLabel("play.fill", "Resume") }
                     .buttonStyle(.borderedProminent)
-                    
                     Button { confirm(.stop) } label: { actionLabel("stop.fill", "Hiders Found / Stop") }
                         .buttonStyle(.bordered)
                         .tint(.red)
@@ -170,21 +156,18 @@ struct SeekingTimerView: View {
     }
     private var confirmTitle: String {
         switch pendingAction {
-        case .pause: return "Pause Seeking Timer"
         case .stop: return "Stop Seeking Timer"
         case .none: return ""
         }
     }
     private var confirmMessage: String {
         switch pendingAction {
-        case .pause: return "All players will see the timer paused."
         case .stop: return "Record final seeking time and end seeking."
         case .none: return ""
         }
     }
     private var confirmButtonLabel: String {
         switch pendingAction {
-        case .pause: return "Pause"
         case .stop: return "Stop"
         case .none: return "Confirm"
         }
@@ -193,8 +176,6 @@ struct SeekingTimerView: View {
     private func executePending() {
         guard let action = pendingAction else { return }
         switch action {
-        case .pause:
-            Task { try? await databaseManager.pauseSeekingTimer(gameId: gameId, elapsed: currentElapsed) }
         case .stop:
             Task { try? await databaseManager.completeSeekingTimer(gameId: gameId, totalElapsed: currentElapsed) }
         }

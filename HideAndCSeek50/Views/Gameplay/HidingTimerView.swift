@@ -1,3 +1,10 @@
+//
+//  SeekingTimerView.swift
+//  HideAndCSeek50
+//
+//  Created by Ryan Eto on 11/24/25.
+//
+
 import SwiftUI
 import FirebaseDatabase // Added for DatabaseReference
 
@@ -23,19 +30,16 @@ struct HidingTimerView: View {
     private var remaining: TimeInterval { max(0, totalDuration - currentElapsed) }
     private var progress: Double { totalDuration == 0 ? 0 : min(1, currentElapsed / totalDuration) }
     
-    enum TimerAction { case pause, skip, startSeeking }
+    enum TimerAction { case skip, reset }
     
     var body: some View {
         VStack(spacing: 28) {
-            header
             timerCircle
             controls
         }
-        .padding(24)
-        .frame(maxWidth: .infinity)
-        .background(Color(.systemBackground))
-        .cornerRadius(24)
-        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 4)
+        .padding(.horizontal, 24)
+        .padding(.top, 8)
+        .padding(.bottom, 24)
         .onAppear {
             databaseManager.startListeningToGame(gameId: gameId)
             syncElapsed()
@@ -54,19 +58,6 @@ struct HidingTimerView: View {
             Button("Cancel", role: .cancel) { pendingAction = nil }
         } message: {
             Text(confirmMessage)
-        }
-    }
-    
-    private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Hiding Timer")
-                    .font(.title2).fontWeight(.bold)
-                Text(statusText)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
         }
     }
     
@@ -100,38 +91,34 @@ struct HidingTimerView: View {
                     Task { try? await databaseManager.startHidingTimer(gameId: gameId) }
                 } label: { actionLabel("play.fill", "Start Hiding Timer") }
                 .buttonStyle(.borderedProminent)
-            
+
             case .running:
                 HStack(spacing: 12) {
-                    Button { confirm(.pause) } label: { actionLabel("pause.fill", "Pause") }
-                        .buttonStyle(.bordered)
+                    Button {
+                        Task { try? await databaseManager.pauseHidingTimer(gameId: gameId, elapsed: currentElapsed) }
+                    } label: { actionLabel("pause.fill", "Pause") }
+                    .buttonStyle(.bordered)
                     Button { confirm(.skip) } label: { actionLabel("forward.fill", "Skip") }
                         .buttonStyle(.bordered)
                         .tint(.orange)
                 }
-                
+
             case .paused:
                 HStack(spacing: 12) {
                     Button {
                         Task { try? await databaseManager.resumeHidingTimer(gameId: gameId) }
                     } label: { actionLabel("play.fill", "Resume") }
                     .buttonStyle(.borderedProminent)
-                    
+
                     Button { confirm(.skip) } label: { actionLabel("forward.fill", "Skip") }
                         .buttonStyle(.bordered)
                         .tint(.orange)
                 }
-                
+
             case .completed, .skipped:
-                if playerTeam == .seekers {
-                    Button { confirm(.startSeeking) } label: { actionLabel("eye.fill", "Start Seeking Time") }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.red)
-                } else {
-                    Text("Waiting for seekers to start.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                Button { confirm(.reset) } label: { actionLabel("arrow.clockwise", "Reset Hiding Timer") }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.purple)
             }
         }
     }
@@ -214,44 +201,39 @@ struct HidingTimerView: View {
     
     private var confirmTitle: String {
         switch pendingAction {
-        case .pause: return "Pause Timer"
         case .skip: return "Skip Hiding Timer"
-        case .startSeeking: return "Start Seeking Phase"
+        case .reset: return "Reset Hiding Timer"
         case .none: return ""
         }
     }
     private var confirmMessage: String {
         switch pendingAction {
-        case .pause: return "All players will see the timer paused."
-        case .skip: return "End hiding immediately for both teams."
-        case .startSeeking: return "Begin the seeking phase now."
+        case .skip: return "End hiding immediately for both teams"
+        case .reset: return "Reset the hiding timer"
         case .none: return ""
         }
     }
     private var confirmButtonLabel: String {
         switch pendingAction {
-        case .pause: return "Pause"
         case .skip: return "Skip"
-        case .startSeeking: return "Start"
+        case .reset: return "Reset"
         case .none: return "Confirm"
         }
     }
     private var destructiveRole: ButtonRole? {
-        pendingAction == .skip ? .destructive : nil
+        switch pendingAction {
+        case .skip: return .destructive
+        case .reset, .none: return nil
+        }
     }
     
     private func executePending() {
         guard let action = pendingAction else { return }
         switch action {
-        case .pause:
-            Task { try? await databaseManager.pauseHidingTimer(gameId: gameId, elapsed: currentElapsed) }
         case .skip:
             Task { try? await databaseManager.skipHidingTimer(gameId: gameId) }
-        case .startSeeking:
-            Task {
-                let ref = DatabaseReference.game(gameId).child("info/state")
-                try? await ref.setValue(GameState.inProgress.rawValue)
-            }
+        case .reset:
+            Task { try? await databaseManager.resetHidingTimer(gameId: gameId) }
         }
         pendingAction = nil
     }

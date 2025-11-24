@@ -686,6 +686,47 @@ class DatabaseManager: ObservableObject {
         try await ref.updateChildValues(updates)
     }
     
+    // MARK: - Seeking Timer Management (new)
+    func startSeekingTimer(gameId: String) async throws {
+        let ref = DatabaseReference.game(gameId).child("info")
+        let now = Date().toFirebaseTimestamp()
+        let updates: [String: Any] = [
+            "seekingTimerState": TimerState.running.rawValue,
+            "seekingTimerStartedAt": now,
+            "seekingTimerPausedAt": NSNull(),
+            "seekingTimerElapsed": 0
+        ]
+        try await ref.updateChildValues(updates)
+    }
+    
+    func pauseSeekingTimer(gameId: String, elapsed: TimeInterval) async throws {
+        let ref = DatabaseReference.game(gameId).child("info")
+        let updates: [String: Any] = [
+            "seekingTimerState": TimerState.paused.rawValue,
+            "seekingTimerPausedAt": Date().toFirebaseTimestamp(),
+            "seekingTimerElapsed": elapsed
+        ]
+        try await ref.updateChildValues(updates)
+    }
+    func resumeSeekingTimer(gameId: String) async throws {
+        let ref = DatabaseReference.game(gameId).child("info")
+        let updates: [String: Any] = [
+            "seekingTimerState": TimerState.running.rawValue,
+            "seekingTimerStartedAt": Date().toFirebaseTimestamp(),
+            "seekingTimerPausedAt": NSNull()
+        ]
+        try await ref.updateChildValues(updates)
+    }
+
+    func completeSeekingTimer(gameId: String, totalElapsed: TimeInterval) async throws {
+        let ref = DatabaseReference.game(gameId).child("info")
+        let updates: [String: Any] = [
+            "seekingTimerState": TimerState.completed.rawValue,
+            "seekingTimerElapsed": totalElapsed
+        ]
+        try await ref.updateChildValues(updates)
+    }
+    
     // MARK: - Location Management
     
     func updatePlayerLocation(gameId: String, playerUID: String, location: PlayerLocation) async throws {

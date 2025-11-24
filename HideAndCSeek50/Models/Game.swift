@@ -43,6 +43,12 @@ struct GameInfo: Codable {
     var hidingTimerStartedAt: Date?
     var hidingTimerPausedAt: Date?
     var hidingTimerElapsed: TimeInterval = 0
+    
+    // Add seeking timer fields
+    var seekingTimerState: TimerState = .notStarted
+    var seekingTimerStartedAt: Date?
+    var seekingTimerPausedAt: Date?
+    var seekingTimerElapsed: TimeInterval = 0
 }
 
 enum TimerState: String, Codable {
@@ -79,13 +85,18 @@ extension GameInfo {
                 "bonusPoints": settings.bonusPoints
             ],
             "hidingTimerState": hidingTimerState.rawValue,
-            "hidingTimerElapsed": hidingTimerElapsed
+            "hidingTimerElapsed": hidingTimerElapsed,
+            "seekingTimerState": seekingTimerState.rawValue,
+            "seekingTimerElapsed": seekingTimerElapsed
         ]
         dict["startedAt"] = startedAt?.toFirebaseTimestamp() ?? NSNull()
         dict["endedAt"] = endedAt?.toFirebaseTimestamp() ?? NSNull()
         dict["winner"] = winner?.rawValue ?? NSNull()
-        dict["hidingTimerStartedAt"] = hidingTimerStartedAt?.toFirebaseTimestamp() ?? NSNull()
-        dict["hidingTimerPausedAt"] = hidingTimerPausedAt?.toFirebaseTimestamp() ?? NSNull()
+        if let hidingTimerStartedAt = hidingTimerStartedAt { dict["hidingTimerStartedAt"] = hidingTimerStartedAt.toFirebaseTimestamp() }
+        if let hidingTimerPausedAt = hidingTimerPausedAt { dict["hidingTimerPausedAt"] = hidingTimerPausedAt.toFirebaseTimestamp() }
+        if let seekingTimerStartedAt = seekingTimerStartedAt { dict["seekingTimerStartedAt"] = seekingTimerStartedAt.toFirebaseTimestamp() }
+        if let seekingTimerPausedAt = seekingTimerPausedAt { dict["seekingTimerPausedAt"] = seekingTimerPausedAt.toFirebaseTimestamp() }
+        
         return dict
     }
     static func fromDictionary(_ dictionary: [String: Any]) throws -> GameInfo {
@@ -127,6 +138,12 @@ extension GameInfo {
         let hidingTimerStartedAt: Date? = (dictionary["hidingTimerStartedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
         let hidingTimerPausedAt: Date?  = (dictionary["hidingTimerPausedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
         
+        // Seeking timer (new)
+        let seekingTimerState = TimerState(rawValue: dictionary["seekingTimerState"] as? String ?? "") ?? .notStarted
+        let seekingTimerElapsed = dictionary["seekingTimerElapsed"] as? TimeInterval ?? 0
+        let seekingTimerStartedAt: Date? = (dictionary["seekingTimerStartedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
+        let seekingTimerPausedAt: Date?  = (dictionary["seekingTimerPausedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
+    
         // Base instance
         var info = GameInfo(
             gameId: gameId,
@@ -150,6 +167,11 @@ extension GameInfo {
         info.hidingTimerStartedAt = hidingTimerStartedAt
         info.hidingTimerPausedAt = hidingTimerPausedAt
         info.hidingTimerElapsed = hidingTimerElapsed
+        
+        info.seekingTimerState = seekingTimerState
+        info.seekingTimerElapsed = seekingTimerElapsed
+        info.seekingTimerStartedAt = seekingTimerStartedAt
+        info.seekingTimerPausedAt = seekingTimerPausedAt
         
         return info
     }

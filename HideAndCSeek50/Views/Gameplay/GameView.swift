@@ -31,6 +31,7 @@ struct GameView: View {
     @State private var showingQuestionView = false
     @State private var showingSettings = false
     @State private var showingTimerView = false
+    @State private var showingSeekingTimerView = false
     @State private var gameState: GameState = .inProgress
     @State private var timeRemaining: TimeInterval = 0
     @State private var gameCity: GameCity = .boston
@@ -127,7 +128,7 @@ struct GameView: View {
                         Spacer()
                         
                         VStack(spacing: 12) {
-                            // Timer button
+                            // Hiding Timer button
                             Button(action: { showingTimerView = true }) {
                                 ZStack {
                                     Circle()
@@ -135,6 +136,18 @@ struct GameView: View {
                                         .frame(width: 56, height: 56)
                                     
                                     Image(systemName: "timer")
+                                        .font(.title2)
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            
+                            // Seeking timer button (new, both teams)
+                            Button(action: { showingSeekingTimerView = true }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.red.opacity(0.9))
+                                        .frame(width: 56, height: 56)
+                                    Image(systemName: "stopwatch")
                                         .font(.title2)
                                         .foregroundColor(.white)
                                 }
@@ -230,6 +243,22 @@ struct GameView: View {
                     .toolbar {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             Button("Done") { showingTimerView = false }
+                        }
+                    }
+                }
+                .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showingSeekingTimerView) {
+                NavigationStack {
+                    SeekingTimerView(
+                        gameId: gameId,
+                        playerTeam: playerTeam
+                    )
+                    .navigationTitle("Seeking Timer")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") { showingSeekingTimerView = false }
                         }
                     }
                 }

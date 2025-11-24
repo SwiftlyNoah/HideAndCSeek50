@@ -139,19 +139,30 @@ struct GameMapView: UIViewRepresentable {
         }
         
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            if let polygon = overlay as? MKPolygon {
-                let renderer = MKPolygonRenderer(polygon: polygon)
-                
-                // Style hidable areas
-                renderer.fillColor = UIColor.systemGreen.withAlphaComponent(0.3)
-                renderer.strokeColor = UIColor.systemGreen
-                renderer.lineWidth = 2.0
-                
-                return renderer
-            }
-            
-            return MKOverlayRenderer()
-        }
+                    if let polygon = overlay as? MKPolygon {
+                        let renderer = MKPolygonRenderer(polygon: polygon)
+                        
+                        // Style hidable areas
+                        renderer.fillColor = UIColor.systemGreen.withAlphaComponent(0.3)
+                        renderer.strokeColor = UIColor.systemGreen
+                        renderer.lineWidth = 2.0
+                        
+                        return renderer
+                    }
+                    
+                    if let circle = overlay as? MKCircle {
+                        let renderer = MKCircleRenderer(circle: circle)
+                        
+                        // Style circle overlay
+                        renderer.fillColor = UIColor.systemBlue.withAlphaComponent(0.2)
+                        renderer.strokeColor = UIColor.systemBlue
+                        renderer.lineWidth = 2.0
+                        
+                        return renderer
+                    }
+                    
+                    return MKOverlayRenderer()
+                }
         
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             parent.region = mapView.region

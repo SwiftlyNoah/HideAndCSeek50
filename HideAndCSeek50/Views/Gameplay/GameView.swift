@@ -40,14 +40,7 @@ struct GameView: View {
         authManager.currentUser
     }
     
-    private var hidableRegions: [MKPolygon] {
-        switch gameCity {
-        case .boston:
-            return BostonRegions.hidableAreas
-        case .newYork:
-            return NewYorkRegions.hidableAreas
-        }
-    }
+    private let hidableRegions = MassachusettsRegions.hidableAreas
     
     var body: some View {
         NavigationStack {

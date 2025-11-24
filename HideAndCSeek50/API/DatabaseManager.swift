@@ -75,11 +75,11 @@ extension DatabaseReference {
 
 extension Date {
     // Pure helpers – keep them nonisolated
-    static func fromFirebaseTimestamp(_ timestamp: Int64) -> Date {
+    nonisolated static func fromFirebaseTimestamp(_ timestamp: Int64) -> Date {
         Date(timeIntervalSince1970: Double(timestamp) / 1000.0)
     }
     
-    func toFirebaseTimestamp() -> Int64 {
+    nonisolated func toFirebaseTimestamp() -> Int64 {
         Int64(timeIntervalSince1970 * 1000)
     }
 }

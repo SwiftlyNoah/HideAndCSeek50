@@ -128,16 +128,21 @@ struct LobbyView: View {
                 }
             }
             .fullScreenCover(isPresented: $navigateToGame) {
-            if let gameId = gameId,
-               let lobby = lobby,
-               let currentUID = currentUser?.uid,
-               let currentPlayer = lobby.players[currentUID] {
-                GameView(
-                    gameId: gameId,
-                    lobbyCode: lobbyCode,
-                    playerTeam: currentPlayer.team
-                )
-            }
+                Group {
+                    if let gameId = gameId,
+                       let lobby = lobby,
+                       let currentUID = currentUser?.uid,
+                       let currentPlayer = lobby.players[currentUID] {
+                        GameView(
+                            gameId: gameId,
+                            lobbyCode: lobbyCode,
+                            playerTeam: currentPlayer.team
+                        )
+                    }
+                    else {
+                        Color.red
+                    }
+                }
         }
         .sheet(isPresented: $showingSettings) {
                 if let lobby = lobby {

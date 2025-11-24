@@ -28,7 +28,6 @@ struct GameInfo: Codable {
     let name: String
     let hostUID: String
     var state: GameState
-    let gameMode: GameMode
     let maxPlayers: Int
     var currentPlayers: Int
     let createdAt: Date
@@ -67,7 +66,6 @@ extension GameInfo {
             "name": name,
             "hostUID": hostUID,
             "state": state.rawValue,
-            "gameMode": gameMode.rawValue,
             "maxPlayers": maxPlayers,
             "currentPlayers": currentPlayers,
             "createdAt": createdAt.toFirebaseTimestamp(),
@@ -107,8 +105,6 @@ extension GameInfo {
               let hostUID = dictionary["hostUID"] as? String,
               let stateRaw = dictionary["state"] as? String,
               let state = GameState(rawValue: stateRaw),
-              let gameModeRaw = dictionary["gameMode"] as? String,
-              let gameMode = GameMode(rawValue: gameModeRaw),
               let maxPlayers = dictionary["maxPlayers"] as? Int,
               let currentPlayers = dictionary["currentPlayers"] as? Int,
               let createdAtInt = dictionary["createdAt"] as? Int64,
@@ -151,7 +147,6 @@ extension GameInfo {
             name: name,
             hostUID: hostUID,
             state: state,
-            gameMode: gameMode,
             maxPlayers: maxPlayers,
             currentPlayers: currentPlayers,
             createdAt: createdAt,
@@ -217,28 +212,14 @@ struct GameSettings: Codable {
 }
 
 struct GameTeams: Codable {
-    var hiders: TeamInfo = TeamInfo()
-    var seekers: TeamInfo = TeamInfo()
+    var hiders: [String: Player] = [:]
+    var seekers: [String: Player] = [:]
 }
 
-struct TeamInfo: Codable {
-    var members: [String: TeamMember] = [:]
-    var teamScore: Int = 0
-    var membersFound: Int = 0           // For hiders team
-    var totalHidersFound: Int = 0       // For seekers team
-    var averageHidingTime: TimeInterval = 0  // For hiders team
-    var averageFindTime: TimeInterval = 0    // For seekers team
-}
-
-struct TeamMember: Codable {
+struct Player: Codable {
     let uid: String
     let displayName: String
     var isReady: Bool = false
-    let joinedAt: Date
-    var isOnline: Bool = true
-    var score: Int = 0
-    var isAlive: Bool = true           // For hiders - still hiding
-    var hidersFound: Int = 0           // For seekers - individual count
 }
 
 struct PlayerLocation: Codable {
@@ -246,7 +227,6 @@ struct PlayerLocation: Codable {
     let longitude: Double
     let accuracy: Double
     let timestamp: Date
-    var isVisible: Bool = false
     var locationHistory: [String: LocationPoint] = [:]
 }
 
@@ -257,7 +237,6 @@ extension PlayerLocation {
             "longitude": longitude,
             "accuracy": accuracy,
             "timestamp": timestamp.toFirebaseTimestamp(),
-            "isVisible": isVisible,
             "locationHistory": locationHistory.mapValues { point in
                 [
                     "lat": point.lat,
@@ -266,6 +245,37 @@ extension PlayerLocation {
                 ]
             }
         ]
+    }
+    
+    static func fromDictionary(_ dictionary: [String: Any]) throws -> PlayerLocation {
+        guard let latitude = dictionary["latitude"] as? Double,
+              let longitude = dictionary["longitude"] as? Double,
+              let accuracy = dictionary["accuracy"] as? Double,
+              let timestampInt = dictionary["timestamp"] as? Int64 else {
+            throw DatabaseError.invalidData
+        }
+        
+        let timestamp = Date.fromFirebaseTimestamp(timestampInt)
+        
+        var locationHistory: [String: LocationPoint] = [:]
+        if let historyDict = dictionary["locationHistory"] as? [String: [String: Any]] {
+            for (key, pointDict) in historyDict {
+                if let lat = pointDict["lat"] as? Double,
+                   let lng = pointDict["lng"] as? Double,
+                   let pointTimestampInt = pointDict["timestamp"] as? Int64 {
+                    let pointTimestamp = Date.fromFirebaseTimestamp(pointTimestampInt)
+                    locationHistory[key] = LocationPoint(lat: lat, lng: lng, timestamp: pointTimestamp)
+                }
+            }
+        }
+        
+        return PlayerLocation(
+            latitude: latitude,
+            longitude: longitude,
+            accuracy: accuracy,
+            timestamp: timestamp,
+            locationHistory: locationHistory
+        )
     }
 }
 
@@ -456,20 +466,6 @@ struct GameEvent: Codable {
 
 // MARK: - Enums
 
-enum PlayerRole: String, Codable, CaseIterable {
-    case hider = "hider"
-    case seeker = "seeker"
-    case any = "any"
-    
-    var displayName: String {
-        switch self {
-        case .hider: return "Hider"
-        case .seeker: return "Seeker"
-        case .any: return "Any"
-        }
-    }
-}
-
 enum GameState: String, Codable {
     case waiting = "waiting"
     case starting = "starting"
@@ -494,27 +490,6 @@ enum GameState: String, Codable {
     }
 }
 
-enum GameMode: String, Codable {
-    case classic = "classic"
-    case timed = "timed"
-    case challenge = "challenge"
-    
-    var displayName: String {
-        switch self {
-        case .classic: return "Classic"
-        case .timed: return "Timed"
-        case .challenge: return "Challenge"
-        }
-    }
-    
-    var description: String {
-        switch self {
-        case .classic: return "Traditional hide and seek with no time limit"
-        case .timed: return "Fast-paced game with time constraints"
-        case .challenge: return "Special challenges and bonus objectives"
-        }
-    }
-}
 
 enum Team: String, Codable {
     case hiders = "hiders"
@@ -526,6 +501,7 @@ enum Team: String, Codable {
         case .seekers: return "Seekers"
         }
     }
+    
     
     var iconName: String {
         switch self {
@@ -615,7 +591,6 @@ enum EventType: String, Codable {
     case questionAsked = "questionAsked"
     case questionAnswered = "questionAnswered"
     case gameEnded = "gameEnded"
-    case teamSwitched = "teamSwitched"
     case gamePaused = "gamePaused"
     case gameResumed = "gameResumed"
 }
@@ -628,17 +603,13 @@ extension Game {
     }
     
     var totalPlayers: Int {
-        return teams.hiders.members.count + teams.seekers.members.count
-    }
-    
-    var hidersRemaining: Int {
-        return teams.hiders.members.values.filter { $0.isAlive }.count
+        return teams.hiders.count + teams.seekers.count
     }
     
     var canStart: Bool {
         let minPlayers = 2
-        let allReady = teams.hiders.members.values.allSatisfy { $0.isReady } &&
-                      teams.seekers.members.values.allSatisfy { $0.isReady }
+        let allReady = teams.hiders.values.allSatisfy { $0.isReady } &&
+                      teams.seekers.values.allSatisfy { $0.isReady }
         return totalPlayers >= minPlayers && allReady && info.state == .waiting
     }
 }

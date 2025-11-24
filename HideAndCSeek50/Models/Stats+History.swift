@@ -40,7 +40,6 @@ struct HiderStats: Codable {
     var averageHidingTime: TimeInterval = 0
     var bestHidingTime: TimeInterval = 0
     var timesFound: Int = 0
-    var averageHideScore: Int = 0
     
     var hiderWinRate: Double {
         guard gamesPlayed > 0 else { return 0.0 }
@@ -54,7 +53,6 @@ struct SeekerStats: Codable {
     var averageFindTime: TimeInterval = 0
     var bestFindTime: TimeInterval = 0
     var totalHidersFound: Int = 0
-    var averageSeekScore: Int = 0
     
     var seekerWinRate: Double {
         guard gamesPlayed > 0 else { return 0.0 }
@@ -71,9 +69,8 @@ struct Achievements: Codable {
 
 struct GameHistoryEntry: Codable {
     let gameId: String
-    let role: PlayerRole
+    let team: Team
     let result: GameResult
-    let score: Int
     let duration: TimeInterval
     let datePlayed: Date
 }
@@ -81,5 +78,5 @@ struct GameHistoryEntry: Codable {
 struct UserPreferences: Codable {
     var allowLocationSharing: Bool = true
     var receiveNotifications: Bool = true
-    var defaultRole: PlayerRole = .any
+    var defaultTeam: Team = .hiders
 }

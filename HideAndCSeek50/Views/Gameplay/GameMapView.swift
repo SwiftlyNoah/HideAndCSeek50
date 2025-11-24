@@ -32,29 +32,40 @@ class PlayerAnnotation: NSObject, MKAnnotation {
 
 struct GameMapView: UIViewRepresentable {
     @Binding var region: MKCoordinateRegion
-    let playerLocations: [String: CLLocation]
-    let playerTeams: [String: Team]
-    let playerNames: [String: String] // Add player names mapping
+    let game: Game?
     let currentUserUID: String
     let currentUserTeam: Team
     let hidableRegions: [MKPolygon]
     
-    private var visiblePlayerLocations: [String: CLLocation] {
-        // Filter out current user from annotations and apply team visibility rules
-        var filteredLocations = playerLocations.filter { playerUID, _ in
-            playerUID != currentUserUID // Don't show annotation for current user
-        }
+    private var visiblePlayerLocations: [(String, CLLocation, Team, String)] {
+        print(game)
+        guard let game = game else { return [] }
         
-        // Team visibility rules:
-        // - Seekers can't see hiders
-        if currentUserTeam == .seekers {
-            // Seekers can see other seekers
-            filteredLocations = filteredLocations.filter { (playerUID, _) in
-                playerTeams[playerUID] == .seekers
+        var visiblePlayers: [(String, CLLocation, Team, String)] = []
+        
+        // Get all players with their teams and names
+        for (uid, player) in game.teams.hiders {
+            if uid != currentUserUID, // Don't show current user
+               let location = game.locations[uid] {
+                let clLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
+                visiblePlayers.append((uid, clLocation, .hiders, player.displayName))
             }
         }
         
-        return filteredLocations
+        for (uid, player) in game.teams.seekers {
+            if uid != currentUserUID, // Don't show current user
+               let location = game.locations[uid] {
+                let clLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
+                visiblePlayers.append((uid, clLocation, .seekers, player.displayName))
+            }
+        }
+        
+        // Apply visibility rules: seekers can't see hiders
+        if currentUserTeam == .seekers {
+            visiblePlayers = visiblePlayers.filter { $0.2 == .seekers }
+        }
+        
+        return visiblePlayers
     }
     
     func makeUIView(context: Context) -> MKMapView {
@@ -91,10 +102,8 @@ struct GameMapView: UIViewRepresentable {
         }
         mapView.removeAnnotations(existingAnnotations)
         
-        // Add new player annotations based on visibility rules (excludes current user)
-        for (playerUID, location) in visiblePlayerLocations {
-            let team = playerTeams[playerUID] ?? .hiders
-            let displayName = playerNames[playerUID] ?? "Unknown Player"
+        // Add new player annotations based on visibility rules
+        for (_, location, team, displayName) in visiblePlayerLocations {
             let annotation = PlayerAnnotation(
                 displayName: displayName,
                 coordinate: location.coordinate,
@@ -103,10 +112,7 @@ struct GameMapView: UIViewRepresentable {
             mapView.addAnnotation(annotation)
         }
     }
-    
-    private func determinePlayerTeam(for playerUID: String) -> Team {
-        return playerTeams[playerUID] ?? .hiders
-    }
+
     
     class Coordinator: NSObject, MKMapViewDelegate {
         let parent: GameMapView

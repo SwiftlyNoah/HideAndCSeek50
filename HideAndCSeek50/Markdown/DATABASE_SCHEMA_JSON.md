@@ -110,7 +110,6 @@ games: {
       "name": "string",
       "hostUID": "string",
       "state": "waiting|starting|inProgress|paused|completed|cancelled",
-      "gameMode": "classic|timed|challenge",
       "maxPlayers": 0,
       "currentPlayers": 0,
       "createdAt": "timestamp",
@@ -187,7 +186,6 @@ games: {
     "longitude": 0,
     "accuracy": 0,
     "timestamp": "timestamp",
-    "isVisible": true,
 
     "locationHistory": {
       "timestamp1": {

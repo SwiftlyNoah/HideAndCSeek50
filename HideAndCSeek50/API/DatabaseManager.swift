@@ -290,7 +290,6 @@ class DatabaseManager: ObservableObject {
             name: lobby.name,
             hostUID: lobby.hostUID,
             state: .starting,
-            gameMode: .classic,
             maxPlayers: lobby.maxPlayers,
             currentPlayers: lobby.totalPlayers,
             createdAt: Date(),
@@ -313,8 +312,8 @@ class DatabaseManager: ObservableObject {
         
         // Initialize empty teams structure
         let teamsData: [String: Any] = [
-            "hiders": ["members": [:], "teamScore": 0, "membersFound": 0, "averageHidingTime": 0],
-            "seekers": ["members": [:], "teamScore": 0, "totalHidersFound": 0, "averageFindTime": 0]
+            "hiders": [:],
+            "seekers": [:]
         ]
         try await gameRef.child("teams").setValue(teamsData)
         
@@ -323,15 +322,10 @@ class DatabaseManager: ObservableObject {
             let teamMember: [String: Any] = [
                 "uid": uid,
                 "displayName": player.displayName,
-                "isReady": true, // All players are ready when game starts
-                "joinedAt": Date().toFirebaseTimestamp(),
-                "isOnline": true,
-                "score": 0,
-                "isAlive": player.team == .hiders ? true : false, // Only hiders start "alive"
-                "hidersFound": player.team == .seekers ? 0 : 0
+                "isReady": true // All players are ready when game starts
             ]
             
-            let teamPath = "teams/\(player.team.rawValue)/members/\(uid)"
+            let teamPath = "teams/\(player.team.rawValue)/\(uid)"
             try await gameRef.child(teamPath).setValue(teamMember)
         }
         
@@ -396,25 +390,6 @@ class DatabaseManager: ObservableObject {
                 return
             }
             completion(gameInfo)
-        }
-    }
-    
-    func observePlayerLocations(gameId: String, completion: @escaping ([String: CLLocation]) -> Void) {
-        let locationsRef = DatabaseReference.game(gameId).child("locations")
-        locationsRef.observe(.value) { snapshot in
-            guard let data = snapshot.value as? [String: [String: Any]] else {
-                completion([:])
-                return
-            }
-            
-            var locations: [String: CLLocation] = [:]
-            for (playerUID, locationData) in data {
-                if let lat = locationData["latitude"] as? Double,
-                   let lng = locationData["longitude"] as? Double {
-                    locations[playerUID] = CLLocation(latitude: lat, longitude: lng)
-                }
-            }
-            completion(locations)
         }
     }
     
@@ -515,13 +490,13 @@ class DatabaseManager: ObservableObject {
         }
         
         // Add player to team
-        let member = TeamMember(
+        let member = Player(
             uid: playerUID,
             displayName: displayName,
-            joinedAt: Date()
+            isReady: false
         )
         
-        let teamPath = "teams/\(team.rawValue)/members/\(playerUID)"
+        let teamPath = "teams/\(team.rawValue)/\(playerUID)"
         try await gameRef.child(teamPath).setValue(try member.toDictionary())
         
         // Update player count
@@ -541,8 +516,8 @@ class DatabaseManager: ObservableObject {
         let gameRef = DatabaseReference.game(gameId)
         
         // Remove from both teams (in case they switched)
-        try await gameRef.child("teams/hiders/members/\(playerUID)").removeValue()
-        try await gameRef.child("teams/seekers/members/\(playerUID)").removeValue()
+        try await gameRef.child("teams/hiders/\(playerUID)").removeValue()
+        try await gameRef.child("teams/seekers/\(playerUID)").removeValue()
         
         // Remove location data
         try await gameRef.child("locations/\(playerUID)").removeValue()
@@ -996,7 +971,6 @@ class DatabaseManager: ObservableObject {
             name: lobby.name,
             hostUID: lobby.hostUID,
             state: .waiting,
-            gameMode: .classic,
             maxPlayers: lobby.maxPlayers,
             currentPlayers: lobby.totalPlayers,
             createdAt: lobby.createdAt,
@@ -1059,7 +1033,7 @@ class DatabaseManager: ObservableObject {
               let game = try? Game.fromDictionary(gameData) else { return }
         
         // Update stats for all players
-        for (uid, member) in game.teams.hiders.members {
+        for (uid, _) in game.teams.hiders {
             var stats = try await getUserStats(uid: uid)
             stats.totalGamesPlayed += 1
             stats.hiderStats.gamesPlayed += 1
@@ -1080,15 +1054,11 @@ class DatabaseManager: ObservableObject {
                 }
             }
             
-            if !member.isAlive {
-                stats.hiderStats.timesFound += 1
-            }
-            
             try await updateUserStats(uid: uid, stats: stats)
         }
         
         // Similar logic for seekers
-        for (uid, member) in game.teams.seekers.members {
+        for (uid, _) in game.teams.seekers {
             var stats = try await getUserStats(uid: uid)
             stats.totalGamesPlayed += 1
             stats.seekerStats.gamesPlayed += 1
@@ -1097,9 +1067,7 @@ class DatabaseManager: ObservableObject {
                 stats.totalGamesWon += 1
                 stats.seekerStats.gamesWon += 1
             }
-            
-            stats.seekerStats.totalHidersFound += member.hidersFound
-            
+                        
             try await updateUserStats(uid: uid, stats: stats)
         }
     }

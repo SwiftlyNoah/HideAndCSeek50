@@ -24,20 +24,33 @@ struct GameView: View {
     
     @State private var cancellables = Set<AnyCancellable>()
     @State private var region = MKCoordinateRegion()
-    @State private var playerLocations: [String: CLLocation] = [:]
-    @State private var playerTeams: [String: Team] = [:] // Add player team tracking
-    @State private var playerNames: [String: String] = [:] // Add player names tracking
     @State private var showingChat = false
     @State private var showingQuestionView = false
     @State private var showingSettings = false
     @State private var showingTimerView = false
     @State private var showingSeekingTimerView = false
-    @State private var gameState: GameState = .inProgress
-    @State private var timeRemaining: TimeInterval = 0
-    @State private var gameCity: GameCity = .boston
     
     private var currentUser: User? {
         authManager.currentUser
+    }
+    
+    private var currentGame: Game? {
+        databaseManager.currentGame
+    }
+    
+    private var gameState: GameState {
+        currentGame?.info.state ?? .inProgress
+    }
+    
+    private var gameCity: GameCity {
+        currentGame?.info.settings.city ?? .boston
+    }
+    
+    private var timeRemaining: TimeInterval {
+        guard let game = currentGame,
+              let startTime = game.info.startedAt else { return 0 }
+        let elapsed = Date().timeIntervalSince(startTime)
+        return max(0, TimeInterval(game.info.settings.hidingTime * 60) - elapsed)
     }
     
     private let hidableRegions = MassachusettsRegions.hidableAreas
@@ -48,9 +61,7 @@ struct GameView: View {
                 // Full-screen Map View
                 GameMapView(
                     region: $region,
-                    playerLocations: playerLocations,
-                    playerTeams: playerTeams,
-                    playerNames: playerNames,
+                    game: currentGame,
                     currentUserUID: currentUser?.uid ?? "",
                     currentUserTeam: playerTeam,
                     hidableRegions: hidableRegions
@@ -295,15 +306,18 @@ struct GameView: View {
         guard let location = location,
               let currentUID = currentUser?.uid else { return }
         
-        // Update local state
-        playerLocations[currentUID] = location
-        
         // Update database
         Task {
+            let playerLocation = PlayerLocation(
+                latitude: location.coordinate.latitude,
+                longitude: location.coordinate.longitude,
+                accuracy: location.horizontalAccuracy,
+                timestamp: Date()
+            )
             try? await databaseManager.updatePlayerLocation(
                 gameId: gameId,
                 playerUID: currentUID,
-                location: location
+                location: playerLocation
             )
         }
     }
@@ -327,85 +341,35 @@ struct GameView: View {
         }
     }
     
-    // ...existing code...
-
-        private func loadGameData() {
-            Task {
-                do {
-                    // Start listening to game updates
-                    databaseManager.startListeningToGame(gameId: gameId)
-                    
-                    let gameInfo = try await databaseManager.getGameInfo(gameId: gameId)
-                    await MainActor.run {
-                        gameState = gameInfo.state
-                        gameCity = gameInfo.settings.city
-                        setupMapRegion()
-                    }
-                    
-                    // Load player teams from the current game
-                    if let currentGame = databaseManager.currentGame {
-                        for (uid, member) in currentGame.teams.hiders.members {
-                            playerTeams[uid] = .hiders
-                            playerNames[uid] = member.displayName
-                        }
-                        for (uid, member) in currentGame.teams.seekers.members {
-                            playerTeams[uid] = .seekers
-                            playerNames[uid] = member.displayName
-                        }
-                    }
-                    
-                    observePlayerLocations()
-                } catch {
-                    print("Error loading game data: \(error)")
+    private func loadGameData() {
+        Task {
+            do {
+                // Start listening to game updates (includes team info and locations)
+                databaseManager.startListeningToGame(gameId: gameId)
+                databaseManager.startListeningToLocations(gameId: gameId)
+                
+                let gameInfo = try await databaseManager.getGameInfo(gameId: gameId)
+                await MainActor.run {
+                    setupMapRegion()
                 }
+                
+                // Set up real-time observers
+                observeGameUpdates()
+                
+            } catch {
+                print("Error loading game data: \(error)")
             }
         }
+    }
 
     private func observeGameUpdates() {
-        // Set up real-time game state listener
-        databaseManager.startListeningToGame(gameId: gameId)
-        
-        // Listen to changes in currentGame to update player teams
+        // Listen to changes in currentGame - this handles all game data
         databaseManager.$currentGame
-            .sink { game in
-                guard let game = game else { return }
-                
-                DispatchQueue.main.async {
-                    gameState = game.info.state
-                    
-                    // Update player teams and names
-                    var updatedTeams: [String: Team] = [:]
-                    var updatedNames: [String: String] = [:]
-                    
-                    for (uid, member) in game.teams.hiders.members {
-                        updatedTeams[uid] = .hiders
-                        updatedNames[uid] = member.displayName
-                    }
-                    for (uid, member) in game.teams.seekers.members {
-                        updatedTeams[uid] = .seekers
-                        updatedNames[uid] = member.displayName
-                    }
-                    
-                    playerTeams = updatedTeams
-                    playerNames = updatedNames
-                    
-                    // Calculate time remaining based on game start time and hiding time
-                    if let startTime = game.info.startedAt {
-                        let elapsed = Date().timeIntervalSince(startTime)
-                        timeRemaining = max(0, TimeInterval(game.info.settings.hidingTime * 60) - elapsed)
-                    }
-                }
+            .sink { _ in
+                // GameMapView will automatically update when currentGame changes
+                // because it's passed directly to the map view
             }
             .store(in: &cancellables)
-    }
-    
-    private func observePlayerLocations() {
-        // Set up real-time player location listener
-        databaseManager.observePlayerLocations(gameId: gameId) { locations in
-            DispatchQueue.main.async {
-                playerLocations = locations
-            }
-        }
     }
 }
 

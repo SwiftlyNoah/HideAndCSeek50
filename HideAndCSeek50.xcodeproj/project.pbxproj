@@ -31,6 +31,7 @@
 		1474BE7F2ED5165200568A90 /* EmailSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE7B2ED5165200568A90 /* EmailSignInView.swift */; };
 		1474BE802ED5165200568A90 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE7C2ED5165200568A90 /* ProfileView.swift */; };
 		1474BE822ED5174100568A90 /* ma.json in Resources */ = {isa = PBXBuildFile; fileRef = 1474BE812ED5174100568A90 /* ma.json */; };
+		1474BE862ED65F8200568A90 /* MapSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE852ED65F8200568A90 /* MapSearch.swift */; };
 		14E268EE2EC9648000FBCF90 /* Stats+History.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E268ED2EC9647900FBCF90 /* Stats+History.swift */; };
 		14E268F02EC9649700FBCF90 /* Lobby.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E268EF2EC9649300FBCF90 /* Lobby.swift */; };
 		14F2BED12EC842A400B5F06B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 14F2BED02EC842A400B5F06B /* FirebaseAuth */; };
@@ -71,6 +72,7 @@
 		1474BE7B2ED5165200568A90 /* EmailSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailSignInView.swift; sourceTree = "<group>"; };
 		1474BE7C2ED5165200568A90 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		1474BE812ED5174100568A90 /* ma.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ma.json; sourceTree = "<group>"; };
+		1474BE852ED65F8200568A90 /* MapSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSearch.swift; sourceTree = "<group>"; };
 		14E268ED2EC9647900FBCF90 /* Stats+History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Stats+History.swift"; sourceTree = "<group>"; };
 		14E268EF2EC9649300FBCF90 /* Lobby.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lobby.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -185,6 +187,7 @@
 				14E268EF2EC9649300FBCF90 /* Lobby.swift */,
 				14E268ED2EC9647900FBCF90 /* Stats+History.swift */,
 				142066B52ECBDE200084F53C /* CityRegions.swift */,
+				1474BE852ED65F8200568A90 /* MapSearch.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -299,6 +302,7 @@
 				140B02B22EC8791E0005EE81 /* Game.swift in Sources */,
 				140B02B32EC8791E0005EE81 /* HelperViewsActionButton.swift in Sources */,
 				1474BE7E2ED5165200568A90 /* AuthenticationView.swift in Sources */,
+				1474BE862ED65F8200568A90 /* MapSearch.swift in Sources */,
 				1474BE7F2ED5165200568A90 /* EmailSignInView.swift in Sources */,
 				1474BE802ED5165200568A90 /* ProfileView.swift in Sources */,
 				14E268F02EC9649700FBCF90 /* Lobby.swift in Sources */,

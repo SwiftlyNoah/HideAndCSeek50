@@ -36,6 +36,8 @@ struct GameMapView: UIViewRepresentable {
     let currentUserUID: String
     let currentUserTeam: Team
     let hidableRegions: [MKPolygon]
+    var searchResults: [MKMapItem] = []
+    var selectedSearchItem: MKMapItem?
     
     private var visiblePlayerLocations: [(String, CLLocation, Team, String)] {
         guard let game = game else { return [] }
@@ -88,6 +90,9 @@ struct GameMapView: UIViewRepresentable {
         
         // Update player annotations
         updatePlayerAnnotations(mapView)
+        
+        // Update search result annotations
+        updateSearchAnnotations(mapView)
     }
     
     func makeCoordinator() -> Coordinator {
@@ -111,7 +116,26 @@ struct GameMapView: UIViewRepresentable {
             mapView.addAnnotation(annotation)
         }
     }
-
+    
+    private func updateSearchAnnotations(_ mapView: MKMapView) {
+        // Remove existing search annotations
+        let existingSearchAnnotations = mapView.annotations.filter { annotation in
+            annotation is SearchResultAnnotation
+        }
+        mapView.removeAnnotations(existingSearchAnnotations)
+        
+        // Add new search result annotations
+        for item in searchResults {
+            if let coordinate = item.placemark.location?.coordinate {
+                let annotation = SearchResultAnnotation(
+                    name: item.name ?? "Unknown",
+                    coordinate: coordinate,
+                    isSelected: selectedSearchItem == item
+                )
+                mapView.addAnnotation(annotation)
+            }
+        }
+    }
     
     class Coordinator: NSObject, MKMapViewDelegate {
         let parent: GameMapView
@@ -121,6 +145,25 @@ struct GameMapView: UIViewRepresentable {
         }
         
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            // Handle search result annotations
+            if let searchAnnotation = annotation as? SearchResultAnnotation {
+                let identifier = "SearchPin"
+                var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+                
+                if annotationView == nil {
+                    annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+                    annotationView?.canShowCallout = true
+                    annotationView?.isDraggable = false
+                } else {
+                    annotationView?.annotation = annotation
+                }
+                
+                annotationView?.markerTintColor = searchAnnotation.isSelected ? .red : .orange
+                annotationView?.glyphImage = UIImage(systemName: "mappin.circle.fill")
+                
+                return annotationView
+            }
+            
             guard let playerAnnotation = annotation as? PlayerAnnotation else {
                 return nil
             }
@@ -144,30 +187,30 @@ struct GameMapView: UIViewRepresentable {
         }
         
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-                    if let polygon = overlay as? MKPolygon {
-                        let renderer = MKPolygonRenderer(polygon: polygon)
-                        
-                        // Style hidable areas
-                        renderer.fillColor = UIColor.systemGreen.withAlphaComponent(0.3)
-                        renderer.strokeColor = UIColor.systemGreen
-                        renderer.lineWidth = 2.0
-                        
-                        return renderer
-                    }
-                    
-                    if let circle = overlay as? MKCircle {
-                        let renderer = MKCircleRenderer(circle: circle)
-                        
-                        // Style circle overlay
-                        renderer.fillColor = UIColor.systemBlue.withAlphaComponent(0.2)
-                        renderer.strokeColor = UIColor.systemBlue
-                        renderer.lineWidth = 2.0
-                        
-                        return renderer
-                    }
-                    
-                    return MKOverlayRenderer()
-                }
+            if let polygon = overlay as? MKPolygon {
+                let renderer = MKPolygonRenderer(polygon: polygon)
+                
+                // Style hidable areas
+                renderer.fillColor = UIColor.systemGreen.withAlphaComponent(0.3)
+                renderer.strokeColor = UIColor.systemGreen
+                renderer.lineWidth = 2.0
+                
+                return renderer
+            }
+            
+            if let circle = overlay as? MKCircle {
+                let renderer = MKCircleRenderer(circle: circle)
+                
+                // Style circle overlay
+                renderer.fillColor = UIColor.systemBlue.withAlphaComponent(0.2)
+                renderer.strokeColor = UIColor.systemBlue
+                renderer.lineWidth = 2.0
+                
+                return renderer
+            }
+            
+            return MKOverlayRenderer()
+        }
         
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             parent.region = mapView.region
@@ -179,8 +222,25 @@ struct GameMapView: UIViewRepresentable {
 extension MKCoordinateRegion {
     func isApproximatelyEqual(to other: MKCoordinateRegion, threshold: Double = 0.001) -> Bool {
         return abs(center.latitude - other.center.latitude) < threshold &&
-               abs(center.longitude - other.center.longitude) < threshold &&
-               abs(span.latitudeDelta - other.span.latitudeDelta) < threshold &&
-               abs(span.longitudeDelta - other.span.longitudeDelta) < threshold
+        abs(center.longitude - other.center.longitude) < threshold &&
+        abs(span.latitudeDelta - other.span.latitudeDelta) < threshold &&
+        abs(span.longitudeDelta - other.span.longitudeDelta) < threshold
+    }
+}
+
+class SearchResultAnnotation: NSObject, MKAnnotation {
+    let name: String
+    let coordinate: CLLocationCoordinate2D
+    let isSelected: Bool
+    
+    var title: String? {
+        return name
+    }
+    
+    init(name: String, coordinate: CLLocationCoordinate2D, isSelected: Bool) {
+        self.name = name
+        self.coordinate = coordinate
+        self.isSelected = isSelected
+        super.init()
     }
 }

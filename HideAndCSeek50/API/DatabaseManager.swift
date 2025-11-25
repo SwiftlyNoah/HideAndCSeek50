@@ -76,11 +76,11 @@ extension DatabaseReference {
 extension Date {
     // Pure helpers – keep them nonisolated
     nonisolated static func fromFirebaseTimestamp(_ timestamp: Int64) -> Date {
-        Date(timeIntervalSince1970: Double(timestamp) / 1000.0)
+        Date(timeIntervalSince1970: Double(timestamp))
     }
     
     nonisolated func toFirebaseTimestamp() -> Int64 {
-        Int64(timeIntervalSince1970 * 1000)
+        Int64(timeIntervalSince1970.rounded())
     }
 }
 
@@ -279,7 +279,7 @@ class DatabaseManager: ObservableObject {
         
         let gameId = UUID().uuidString
         
-        var gameInfo = GameInfo(
+        let gameInfo = GameInfo(
             gameId: gameId,
             gameCode: lobbyCode,
             name: lobby.name,
@@ -741,7 +741,7 @@ class DatabaseManager: ObservableObject {
     
     func startGameFromLobby(lobby: Lobby) async throws -> String {
         let gameId = UUID().uuidString
-        var info = GameInfo(
+        let info = GameInfo(
             gameId: gameId,
             gameCode: lobby.code,
             name: lobby.name,

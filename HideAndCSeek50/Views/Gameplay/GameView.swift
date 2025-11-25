@@ -595,7 +595,6 @@ struct GameView: View {
     
     private func pauseHidingPhase() {
         Task {
-            guard let game = currentGame else { return }
             let totalElapsed = currentLocalHidingTime
             try? await databaseManager.updateGameState(
                 gameId: gameId, 
@@ -607,7 +606,6 @@ struct GameView: View {
     
     private func resumeHidingPhase() {
         Task {
-            guard let game = currentGame else { return }
             // Keep the current elapsed time, just set new start time
             try? await databaseManager.updateGameState(
                 gameId: gameId, 
@@ -636,7 +634,6 @@ struct GameView: View {
     
     private func pauseSeekingPhase() {
         Task {
-            guard let game = currentGame else { return }
             let totalElapsed = currentLocalSeekingTime
             try? await databaseManager.updateGameState(
                 gameId: gameId, 
@@ -648,7 +645,6 @@ struct GameView: View {
     
     private func resumeSeekingPhase() {
         Task {
-            guard let game = currentGame else { return }
             // Keep the current elapsed time, just set new start time
             try? await databaseManager.updateGameState(
                 gameId: gameId, 

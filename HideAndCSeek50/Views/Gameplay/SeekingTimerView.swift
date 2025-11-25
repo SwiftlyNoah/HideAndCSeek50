@@ -37,7 +37,6 @@ struct SeekingTimerView: View {
         .cornerRadius(24)
         .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 4)
         .onAppear {
-            databaseManager.startListeningToGame(gameId: gameId)
             syncElapsed()
             startTicking()
         }

@@ -41,7 +41,6 @@ struct HidingTimerView: View {
         .padding(.top, 8)
         .padding(.bottom, 24)
         .onAppear {
-            databaseManager.startListeningToGame(gameId: gameId)
             syncElapsed()
             startTicking()
         }

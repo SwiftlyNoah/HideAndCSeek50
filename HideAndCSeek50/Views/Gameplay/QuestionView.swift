@@ -297,7 +297,7 @@ struct GameQuestionView: View {
         isLoading = true
         
         do {
-            let fullQuestion = "\(selectedCategory.questionTag) - \(selectedQuestion)"
+            let fullQuestion = selectedCategory.writeQuestion(arg: selectedQuestion)
             let question = GameQuestion(
                 id: UUID().uuidString,
                 type: selectedCategory.questionType,
@@ -306,9 +306,7 @@ struct GameQuestionView: View {
                 askedAt: Date(),
                 answeredBy: nil,
                 answeredAt: nil,
-                answer: nil,
-                attachments: nil,
-                mapUpdate: nil
+                answer: nil
             )
             
             try await databaseManager.sendQuestion(gameId: gameId, question: question)
@@ -392,7 +390,6 @@ struct GameQuestionView: View {
             
         case .radar:
             return [
-                // Distances from screenshot (Radar column)
                 "0.25 miles",
                 "0.5 miles",
                 "1 mile?",
@@ -456,17 +453,6 @@ enum QuestionCategory: String, CaseIterable, Codable {
         }
     }
     
-    var questionTag: String {
-        switch self {
-        case .matching: return "Is your nearest [place] the same as mine?"
-        case .measuring: return "Compared to me, are you closer or further than [object]?"
-        case .thermometer: return "I've traveled [distance], am I hotter or colder?"
-        case .radar: return "Are you within [distance] of me?"
-        case .tentacles: return "Of all the [places] within 1 mile of me, which are you closest to?"
-        case .photos: return "Send a photo of [subject] within 10 minutes."
-        }
-    }
-    
     var description: String {
         switch self {
         case .matching:
@@ -478,7 +464,7 @@ enum QuestionCategory: String, CaseIterable, Codable {
         case .radar:
             return "Are you within [distance] of me?"
         case .tentacles:
-            return "Of all the [places] within [distance], which one are you closest to?"
+            return "Of all the [places] within 1 mile, which one are you closest to?"
         case .photos:
             return "Send a photo of [object] within 10 minutes."
         }
@@ -503,6 +489,23 @@ enum QuestionCategory: String, CaseIterable, Codable {
         case .radar: .yesNo
         case .tentacles: .text
         case .photos: .photo
+        }
+    }
+    
+    func writeQuestion(arg: String) -> String {
+        switch self {
+        case .matching:
+            return "Is your nearest \(arg) the same as mine?"
+        case .measuring:
+            return "Compared to me, are you closer or further from \(arg)?"
+        case .thermometer:
+            return "I've traveled \(arg), am I hotter or colder?"
+        case .radar:
+            return "Are you within \(arg) of me?"
+        case .tentacles:
+            return "Of all the \(arg) within 1 mile, which one are you closest to?"
+        case .photos:
+            return "Send a photo of \(arg) within 10 minutes."
         }
     }
 }

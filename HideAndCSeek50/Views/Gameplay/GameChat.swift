@@ -22,22 +22,25 @@ class ChatViewModel: ObservableObject {
     private var isViewVisible = false
     
     func startMonitoring(gameId: String) {
-        databaseManager.observeGameMessages(gameId: gameId) { [weak self] newMessages in
-            Task { @MainActor in
+        // Subscribe to the unified game observation
+        databaseManager.$currentGame
+            .compactMap { $0 } // Filter out nil values
+            .map { game -> [GameMessage] in
+                return Array(game.messages.values).sorted { $0.timestamp < $1.timestamp }
+            }
+            .sink { [weak self] newMessages in
                 guard let self = self else { return }
-                
-                let sortedMessages = newMessages.sorted { $0.timestamp < $1.timestamp }
                 
                 // Check for unread messages before updating self.messages
                 if !self.isViewVisible,
-                   let lastMessage = sortedMessages.last,
+                   let lastMessage = newMessages.last,
                    lastMessage.id != self.lastReadMessageId {
                     self.hasUnreadMessages = true
                 }
                 
-                self.messages = sortedMessages
+                self.messages = newMessages
             }
-        }
+            .store(in: &cancellables)
     }
     
     func markAsRead() {
@@ -73,14 +76,13 @@ class ChatViewModel: ObservableObject {
             content: content.trimmingCharacters(in: .whitespacesAndNewlines),
             type: .text,
             timestamp: Date(),
-            team: currentPlayerTeam == .hiders ? .hiders : .seekers,
             attachments: nil,
             questionData: nil,
-            reactions: [:]
+            team: currentPlayerTeam,
         )
         
         do {
-            try await databaseManager.sendGameMessage(gameId: gameId, message: message)
+            try await databaseManager.sendMessage(gameId: gameId, message: message)
         } catch {
             // Handle error silently or show alert
         }
@@ -179,7 +181,6 @@ struct MessageBubble: View {
         switch message.team {
         case .hiders: return .blue
         case .seekers: return .red
-        case .all: return .gray
         }
     }
     

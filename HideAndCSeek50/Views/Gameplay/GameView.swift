@@ -71,7 +71,7 @@ struct GameView: View {
                     setupMapRegion()
                     requestLocationPermission()
                     startLocationUpdates()
-                    loadGameData()
+                    observeGameUpdates() // Set up real-time observers
                     // Start monitoring chat messages
                     chatViewModel.startMonitoring(gameId: gameId)
                     
@@ -311,12 +311,12 @@ struct GameView: View {
             let playerLocation = PlayerLocation(
                 latitude: location.coordinate.latitude,
                 longitude: location.coordinate.longitude,
-                accuracy: location.horizontalAccuracy,
                 timestamp: Date()
             )
             try? await databaseManager.updatePlayerLocation(
                 gameId: gameId,
                 playerUID: currentUID,
+                team: playerTeam,
                 location: playerLocation
             )
         }
@@ -341,33 +341,18 @@ struct GameView: View {
         }
     }
     
-    private func loadGameData() {
-        Task {
-            do {
-                // Start listening to game updates (includes team info and locations)
-                databaseManager.startListeningToGame(gameId: gameId)
-                databaseManager.startListeningToLocations(gameId: gameId)
-                
-                let gameInfo = try await databaseManager.getGameInfo(gameId: gameId)
-                await MainActor.run {
-                    setupMapRegion()
-                }
-                
-                // Set up real-time observers
-                observeGameUpdates()
-                
-            } catch {
-                print("Error loading game data: \(error)")
-            }
-        }
-    }
 
     private func observeGameUpdates() {
+        databaseManager.startListeningToGame(gameId: gameId)
+        
         // Listen to changes in currentGame - this handles all game data
+        // including messages, questions, player locations, etc.
         databaseManager.$currentGame
             .sink { _ in
-                // GameMapView will automatically update when currentGame changes
-                // because it's passed directly to the map view
+                // All UI components will automatically update when currentGame changes
+                // GameMapView gets the updated game data
+                // Chat and other views can access game.messages
+                // Questions can be accessed via game.questions
             }
             .store(in: &cancellables)
     }

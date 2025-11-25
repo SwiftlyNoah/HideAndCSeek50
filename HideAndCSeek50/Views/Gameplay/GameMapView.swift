@@ -46,7 +46,7 @@ struct GameMapView: UIViewRepresentable {
         // Get all players with their teams and names
         for (uid, player) in game.teams.hiders {
             if uid != currentUserUID, // Don't show current user
-               let location = game.locations[uid] {
+               let location = player.location {
                 let clLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
                 visiblePlayers.append((uid, clLocation, .hiders, player.displayName))
             }
@@ -54,7 +54,7 @@ struct GameMapView: UIViewRepresentable {
         
         for (uid, player) in game.teams.seekers {
             if uid != currentUserUID, // Don't show current user
-               let location = game.locations[uid] {
+               let location = player.location {
                 let clLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
                 visiblePlayers.append((uid, clLocation, .seekers, player.displayName))
             }

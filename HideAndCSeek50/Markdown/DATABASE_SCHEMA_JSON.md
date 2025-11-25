@@ -258,15 +258,6 @@ games: {
         "lat": 0,
         "lng": 0
       }
-    },
-
-    "mapUpdate": {
-      "eliminatedAreas": [
-        { "centerLat": 0, "centerLng": 0, "radius": 0 }
-      ],
-      "revealedAreas": [
-        { "centerLat": 0, "centerLng": 0, "radius": 0 }
-      ]
     }
   }
 }

@@ -89,14 +89,11 @@ class DatabaseManager: ObservableObject {
     
     private let database = Database.database()
     private var gameListeners: [String: DatabaseHandle] = [:]
-    private var locationListeners: [String: DatabaseHandle] = [:]
     private var lobbyListeners: [String: DatabaseHandle] = [:]
     
     @Published var currentGame: Game?
     @Published var currentLobby: Lobby?
     @Published var publicLobbies: [Lobby] = []
-    @Published var playerLocations: [String: PlayerLocation] = [:]
-    @Published var gameMessages: [GameMessage] = []
     @Published var isConnected = false
     
     private init() {
@@ -273,8 +270,6 @@ class DatabaseManager: ObservableObject {
         try await lobbyRef.updateChildValues(updates)
     }
     
-    // MARK: - Game Management
-    
     func startGameFromLobby(lobbyCode: String) async throws -> String {
         guard let lobby = currentLobby,
               lobby.code == lobbyCode,
@@ -339,76 +334,33 @@ class DatabaseManager: ObservableObject {
         
         return gameId
     }
-    
-    func getGameInfo(gameId: String) async throws -> GameInfo {
-        let snapshot = try await DatabaseReference.game(gameId).child("info").getData()
-        guard let data = snapshot.value as? [String: Any] else {
-            throw DatabaseError.gameNotFound
-        }
-        return try GameInfo.fromDictionary(data)
-    }
-    
-    func updatePlayerLocation(gameId: String, playerUID: String, location: CLLocation) async throws {
-        let locationData: [String: Any] = [
-            "latitude": location.coordinate.latitude,
-            "longitude": location.coordinate.longitude,
-            "timestamp": Date().toFirebaseTimestamp(),
-            "accuracy": location.horizontalAccuracy
-        ]
-        
-        let locationRef = DatabaseReference.game(gameId).child("locations").child(playerUID)
-        try await locationRef.setValue(locationData)
-    }
-    
-    func sendGameMessage(gameId: String, message: GameMessage) async throws {
+
+    func sendMessage(gameId: String, message: GameMessage) async throws {
         let messageRef = DatabaseReference.game(gameId).child("messages").child(message.id)
-        let messageData = try message.toDictionary()
-        try await messageRef.setValue(messageData)
+        try await messageRef.setValue(try message.toDictionary())
     }
     
-    func getGameMessages(gameId: String) async throws -> [GameMessage] {
-        let snapshot = try await DatabaseReference.game(gameId).child("messages").getData()
-        guard let data = snapshot.value as? [String: [String: Any]] else {
-            return []
-        }
-        
-        var messages: [GameMessage] = []
-        for (_, messageData) in data {
-            if let message = try? GameMessage.fromDictionary(messageData) {
-                messages.append(message)
-            }
-        }
-        
-        return messages.sorted { $0.timestamp < $1.timestamp }
-    }
-    
-    func observeGame(gameId: String, completion: @escaping (GameInfo) -> Void) {
-        let gameRef = DatabaseReference.game(gameId).child("info")
+    func observeGame(gameId: String, completion: @escaping (Game?) -> Void) {
+        let gameRef = DatabaseReference.game(gameId)
         gameRef.observe(.value) { snapshot in
-            guard let data = snapshot.value as? [String: Any],
-                  let gameInfo = try? GameInfo.fromDictionary(data) else {
-                return
-            }
-            completion(gameInfo)
-        }
-    }
-    
-    func observeGameMessages(gameId: String, completion: @escaping ([GameMessage]) -> Void) {
-        let messagesRef = DatabaseReference.game(gameId).child("messages")
-        messagesRef.observe(.value) { snapshot in
-            guard let data = snapshot.value as? [String: [String: Any]] else {
-                completion([])
+            guard let data = snapshot.value as? [String: Any] else {
+                completion(nil)
                 return
             }
             
-            var messages: [GameMessage] = []
-            for (_, messageData) in data {
-                if let message = try? GameMessage.fromDictionary(messageData) {
-                    messages.append(message)
+            do {
+                let game = try Game.fromDictionary(data)
+                completion(game)
+            } catch {
+                print("Error parsing game data: \(error)")
+                // Fallback if only info exists
+                if let infoDict = data["info"] as? [String: Any],
+                   let info = try? GameInfo.fromDictionary(infoDict) {
+                    completion(Game(info: info, teams: GameTeams()))
+                } else {
+                    completion(nil)
                 }
             }
-            
-            completion(messages.sorted { $0.timestamp < $1.timestamp })
         }
     }
     
@@ -458,7 +410,6 @@ class DatabaseManager: ObservableObject {
     }
     
     // MARK: - Game Management
-    
     func createGame(info: GameInfo) async throws -> String {
         let gameRef = DatabaseReference.game(info.gameId)
         let game = Game(info: info, teams: GameTeams())
@@ -493,7 +444,8 @@ class DatabaseManager: ObservableObject {
         let member = Player(
             uid: playerUID,
             displayName: displayName,
-            isReady: false
+            isReady: false,
+            location: nil
         )
         
         let teamPath = "teams/\(team.rawValue)/\(playerUID)"
@@ -672,7 +624,7 @@ class DatabaseManager: ObservableObject {
         try await ref.updateChildValues(updates)
     }
     
-    // MARK: - Seeking Timer Management (new)
+    // MARK: - Seeking Timer Management
     func startSeekingTimer(gameId: String) async throws {
         let ref = DatabaseReference.game(gameId).child("info")
         let now = Date().toFirebaseTimestamp()
@@ -715,83 +667,16 @@ class DatabaseManager: ObservableObject {
     
     // MARK: - Location Management
     
-    func updatePlayerLocation(gameId: String, playerUID: String, location: PlayerLocation) async throws {
-        let locationRef = DatabaseReference.game(gameId).child("locations").child(playerUID)
-        try await locationRef.setValue(try location.toDictionary())
-        
+    func updatePlayerLocation(gameId: String, playerUID: String, team: Team, location: PlayerLocation) async throws {
+        let playerLocationRef = DatabaseReference.game(gameId).child("teams/\(team.rawValue)/\(playerUID)/location")
+        try await playerLocationRef.setValue(try location.toDictionary())
+
         // Update last activity
         try await DatabaseReference.activeGames().child(gameId).child("lastActivity").setValue(Date().toFirebaseTimestamp())
     }
     
-    func getPlayerLocations(gameId: String) async throws -> [String: PlayerLocation] {
-        let snapshot = try await DatabaseReference.game(gameId).child("locations").getData()
-        guard let data = snapshot.value as? [String: [String: Any]] else {
-            return [:]
-        }
-        
-        var locations: [String: PlayerLocation] = [:]
-        for (uid, locationData) in data {
-            if let location = try? PlayerLocation.fromDictionary(locationData) {
-                locations[uid] = location
-            }
-        }
-        return locations
-    }
     
-    // MARK: - Question Management
-    
-    func getGameQuestions(gameId: String) async throws -> [GameQuestion] {
-        let snapshot = try await DatabaseReference.game(gameId).child("questions").getData()
-        guard let data = snapshot.value as? [String: [String: Any]] else {
-            return []
-        }
-        
-        var questions: [GameQuestion] = []
-        for (_, questionData) in data {
-            if let question = try? GameQuestion.fromDictionary(questionData) {
-                questions.append(question)
-            }
-        }
-        
-        return questions.sorted { $0.askedAt < $1.askedAt }
-    }
-    
-    func getUnansweredQuestions(gameId: String) async throws -> [GameQuestion] {
-        let allQuestions = try await getGameQuestions(gameId: gameId)
-        return allQuestions.filter { $0.answeredBy == nil }
-    }
-    
-    func getQuestionsByType(gameId: String, type: QuestionType) async throws -> [GameQuestion] {
-        let allQuestions = try await getGameQuestions(gameId: gameId)
-        return allQuestions.filter { $0.type == type }
-    }
-    
-    func observeGameQuestions(gameId: String, completion: @escaping ([GameQuestion]) -> Void) {
-        let questionsRef = DatabaseReference.game(gameId).child("questions")
-        questionsRef.observe(.value) { snapshot in
-            guard let data = snapshot.value as? [String: [String: Any]] else {
-                completion([])
-                return
-            }
-            
-            var questions: [GameQuestion] = []
-            for (_, questionData) in data {
-                if let question = try? GameQuestion.fromDictionary(questionData) {
-                    questions.append(question)
-                }
-            }
-            
-            completion(questions.sorted { $0.askedAt < $1.askedAt })
-        }
-    }
-    
-    // MARK: - Messaging
-    
-    func sendMessage(gameId: String, message: GameMessage) async throws {
-        let messageRef = DatabaseReference.game(gameId).child("messages").child(message.id)
-        try await messageRef.setValue(try message.toDictionary())
-    }
-    
+    // MARK: - Questions
     func sendQuestion(gameId: String, question: GameQuestion) async throws {
         let questionRef = DatabaseReference.game(gameId).child("questions").child(question.id)
         try await questionRef.setValue(try question.toDictionary())
@@ -800,18 +685,18 @@ class DatabaseManager: ObservableObject {
         let message = GameMessage(
             id: UUID().uuidString,
             senderUID: question.askedBy,
-            senderName: "Seeker", // Get actual name from user data
+            senderName: "Seekers",
             content: question.question,
             type: .question,
             timestamp: question.askedAt,
-            team: .all,
             attachments: nil,
             questionData: QuestionData(
                 questionId: question.id,
                 questionText: question.question,
                 correctAnswer: nil,
                 playerAnswer: nil
-            )
+            ),
+            team: .seekers
         )
         
         try await sendMessage(gameId: gameId, message: message)
@@ -832,21 +717,32 @@ class DatabaseManager: ObservableObject {
     
     
     // MARK: - Real-time Listeners
-    
     func startListeningToGame(gameId: String) {
         stopListeningToGame(gameId: gameId)
         let ref = DatabaseReference.game(gameId)
         let handle = ref.observe(.value) { [weak self] snapshot in
-            guard let data = snapshot.value as? [String: Any],
-                  let parsed = try? Game.fromDictionary(data) else {
-                // Fallback if only info exists
-                if let infoDict = (snapshot.value as? [String: Any])?["info"] as? [String: Any],
-                   let info = try? GameInfo.fromDictionary(infoDict) {
-                    DispatchQueue.main.async { self?.currentGame = Game(info: info, teams: GameTeams()) }
+            guard let data = snapshot.value as? [String: Any] else {
+                DispatchQueue.main.async {
+                    self?.currentGame = nil
                 }
                 return
             }
-            DispatchQueue.main.async { self?.currentGame = parsed }
+            
+            do {
+                let game = try Game.fromDictionary(data)
+                DispatchQueue.main.async {
+                    self?.currentGame = game
+                }
+            } catch {
+                print("Error parsing game data: \(error)")
+                // Fallback if only info exists
+                if let infoDict = data["info"] as? [String: Any],
+                   let info = try? GameInfo.fromDictionary(infoDict) {
+                    DispatchQueue.main.async {
+                        self?.currentGame = Game(info: info, teams: GameTeams())
+                    }
+                }
+            }
         }
         gameListeners[gameId] = handle
     }
@@ -855,48 +751,6 @@ class DatabaseManager: ObservableObject {
         if let handle = gameListeners[gameId] {
             DatabaseReference.game(gameId).removeObserver(withHandle: handle)
             gameListeners.removeValue(forKey: gameId)
-        }
-    }
-    
-    func startListeningToLocations(gameId: String) {
-        stopListeningToLocations(gameId: gameId)
-        
-        let locationsRef = DatabaseReference.game(gameId).child("locations")
-        let handle = locationsRef.observe(.value) { [weak self] snapshot in
-            guard let data = snapshot.value as? [String: [String: Any]] else { return }
-            
-            var locations: [String: PlayerLocation] = [:]
-            for (uid, locationData) in data {
-                if let location = try? PlayerLocation.fromDictionary(locationData) {
-                    locations[uid] = location
-                }
-            }
-            
-            DispatchQueue.main.async {
-                self?.playerLocations = locations
-            }
-        }
-        
-        locationListeners[gameId] = handle
-    }
-    
-    func stopListeningToLocations(gameId: String) {
-        if let handle = locationListeners[gameId] {
-            DatabaseReference.game(gameId).child("locations").removeObserver(withHandle: handle)
-            locationListeners.removeValue(forKey: gameId)
-        }
-    }
-    
-    func startListeningToMessages(gameId: String) {
-        let messagesRef = DatabaseReference.game(gameId).child("messages")
-        messagesRef.observe(.childAdded) { [weak self] snapshot, previousKey in
-            guard let data = snapshot.value as? [String: Any],
-                  let message = try? GameMessage.fromDictionary(data) else { return }
-            
-            DispatchQueue.main.async {
-                self?.gameMessages.append(message)
-                self?.gameMessages.sort { $0.timestamp < $1.timestamp }
-            }
         }
     }
     

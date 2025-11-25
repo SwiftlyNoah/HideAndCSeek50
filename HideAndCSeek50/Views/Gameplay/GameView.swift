@@ -15,6 +15,14 @@ struct GameView: View {
     let gameId: String
     let lobbyCode: String
     let playerTeam: Team
+    let onReturnToMain: (() -> Void)? // New callback for returning to main
+    
+    init(gameId: String, lobbyCode: String, playerTeam: Team, onReturnToMain: (() -> Void)? = nil) {
+        self.gameId = gameId
+        self.lobbyCode = lobbyCode
+        self.playerTeam = playerTeam
+        self.onReturnToMain = onReturnToMain
+    }
     
     @StateObject private var locationManager = LocationManager.shared
     @StateObject private var databaseManager = DatabaseManager.shared
@@ -225,8 +233,10 @@ struct GameView: View {
             .sheet(isPresented: $showingSettings) {
                 GameSettingsView(
                     gameId: gameId,
+                    lobbyCode: lobbyCode,
                     onLeaveGame: {
                         dismiss()
+                        onReturnToMain?() // Call the callback to return to main
                     }
                 )
             }
@@ -360,24 +370,42 @@ struct GameView: View {
 
 struct GameSettingsView: View {
     let gameId: String
+    let lobbyCode: String
     let onLeaveGame: () -> Void
     
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authManager: AuthenticationManager
+    @StateObject private var databaseManager = DatabaseManager.shared
+    @State private var isLeavingGame = false
     
     var body: some View {
         NavigationStack {
             Form {
                 Section {
                     Button("Leave Game", role: .destructive) {
-                        onLeaveGame()
-                        dismiss()
+                        leaveGame()
                     }
+                    .disabled(isLeavingGame)
                 }
                 
                 Section("Game Info") {
                     Text("Game ID: \(gameId)")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                    Text("Lobby Code: \(lobbyCode)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                if isLeavingGame {
+                    Section {
+                        HStack {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                            Text("Leaving game...")
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
             }
             .navigationTitle("Game Settings")
@@ -387,6 +415,34 @@ struct GameSettingsView: View {
                     Button("Done") {
                         dismiss()
                     }
+                }
+            }
+        }
+    }
+    
+    private func leaveGame() {
+        guard let currentUser = authManager.currentUser else { return }
+        
+        isLeavingGame = true
+        
+        Task {
+            do {
+                // Leave both game and lobby
+                try await databaseManager.leaveGame(
+                    gameId: gameId, 
+                    playerUID: currentUser.uid,
+                    lobbyCode: lobbyCode
+                )
+                
+                await MainActor.run {
+                    isLeavingGame = false
+                    dismiss()
+                    onLeaveGame()
+                }
+            } catch {
+                await MainActor.run {
+                    isLeavingGame = false
+                    print("Error leaving game: \(error.localizedDescription)")
                 }
             }
         }

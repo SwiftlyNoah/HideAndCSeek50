@@ -38,7 +38,6 @@ struct GameMapView: UIViewRepresentable {
     let hidableRegions: [MKPolygon]
     
     private var visiblePlayerLocations: [(String, CLLocation, Team, String)] {
-        print(game)
         guard let game = game else { return [] }
         
         var visiblePlayers: [(String, CLLocation, Team, String)] = []

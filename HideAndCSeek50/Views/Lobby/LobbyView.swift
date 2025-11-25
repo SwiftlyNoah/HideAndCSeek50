@@ -136,14 +136,18 @@ struct LobbyView: View {
                         GameView(
                             gameId: gameId,
                             lobbyCode: lobbyCode,
-                            playerTeam: currentPlayer.team
+                            playerTeam: currentPlayer.team,
+                            onReturnToMain: {
+                                // Dismiss the lobby view to return to main
+                                dismiss()
+                            }
                         )
                     }
                     else {
                         Color.red
                     }
                 }
-        }
+            }
         .sheet(isPresented: $showingSettings) {
                 if let lobby = lobby {
                     LobbySettingsView(lobby: lobby, lobbyCode: lobbyCode)

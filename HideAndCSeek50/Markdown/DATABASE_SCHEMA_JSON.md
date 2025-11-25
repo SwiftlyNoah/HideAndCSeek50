@@ -18,7 +18,6 @@ hideandcseek50/
 │   └── {gameID}/
 │       ├── info/
 │       ├── teams/
-│       ├── locations/
 │       ├── messages/
 │       ├── questions/
 │       └── events/
@@ -140,57 +139,26 @@ games: {
 ```jsonc
 "teams": {
   "hiders": {
-    "members": {
-      "userUID1": {
-        "uid": "string",
-        "displayName": "string",
-        "isReady": true,
-        "joinedAt": "timestamp",
-        "isOnline": true,
-        "score": 0,
-        "isAlive": true
+    "userUID1": {
+      "uid": "string",
+      "displayName": "string",
+      "isReady": true,
+      "location": {
+        "latitude": 0,
+        "longitude": 0,
+        "timestamp": "timestamp"
       }
-    },
-    "teamScore": 0,
-    "membersFound": 0,
-    "averageHidingTime": 0
+    }
   },
 
   "seekers": {
-    "members": {
-      "userUID2": {
-        "uid": "string",
-        "displayName": "string",
-        "isReady": true,
-        "joinedAt": "timestamp",
-        "isOnline": true,
-        "score": 0,
-        "hidersFound": 0
-      }
-    },
-    "teamScore": 0,
-    "totalHidersFound": 0,
-    "averageFindTime": 0
-  }
-}
-```
-
----
-
-## Locations
-
-```jsonc
-"locations": {
-  "userUID1": {
-    "latitude": 0,
-    "longitude": 0,
-    "accuracy": 0,
-    "timestamp": "timestamp",
-
-    "locationHistory": {
-      "timestamp1": {
-        "lat": 0,
-        "lng": 0,
+    "userUID2": {
+      "uid": "string", 
+      "displayName": "string",
+      "isReady": true,
+      "location": {
+        "latitude": 0,
+        "longitude": 0,
         "timestamp": "timestamp"
       }
     }
@@ -364,64 +332,46 @@ invitations: {
     // Game data - only game participants can access
     "games": {
       "$gameId": {
-        ".read": "auth != null && (data.child('teams/hiders/members/' + auth.uid).exists() || data.child('teams/seekers/members/' + auth.uid).exists() || data.child('info/hostUID').val() == auth.uid)",
+        ".read": "auth != null && (data.child('teams/hiders/' + auth.uid).exists() || data.child('teams/seekers/' + auth.uid).exists() || data.child('info/hostUID').val() == auth.uid)",
         
         // Game info can be modified by host or participants (for ready status, etc.)
         "info": {
-          ".write": "auth != null && (root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid || root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists())"
+          ".write": "auth != null && (root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid || root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists())"
         },
 
-        // Teams - players can join teams and update their own status
+        // Teams - players can update their own status and location
         "teams": {
           "hiders": {
-            "members": {
-              "$uid": {
-                ".write": "$uid === auth.uid || root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
-              }
-            },
-            "teamScore": {
-              ".write": "auth != null && root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
+            "$uid": {
+              ".write": "$uid === auth.uid || root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
             }
           },
           "seekers": {
-            "members": {
-              "$uid": {
-                ".write": "$uid === auth.uid || root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
-              }
-            },
-            "teamScore": {
-              ".write": "auth != null && root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
+            "$uid": {
+              ".write": "$uid === auth.uid || root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
             }
-          }
-        },
-
-        // Locations - users can only update their own location
-        "locations": {
-          "$uid": {
-            ".write": "$uid === auth.uid",
-            ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists())"
           }
         },
 
         // Messages - game participants can send messages
         "messages": {
           "$messageId": {
-            ".write": "auth != null && newData.child('senderUID').val() == auth.uid && (root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists())",
-            ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists())"
+            ".write": "auth != null && newData.child('senderUID').val() == auth.uid && (root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists())",
+            ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists())"
           }
         },
 
         // Questions - seekers can ask, hiders can answer
         "questions": {
           "$questionId": {
-            ".write": "auth != null && ((newData.child('askedBy').val() == auth.uid && root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists()) || (newData.child('answeredBy').val() == auth.uid && root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists()))",
-            ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists())"
+            ".write": "auth != null && ((newData.child('askedBy').val() == auth.uid && root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists()) || (newData.child('answeredBy').val() == auth.uid && root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists()))",
+            ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists())"
           }
         },
 
         // Events - read-only for participants, write access for system/host
         "events": {
-          ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/members/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/members/' + auth.uid).exists())",
+          ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists())",
           "$eventId": {
             ".write": "auth != null && root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
           }

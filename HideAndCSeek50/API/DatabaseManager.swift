@@ -464,20 +464,22 @@ class DatabaseManager: ObservableObject {
         )
     }
     
-    func leaveGame(gameId: String, playerUID: String) async throws {
+    func leaveGame(gameId: String, playerUID: String, lobbyCode: String? = nil) async throws {
         let gameRef = DatabaseReference.game(gameId)
         
         // Remove from both teams (in case they switched)
         try await gameRef.child("teams/hiders/\(playerUID)").removeValue()
         try await gameRef.child("teams/seekers/\(playerUID)").removeValue()
         
-        // Remove location data
-        try await gameRef.child("locations/\(playerUID)").removeValue()
-        
         // Update player count
         let snapshot = try await gameRef.child("info/currentPlayers").getData()
         if let currentCount = snapshot.value as? Int, currentCount > 0 {
             try await gameRef.child("info/currentPlayers").setValue(currentCount - 1)
+        }
+        
+        // If lobby code is provided, also leave the lobby
+        if let lobbyCode = lobbyCode {
+            try await leaveLobby(code: lobbyCode, playerUID: playerUID)
         }
         
         // Log leave event

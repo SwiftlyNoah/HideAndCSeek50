@@ -30,6 +30,7 @@ struct GameView: View {
     @State private var showingSettings = false
     @State private var showingSkipConfirmation = false
     @State private var showingFoundConfirmation = false
+    @State private var showingTimerActions = false
     @State private var timerUpdater: Timer?
     
     // Local timer state for smooth UI updates
@@ -50,8 +51,6 @@ struct GameView: View {
     private var gameCity: GameCity {
         currentGame?.info.settings.city ?? .boston
     }
-    
-
     
     private let hidableRegions = MassachusettsRegions.hidableAreas
     
@@ -91,37 +90,33 @@ struct GameView: View {
                 }
                 
                 // Minimal overlay controls
-                VStack {
-                    // Top integrated timer UI
-                    VStack(spacing: 12) {
-                        HStack {
-                            Button(action: { showingSettings = true }) {
-                                Image(systemName: "gearshape.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.white)
-                                    .padding(12)
-                                    .background(Color.black.opacity(0.7))
-                                    .clipShape(Circle())
-                            }
-                            
-                            Spacer()
-                            
-                            // Team indicator
-                            Circle()
-                                .fill(playerTeam.swiftUIColor)
+                VStack(spacing: 12) {
+                    HStack {
+                        Button(action: { showingSettings = true }) {
+                            Image(systemName: "gearshape.fill")
+                                .font(.title3)
+                                .foregroundColor(.white)
                                 .frame(width: 40, height: 40)
-                                .overlay {
-                                    Image(systemName: playerTeam.iconName)
-                                        .foregroundColor(.white)
-                                        .font(.title3)
-                                }
+                                .background(Color.black.opacity(0.7))
+                                .clipShape(Circle())
                         }
                         
-                        // Integrated Timer UI based on game state
+                        Spacer()
+                        
                         timerUI
+                        
+                        Spacer()
+                        
+                        // Team indicator
+                        Image(systemName: playerTeam.iconName)
+                            .font(.title3)
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(playerTeam.swiftUIColor)
+                            .clipShape(Circle())
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 60)
+                    .padding(.top, 20)
                     
                     Spacer()
                     
@@ -129,6 +124,21 @@ struct GameView: View {
                         Spacer()
                         
                         VStack(spacing: 12) {
+                            // Timer Actions Button (only show when timer is running)
+                            if gameState == .hiding || gameState == .seeking {
+                                Button(action: { showingTimerActions = true }) {
+                                    ZStack {
+                                        Circle()
+                                            .fill((gameState == .hiding ? Color.blue : Color.red).opacity(0.9))
+                                            .frame(width: 56, height: 56)
+                                        
+                                        Image(systemName: "timer")
+                                            .font(.title2)
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                            }
+                            
                             // Question button (for seekers only)
                             if playerTeam == .seekers {
                                 Button(action: { showingQuestionView = true }) {
@@ -167,7 +177,7 @@ struct GameView: View {
                         }
                     }
                     .padding(.trailing, 20)
-                    .padding(.bottom, 50)
+                    .padding(.bottom, 40)
                 }
             }
             .navigationBarHidden(true)
@@ -208,6 +218,27 @@ struct GameView: View {
                 GameQuestionView(
                     gameId: gameId,
                     currentUser: currentUser
+                )
+            }
+            .sheet(isPresented: $showingTimerActions) {
+                TimerActionsView(
+                    gameState: gameState,
+                    onPause: {
+                        if gameState == .hiding {
+                            pauseHidingPhase()
+                        } else if gameState == .seeking {
+                            pauseSeekingPhase()
+                        }
+                        showingTimerActions = false
+                    },
+                    onSkip: {
+                        showingTimerActions = false
+                        showingSkipConfirmation = true
+                    },
+                    onFound: {
+                        showingTimerActions = false
+                        showingFoundConfirmation = true
+                    }
                 )
             }
             .confirmationDialog("Skip Hiding Phase", isPresented: $showingSkipConfirmation, titleVisibility: .visible) {
@@ -332,199 +363,129 @@ struct GameView: View {
             Text(gameState.displayName)
                 .font(.headline)
                 .foregroundColor(.white)
-                .padding()
+                .padding(.horizontal, 12)
+                .frame(height: 40)
                 .background(Color.black.opacity(0.7))
                 .clipShape(Capsule())
                 
         case .preHiding:
-            VStack(spacing: 8) {
-                Text("Ready to Hide")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                Button("Start Hiding Timer") {
-                    startHidingPhase()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.blue)
+            Button("Start Hiding Timer") {
+                startHidingPhase()
             }
-            .padding()
-            .background(Color.black.opacity(0.7))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .font(.headline)
+            .frame(height: 40)
+            .buttonStyle(.borderedProminent)
+            .tint(.blue)
             
         case .hiding:
-            hidingTimerUI
+            // Compact circular progress
+            HStack(spacing: 16) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.3), lineWidth: 6)
+                        .frame(width: 24, height: 24)
+                    
+                    Circle()
+                        .trim(from: 0, to: hidingProgress)
+                        .stroke(Color.blue, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                        .frame(width: 24, height: 24)
+                        .rotationEffect(.degrees(-90))
+                }
+                
+                Text(formatTime(hidingTimeRemaining))
+                    .font(.system(.title3, design: .monospaced))
+                    .foregroundColor(.white)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(Color.black.opacity(0.7))
+            .clipShape(Capsule())
             
         case .hidingPaused:
-            pausedHidingTimerUI
+            HStack(spacing: 8) {
+                Image(systemName: "pause.fill")
+                    .foregroundColor(.orange)
+                    .font(.caption2)
+                
+                Text(formatTime(hidingTimeRemaining))
+                    .font(.system(.title3, design: .monospaced))
+                    .foregroundColor(.white)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(Color.black.opacity(0.7))
+            .clipShape(Capsule())
+            
+            Button("Resume") {
+                resumeHidingPhase()
+            }
+            .font(.headline)
+            .frame(height: 40)
+            .buttonStyle(.borderedProminent)
+            .tint(.blue)
             
         case .preSeeking:
-            VStack(spacing: 8) {
-                Text("Ready to Seek")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                Button("Start Seeking Timer") {
-                    startSeekingPhase()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
+            Button("Start Seeking Timer") {
+                startSeekingPhase()
             }
-            .padding()
-            .background(Color.black.opacity(0.7))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .font(.headline)
+            .frame(height: 40)
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
             
         case .seeking:
-            seekingTimerUI
+            Text("Seeking: " + formatTime(currentSeekingTime))
+                .font(.system(.title3, design: .monospaced))
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .frame(height: 40)
+                .background(Color.black.opacity(0.7))
+                .clipShape(Capsule())
             
         case .seekingPaused:
-            pausedSeekingTimerUI
+            HStack(spacing: 8) {
+                Image(systemName: "pause.fill")
+                    .foregroundColor(.orange)
+                    .font(.caption2)
+                
+                Text(formatTime(currentSeekingTime))
+                    .font(.system(.title3, design: .monospaced))
+                    .foregroundColor(.white)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(Color.black.opacity(0.7))
+            .clipShape(Capsule())
+            
+            Button("Resume") {
+                resumeSeekingPhase()
+            }
+            .font(.headline)
+            .frame(height: 40)
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
             
         case .completed:
-            Text("Game Complete")
-                .font(.headline)
+            Text("Complete")
+                .font(.title3)
                 .foregroundColor(.white)
-                .padding()
+                .padding(.horizontal, 12)
+                .frame(height: 40)
                 .background(Color.green.opacity(0.8))
                 .clipShape(Capsule())
                 
         case .cancelled:
-            Text("Game Cancelled")
-                .font(.headline)
+            Text("Cancelled")
+                .font(.title3)
                 .foregroundColor(.white)
-                .padding()
+                .padding(.horizontal, 12)
+                .frame(height: 40)
                 .background(Color.red.opacity(0.8))
                 .clipShape(Capsule())
         }
     }
     
-    private var hidingTimerUI: some View {
-        VStack(spacing: 8) {
-            // Blue circular progress ring
-            ZStack {
-                Circle()
-                    .stroke(Color.white.opacity(0.3), lineWidth: 4)
-                    .frame(width: 80, height: 80)
-                
-                Circle()
-                    .trim(from: 0, to: hidingProgress)
-                    .stroke(Color.blue, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                    .frame(width: 80, height: 80)
-                    .rotationEffect(.degrees(-90))
-                
-                Text(formatTime(hidingTimeRemaining))
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundColor(.white)
-            }
-            
-            HStack(spacing: 12) {
-                Button("Pause") {
-                    pauseHidingPhase()
-                }
-                .buttonStyle(.bordered)
-                .tint(.orange)
-                
-                Button("Skip") {
-                    showingSkipConfirmation = true
-                }
-                .buttonStyle(.bordered)
-                .tint(.red)
-            }
-        }
-        .padding()
-        .background(Color.black.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-    
-    private var pausedHidingTimerUI: some View {
-        VStack(spacing: 8) {
-            Text("Hiding Paused")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            Text(formatTime(hidingTimeRemaining))
-                .font(.system(.title, design: .monospaced))
-                .foregroundColor(.blue)
-            
-            HStack(spacing: 12) {
-                Button("Resume") {
-                    resumeHidingPhase()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.blue)
-                
-                Button("Skip") {
-                    showingSkipConfirmation = true
-                }
-                .buttonStyle(.bordered)
-                .tint(.red)
-            }
-        }
-        .padding()
-        .background(Color.black.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-    
-    private var seekingTimerUI: some View {
-        VStack(spacing: 8) {
-            Text("Seeking")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            Text(formatTime(currentSeekingTime))
-                .font(.system(.title, design: .monospaced))
-                .foregroundColor(.red)
-            
-            HStack(spacing: 12) {
-                Button("Pause") {
-                    pauseSeekingPhase()
-                }
-                .buttonStyle(.bordered)
-                .tint(.orange)
-                
-                Button("Found") {
-                    showingFoundConfirmation = true
-                }
-                .buttonStyle(.bordered)
-                .tint(.green)
-            }
-        }
-        .padding()
-        .background(Color.black.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-    
-    private var pausedSeekingTimerUI: some View {
-        VStack(spacing: 8) {
-            Text("Seeking Paused")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            Text(formatTime(currentSeekingTime))
-                .font(.system(.title, design: .monospaced))
-                .foregroundColor(.red)
-            
-            HStack(spacing: 12) {
-                Button("Resume") {
-                    resumeSeekingPhase()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-                
-                Button("Found") {
-                    showingFoundConfirmation = true
-                }
-                .buttonStyle(.bordered)
-                .tint(.green)
-            }
-        }
-        .padding()
-        .background(Color.black.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-    
     // MARK: - Timer Computed Properties
-    
     private var hidingProgress: Double {
         guard let game = currentGame else { return 0 }
         let totalTime = TimeInterval(game.info.settings.hidingTime * 60)
@@ -767,5 +728,69 @@ struct GameSettingsView: View {
                 }
             }
         }
+    }
+}
+
+struct TimerActionsView: View {
+    let gameState: GameState
+    let onPause: () -> Void
+    let onSkip: () -> Void
+    let onFound: () -> Void
+    
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                Text("Timer Actions")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                VStack(spacing: 16) {
+                    if gameState == .hiding || gameState == .seeking {
+                        Button(action: onPause) {
+                            Label("Pause Timer", systemImage: "pause.circle.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.orange)
+                        .controlSize(.large)
+                    }
+                    
+                    if gameState == .hiding {
+                        Button(action: onSkip) {
+                            Label("Skip Hiding Phase", systemImage: "forward.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
+                        .controlSize(.large)
+                    }
+                    
+                    if gameState == .seeking {
+                        Button(action: onFound) {
+                            Label("All Hiders Found", systemImage: "checkmark.circle.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.green)
+                        .controlSize(.large)
+                    }
+                }
+                
+                Spacer()
+            }
+            .padding()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.height(300), .medium])
+        .presentationDragIndicator(.visible)
     }
 }

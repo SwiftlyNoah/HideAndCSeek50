@@ -112,14 +112,6 @@ struct GameView: View {
                             timerUI
                             
                             Spacer()
-                            
-                            // Team indicator
-                            Image(systemName: playerTeam.iconName)
-                                .font(.title3)
-                                .foregroundColor(.white)
-                                .frame(width: 40, height: 40)
-                                .background(playerTeam.swiftUIColor)
-                                .clipShape(Circle())
                         }
                         
                         // Search bar (when visible)
@@ -240,6 +232,7 @@ struct GameView: View {
                     GameSettingsView(
                         gameId: gameId,
                         lobbyCode: lobbyCode,
+                        playerTeam: playerTeam,
                         onLeaveGame: {
                             dismiss()
                             onReturnToMain?() // Call the callback to return to main
@@ -699,6 +692,7 @@ extension GameView {
                     .foregroundColor(.white)
                     .submitLabel(.search)
                     .onSubmit {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                         mapSearchViewModel.search()
                     }
                 
@@ -710,7 +704,10 @@ extension GameView {
                     .padding(.trailing, 8)
                 }
                 
-                Button(action: { mapSearchViewModel.search() }) {
+                Button(action: {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    mapSearchViewModel.search()
+                }) {
                     if mapSearchViewModel.isSearching {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -823,6 +820,7 @@ extension GameView {
 struct GameSettingsView: View {
     let gameId: String
     let lobbyCode: String
+    let playerTeam: Team
     let onLeaveGame: () -> Void
     
     @Environment(\.dismiss) private var dismiss
@@ -841,6 +839,19 @@ struct GameSettingsView: View {
                 }
                 
                 Section("Game Info") {
+                    HStack {
+                        Text("Team")
+                            .foregroundColor(.primary)
+                        Spacer()
+                        HStack(spacing: 6) {
+                            Image(systemName: playerTeam.iconName)
+                                .font(.caption)
+                            Text(playerTeam.displayName)
+                                .fontWeight(.medium)
+                        }
+                        .foregroundColor(playerTeam.swiftUIColor)
+                    }
+                    
                     Text("Game ID: \(gameId)")
                         .font(.caption)
                         .foregroundColor(.secondary)

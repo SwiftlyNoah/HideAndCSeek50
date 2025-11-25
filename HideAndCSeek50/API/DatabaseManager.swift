@@ -295,12 +295,6 @@ class DatabaseManager: ObservableObject {
             )
         )
         
-        // Initialize timer fields
-        gameInfo.hidingTimerState = .notStarted
-        gameInfo.hidingTimerElapsed = 0
-        gameInfo.hidingTimerStartedAt = nil
-        gameInfo.hidingTimerPausedAt = nil
-        
         // Create game in database with initial game structure
         let gameRef = DatabaseReference.game(gameId)
         try await gameRef.child("info").setValue(try gameInfo.toDictionary())
@@ -496,7 +490,7 @@ class DatabaseManager: ObservableObject {
         let now = Date()
         
         let updates: [String: Any] = [
-            "info/state": GameState.inProgress.rawValue,
+            "info/state": GameState.preHiding.rawValue,
             "info/startedAt": now.toFirebaseTimestamp()
         ]
         
@@ -541,129 +535,55 @@ class DatabaseManager: ObservableObject {
         )
     }
     
-    func pauseGame(gameId: String) async throws {
-        let gameRef = DatabaseReference.game(gameId)
-        try await gameRef.child("info/state").setValue(GameState.paused.rawValue)
+    // MARK: - Game State Management
+    
+    func updateGameState(
+        gameId: String, 
+        state: GameState, 
+        hidingStartedAt: Date? = nil,
+        hidingElapsed: TimeInterval? = nil,
+        seekingStartedAt: Date? = nil,
+        seekingElapsed: TimeInterval? = nil,
+        winner: Team? = nil
+    ) async throws {
+        let ref = DatabaseReference.game(gameId).child("info")
         
-        try await logGameEvent(
-            gameId: gameId,
-            type: .gamePaused,
-            playerUID: nil,
-            details: "Game paused"
-        )
-    }
-    
-    func resumeGame(gameId: String) async throws {
-        let gameRef = DatabaseReference.game(gameId)
-        try await gameRef.child("info/state").setValue(GameState.inProgress.rawValue)
+        var updates: [String: Any] = [
+            "state": state.rawValue
+        ]
         
-        try await logGameEvent(
-            gameId: gameId,
-            type: .gameResumed,
-            playerUID: nil,
-            details: "Game resumed"
-        )
-    }
-    
-    // MARK: - Hiding Timer Management
-    func startHidingTimer(gameId: String) async throws {
-        let ref = DatabaseReference.game(gameId).child("info")
-        let now = Date().toFirebaseTimestamp()
-        let updates: [String: Any] = [
-            "hidingTimerState": TimerState.running.rawValue,
-            "hidingTimerStartedAt": now,
-            "hidingTimerPausedAt": NSNull(),
-            "hidingTimerElapsed": 0
-        ]
-        try await ref.updateChildValues(updates)
-    }
-    
-    func pauseHidingTimer(gameId: String, elapsed: TimeInterval) async throws {
-        let ref = DatabaseReference.game(gameId).child("info")
-        let updates: [String: Any] = [
-            "hidingTimerState": TimerState.paused.rawValue,
-            "hidingTimerPausedAt": Date().toFirebaseTimestamp(),
-            "hidingTimerElapsed": elapsed
-        ]
-        try await ref.updateChildValues(updates)
-    }
-    
-    func resumeHidingTimer(gameId: String) async throws {
-        let ref = DatabaseReference.game(gameId).child("info")
-        let updates: [String: Any] = [
-            "hidingTimerState": TimerState.running.rawValue,
-            "hidingTimerStartedAt": Date().toFirebaseTimestamp(),
-            "hidingTimerPausedAt": NSNull()
-        ]
-        try await ref.updateChildValues(updates)
-    }
-    
-    func skipHidingTimer(gameId: String) async throws {
-        let ref = DatabaseReference.game(gameId).child("info")
-        let updates: [String: Any] = [
-            "hidingTimerState": TimerState.skipped.rawValue
-        ]
-        try await ref.updateChildValues(updates)
-    }
-    
-    func completeHidingTimer(gameId: String, totalElapsed: TimeInterval) async throws {
-        let ref = DatabaseReference.game(gameId).child("info")
-        let updates: [String: Any] = [
-            "hidingTimerState": TimerState.completed.rawValue,
-            "hidingTimerElapsed": totalElapsed
-        ]
-        try await ref.updateChildValues(updates)
-    }
-    
-    func resetHidingTimer(gameId: String) async throws {
-        let ref = DatabaseReference.game(gameId).child("info")
-        let updates: [String: Any] = [
-            "hidingTimerState": TimerState.notStarted.rawValue,
-            "hidingTimerStartedAt": NSNull(),
-            "hidingTimerPausedAt": NSNull(),
-            "hidingTimerElapsed": 0
-        ]
-        try await ref.updateChildValues(updates)
-    }
-    
-    // MARK: - Seeking Timer Management
-    func startSeekingTimer(gameId: String) async throws {
-        let ref = DatabaseReference.game(gameId).child("info")
-        let now = Date().toFirebaseTimestamp()
-        let updates: [String: Any] = [
-            "seekingTimerState": TimerState.running.rawValue,
-            "seekingTimerStartedAt": now,
-            "seekingTimerPausedAt": NSNull(),
-            "seekingTimerElapsed": 0
-        ]
-        try await ref.updateChildValues(updates)
-    }
-    
-    func pauseSeekingTimer(gameId: String, elapsed: TimeInterval) async throws {
-        let ref = DatabaseReference.game(gameId).child("info")
-        let updates: [String: Any] = [
-            "seekingTimerState": TimerState.paused.rawValue,
-            "seekingTimerPausedAt": Date().toFirebaseTimestamp(),
-            "seekingTimerElapsed": elapsed
-        ]
-        try await ref.updateChildValues(updates)
-    }
-    func resumeSeekingTimer(gameId: String) async throws {
-        let ref = DatabaseReference.game(gameId).child("info")
-        let updates: [String: Any] = [
-            "seekingTimerState": TimerState.running.rawValue,
-            "seekingTimerStartedAt": Date().toFirebaseTimestamp(),
-            "seekingTimerPausedAt": NSNull()
-        ]
-        try await ref.updateChildValues(updates)
-    }
-
-    func completeSeekingTimer(gameId: String, totalElapsed: TimeInterval) async throws {
-        let ref = DatabaseReference.game(gameId).child("info")
-        let updates: [String: Any] = [
-            "seekingTimerState": TimerState.completed.rawValue,
-            "seekingTimerElapsed": totalElapsed
-        ]
+        if let hidingStartedAt = hidingStartedAt {
+            updates["hidingStartedAt"] = hidingStartedAt.toFirebaseTimestamp()
+        }
+        
+        if let hidingElapsed = hidingElapsed {
+            updates["hidingElapsed"] = hidingElapsed
+        }
+        
+        if let seekingStartedAt = seekingStartedAt {
+            updates["seekingStartedAt"] = seekingStartedAt.toFirebaseTimestamp()
+        }
+        
+        if let seekingElapsed = seekingElapsed {
+            updates["seekingElapsed"] = seekingElapsed
+        }
+        
+        if let winner = winner {
+            updates["winner"] = winner.rawValue
+        }
+        
+        // Auto-transition: hiding timer complete -> preSeeking
+        if state == .hiding, let hidingElapsed = hidingElapsed {
+            // Check if hiding time is complete
+            let snapshot = try await ref.child("settings/hidingTime").getData()
+            if let hidingTimeMinutes = snapshot.value as? Int {
+                let totalHidingTime = TimeInterval(hidingTimeMinutes * 60)
+                if hidingElapsed >= totalHidingTime {
+                    updates["state"] = GameState.preSeeking.rawValue
+                }
+            }
+        }
+        
         try await ref.updateChildValues(updates)
     }
     
@@ -835,11 +755,6 @@ class DatabaseManager: ObservableObject {
                 city: lobby.city
             )
         )
-        // Explicit initialization (safety for legacy data)
-        info.hidingTimerState = .notStarted
-        info.hidingTimerElapsed = 0
-        info.hidingTimerStartedAt = nil
-        info.hidingTimerPausedAt = nil
         
         _ = try await createGame(info: info)
         

@@ -26,9 +26,7 @@
 		1474BE742ED5164B00568A90 /* GameChat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE6D2ED5164B00568A90 /* GameChat.swift */; };
 		1474BE752ED5164B00568A90 /* GameMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE6E2ED5164B00568A90 /* GameMapView.swift */; };
 		1474BE762ED5164B00568A90 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE6F2ED5164B00568A90 /* GameView.swift */; };
-		1474BE772ED5164B00568A90 /* HidingTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE702ED5164B00568A90 /* HidingTimerView.swift */; };
 		1474BE782ED5164B00568A90 /* QuestionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE712ED5164B00568A90 /* QuestionView.swift */; };
-		1474BE792ED5164B00568A90 /* SeekingTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE722ED5164B00568A90 /* SeekingTimerView.swift */; };
 		1474BE7E2ED5165200568A90 /* AuthenticationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE7A2ED5165200568A90 /* AuthenticationView.swift */; };
 		1474BE7F2ED5165200568A90 /* EmailSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE7B2ED5165200568A90 /* EmailSignInView.swift */; };
 		1474BE802ED5165200568A90 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE7C2ED5165200568A90 /* ProfileView.swift */; };
@@ -68,9 +66,7 @@
 		1474BE6D2ED5164B00568A90 /* GameChat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameChat.swift; sourceTree = "<group>"; };
 		1474BE6E2ED5164B00568A90 /* GameMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameMapView.swift; sourceTree = "<group>"; };
 		1474BE6F2ED5164B00568A90 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
-		1474BE702ED5164B00568A90 /* HidingTimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HidingTimerView.swift; sourceTree = "<group>"; };
 		1474BE712ED5164B00568A90 /* QuestionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionView.swift; sourceTree = "<group>"; };
-		1474BE722ED5164B00568A90 /* SeekingTimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeekingTimerView.swift; sourceTree = "<group>"; };
 		1474BE7A2ED5165200568A90 /* AuthenticationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationView.swift; sourceTree = "<group>"; };
 		1474BE7B2ED5165200568A90 /* EmailSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailSignInView.swift; sourceTree = "<group>"; };
 		1474BE7C2ED5165200568A90 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
@@ -126,9 +122,7 @@
 				1474BE6D2ED5164B00568A90 /* GameChat.swift */,
 				1474BE6E2ED5164B00568A90 /* GameMapView.swift */,
 				1474BE6F2ED5164B00568A90 /* GameView.swift */,
-				1474BE702ED5164B00568A90 /* HidingTimerView.swift */,
 				1474BE712ED5164B00568A90 /* QuestionView.swift */,
-				1474BE722ED5164B00568A90 /* SeekingTimerView.swift */,
 			);
 			path = Gameplay;
 			sourceTree = "<group>";
@@ -312,9 +306,7 @@
 				1474BE742ED5164B00568A90 /* GameChat.swift in Sources */,
 				1474BE752ED5164B00568A90 /* GameMapView.swift in Sources */,
 				1474BE762ED5164B00568A90 /* GameView.swift in Sources */,
-				1474BE772ED5164B00568A90 /* HidingTimerView.swift in Sources */,
 				1474BE782ED5164B00568A90 /* QuestionView.swift in Sources */,
-				1474BE792ED5164B00568A90 /* SeekingTimerView.swift in Sources */,
 				140B02B52EC8791E0005EE81 /* HideAndCSeek50App.swift in Sources */,
 				140B02B62EC8791E0005EE81 /* JoinLobbyView.swift in Sources */,
 				142066B62ECBDE200084F53C /* CityRegions.swift in Sources */,

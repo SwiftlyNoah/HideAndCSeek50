@@ -15,14 +15,7 @@ struct GameView: View {
     let gameId: String
     let lobbyCode: String
     let playerTeam: Team
-    let onReturnToMain: (() -> Void)? // New callback for returning to main
-    
-    init(gameId: String, lobbyCode: String, playerTeam: Team, onReturnToMain: (() -> Void)? = nil) {
-        self.gameId = gameId
-        self.lobbyCode = lobbyCode
-        self.playerTeam = playerTeam
-        self.onReturnToMain = onReturnToMain
-    }
+    let onReturnToMain: (() -> Void)?
     
     @StateObject private var locationManager = LocationManager.shared
     @StateObject private var databaseManager = DatabaseManager.shared
@@ -35,8 +28,12 @@ struct GameView: View {
     @State private var showingChat = false
     @State private var showingQuestionView = false
     @State private var showingSettings = false
-    @State private var showingTimerView = false
-    @State private var showingSeekingTimerView = false
+    @State private var showingSkipConfirmation = false
+    @State private var showingFoundConfirmation = false
+    @State private var timerUpdater: Timer?
+    
+    // Local timer state for smooth UI updates
+    @State private var localCurrentTime = Date()
     
     private var currentUser: User? {
         authManager.currentUser
@@ -47,19 +44,14 @@ struct GameView: View {
     }
     
     private var gameState: GameState {
-        currentGame?.info.state ?? .inProgress
+        currentGame?.info.state ?? .waiting
     }
     
     private var gameCity: GameCity {
         currentGame?.info.settings.city ?? .boston
     }
     
-    private var timeRemaining: TimeInterval {
-        guard let game = currentGame,
-              let startTime = game.info.startedAt else { return 0 }
-        let elapsed = Date().timeIntervalSince(startTime)
-        return max(0, TimeInterval(game.info.settings.hidingTime * 60) - elapsed)
-    }
+
     
     private let hidableRegions = MassachusettsRegions.hidableAreas
     
@@ -76,15 +68,23 @@ struct GameView: View {
                 )
                 .ignoresSafeArea(.all) // Make map take up entire screen
                 .onAppear {
+                    localCurrentTime = Date()
                     setupMapRegion()
                     requestLocationPermission()
                     startLocationUpdates()
-                    observeGameUpdates() // Set up real-time observers
-                    // Start monitoring chat messages
+                    
+                    observeGameUpdates()
+                    
                     chatViewModel.startMonitoring(gameId: gameId)
                     
                     // Upload initial location for simulators
                     uploadInitialLocation()
+                    
+                    // Start timer for UI updates and auto-transitions
+                    startTimerUpdater()
+                }
+                .onDisappear {
+                    stopTimerUpdater()
                 }
                 .onChange(of: locationManager.location) { _, location in
                     updatePlayerLocation(location)
@@ -92,44 +92,33 @@ struct GameView: View {
                 
                 // Minimal overlay controls
                 VStack {
-                    // Top minimal HUD
-                    HStack {
-                        Button(action: { showingSettings = true }) {
-                            Image(systemName: "gearshape.fill")
-                                .font(.title2)
-                                .foregroundColor(.white)
-                                .padding(12)
-                                .background(Color.black.opacity(0.7))
-                                .clipShape(Circle())
-                        }
-                        
-                        Spacer()
-                        
-                        // Timer and team indicator
-                        VStack(spacing: 4) {
-                            if gameState == .inProgress {
-                                Text(timeString)
+                    // Top integrated timer UI
+                    VStack(spacing: 12) {
+                        HStack {
+                            Button(action: { showingSettings = true }) {
+                                Image(systemName: "gearshape.fill")
                                     .font(.title2)
-                                    .fontWeight(.bold)
                                     .foregroundColor(.white)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
+                                    .padding(12)
                                     .background(Color.black.opacity(0.7))
-                                    .clipShape(Capsule())
+                                    .clipShape(Circle())
                             }
+                            
+                            Spacer()
+                            
+                            // Team indicator
+                            Circle()
+                                .fill(playerTeam.swiftUIColor)
+                                .frame(width: 40, height: 40)
+                                .overlay {
+                                    Image(systemName: playerTeam.iconName)
+                                        .foregroundColor(.white)
+                                        .font(.title3)
+                                }
                         }
                         
-                        Spacer()
-                        
-                        // Team indicator
-                        Circle()
-                            .fill(playerTeam.swiftUIColor)
-                            .frame(width: 40, height: 40)
-                            .overlay {
-                                Image(systemName: playerTeam.iconName)
-                                    .foregroundColor(.white)
-                                    .font(.title3)
-                            }
+                        // Integrated Timer UI based on game state
+                        timerUI
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 60)
@@ -140,31 +129,6 @@ struct GameView: View {
                         Spacer()
                         
                         VStack(spacing: 12) {
-                            // Hiding Timer button
-                            Button(action: { showingTimerView = true }) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.purple.opacity(0.9))
-                                        .frame(width: 56, height: 56)
-                                    
-                                    Image(systemName: "timer")
-                                        .font(.title2)
-                                        .foregroundColor(.white)
-                                }
-                            }
-                            
-                            // Seeking timer button (new, both teams)
-                            Button(action: { showingSeekingTimerView = true }) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.red.opacity(0.9))
-                                        .frame(width: 56, height: 56)
-                                    Image(systemName: "stopwatch")
-                                        .font(.title2)
-                                        .foregroundColor(.white)
-                                }
-                            }
-                            
                             // Question button (for seekers only)
                             if playerTeam == .seekers {
                                 Button(action: { showingQuestionView = true }) {
@@ -246,46 +210,26 @@ struct GameView: View {
                     currentUser: currentUser
                 )
             }
-            .sheet(isPresented: $showingTimerView) {
-                NavigationStack {
-                    HidingTimerView(
-                        gameId: gameId,
-                        playerTeam: playerTeam
-                    )
-                    .navigationTitle("Hiding Timer")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Done") { showingTimerView = false }
-                        }
-                    }
+            .confirmationDialog("Skip Hiding Phase", isPresented: $showingSkipConfirmation, titleVisibility: .visible) {
+                Button("Skip", role: .destructive) {
+                    skipHidingPhase()
                 }
-                .presentationDetents([.medium, .large])
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("End hiding phase immediately and move to seeking?")
             }
-            .sheet(isPresented: $showingSeekingTimerView) {
-                NavigationStack {
-                    SeekingTimerView(
-                        gameId: gameId,
-                        playerTeam: playerTeam
-                    )
-                    .navigationTitle("Seeking Timer")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Done") { showingSeekingTimerView = false }
-                        }
-                    }
+            .confirmationDialog("All Hiders Found", isPresented: $showingFoundConfirmation, titleVisibility: .visible) {
+                Button("End Game", role: .destructive) {
+                    endGame()
                 }
-                .presentationDetents([.medium, .large])
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Mark all hiders as found and end the game?")
             }
         }
     }
     
-    private var timeString: String {
-        let minutes = Int(timeRemaining) / 60
-        let seconds = Int(timeRemaining) % 60
-        return String(format: "%02d:%02d", minutes, seconds)
-    }
+
     
     private func setupMapRegion() {
         switch gameCity {
@@ -358,13 +302,394 @@ struct GameView: View {
         // Listen to changes in currentGame - this handles all game data
         // including messages, questions, player locations, etc.
         databaseManager.$currentGame
-            .sink { _ in
+            .sink { game in
                 // All UI components will automatically update when currentGame changes
                 // GameMapView gets the updated game data
                 // Chat and other views can access game.messages
                 // Questions can be accessed via game.questions
+                
+                // Refresh local timer whenever we get database updates
+                localCurrentTime = Date()
+                
+                // Auto-transition from starting to preHiding for the host
+                if let game = game,
+                   game.info.state == .starting,
+                   game.info.hostUID == currentUser?.uid {
+                    Task {
+                        try? await databaseManager.updateGameState(gameId: gameId, state: .preHiding)
+                    }
+                }
             }
             .store(in: &cancellables)
+    }
+    
+    // MARK: - Timer UI
+    
+    @ViewBuilder
+    private var timerUI: some View {
+        switch gameState {
+        case .waiting, .starting:
+            Text(gameState.displayName)
+                .font(.headline)
+                .foregroundColor(.white)
+                .padding()
+                .background(Color.black.opacity(0.7))
+                .clipShape(Capsule())
+                
+        case .preHiding:
+            VStack(spacing: 8) {
+                Text("Ready to Hide")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                Button("Start Hiding Timer") {
+                    startHidingPhase()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.blue)
+            }
+            .padding()
+            .background(Color.black.opacity(0.7))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            
+        case .hiding:
+            hidingTimerUI
+            
+        case .hidingPaused:
+            pausedHidingTimerUI
+            
+        case .preSeeking:
+            VStack(spacing: 8) {
+                Text("Ready to Seek")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                Button("Start Seeking Timer") {
+                    startSeekingPhase()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+            }
+            .padding()
+            .background(Color.black.opacity(0.7))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            
+        case .seeking:
+            seekingTimerUI
+            
+        case .seekingPaused:
+            pausedSeekingTimerUI
+            
+        case .completed:
+            Text("Game Complete")
+                .font(.headline)
+                .foregroundColor(.white)
+                .padding()
+                .background(Color.green.opacity(0.8))
+                .clipShape(Capsule())
+                
+        case .cancelled:
+            Text("Game Cancelled")
+                .font(.headline)
+                .foregroundColor(.white)
+                .padding()
+                .background(Color.red.opacity(0.8))
+                .clipShape(Capsule())
+        }
+    }
+    
+    private var hidingTimerUI: some View {
+        VStack(spacing: 8) {
+            // Blue circular progress ring
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.3), lineWidth: 4)
+                    .frame(width: 80, height: 80)
+                
+                Circle()
+                    .trim(from: 0, to: hidingProgress)
+                    .stroke(Color.blue, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .frame(width: 80, height: 80)
+                    .rotationEffect(.degrees(-90))
+                
+                Text(formatTime(hidingTimeRemaining))
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(.white)
+            }
+            
+            HStack(spacing: 12) {
+                Button("Pause") {
+                    pauseHidingPhase()
+                }
+                .buttonStyle(.bordered)
+                .tint(.orange)
+                
+                Button("Skip") {
+                    showingSkipConfirmation = true
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+            }
+        }
+        .padding()
+        .background(Color.black.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private var pausedHidingTimerUI: some View {
+        VStack(spacing: 8) {
+            Text("Hiding Paused")
+                .font(.headline)
+                .foregroundColor(.white)
+            
+            Text(formatTime(hidingTimeRemaining))
+                .font(.system(.title, design: .monospaced))
+                .foregroundColor(.blue)
+            
+            HStack(spacing: 12) {
+                Button("Resume") {
+                    resumeHidingPhase()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.blue)
+                
+                Button("Skip") {
+                    showingSkipConfirmation = true
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+            }
+        }
+        .padding()
+        .background(Color.black.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private var seekingTimerUI: some View {
+        VStack(spacing: 8) {
+            Text("Seeking")
+                .font(.headline)
+                .foregroundColor(.white)
+            
+            Text(formatTime(currentSeekingTime))
+                .font(.system(.title, design: .monospaced))
+                .foregroundColor(.red)
+            
+            HStack(spacing: 12) {
+                Button("Pause") {
+                    pauseSeekingPhase()
+                }
+                .buttonStyle(.bordered)
+                .tint(.orange)
+                
+                Button("Found") {
+                    showingFoundConfirmation = true
+                }
+                .buttonStyle(.bordered)
+                .tint(.green)
+            }
+        }
+        .padding()
+        .background(Color.black.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private var pausedSeekingTimerUI: some View {
+        VStack(spacing: 8) {
+            Text("Seeking Paused")
+                .font(.headline)
+                .foregroundColor(.white)
+            
+            Text(formatTime(currentSeekingTime))
+                .font(.system(.title, design: .monospaced))
+                .foregroundColor(.red)
+            
+            HStack(spacing: 12) {
+                Button("Resume") {
+                    resumeSeekingPhase()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+                
+                Button("Found") {
+                    showingFoundConfirmation = true
+                }
+                .buttonStyle(.bordered)
+                .tint(.green)
+            }
+        }
+        .padding()
+        .background(Color.black.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    // MARK: - Timer Computed Properties
+    
+    private var hidingProgress: Double {
+        guard let game = currentGame else { return 0 }
+        let totalTime = TimeInterval(game.info.settings.hidingTime * 60)
+        return totalTime > 0 ? min(1.0, currentLocalHidingTime / totalTime) : 0
+    }
+    
+    private var hidingTimeRemaining: TimeInterval {
+        guard let game = currentGame else { return 0 }
+        let totalTime = TimeInterval(game.info.settings.hidingTime * 60)
+        return max(0, totalTime - currentLocalHidingTime)
+    }
+    
+    private var currentSeekingTime: TimeInterval {
+        return currentLocalSeekingTime
+    }
+    
+    // Local time calculations based on device timer
+    private var currentLocalHidingTime: TimeInterval {
+        guard let game = currentGame else { return 0 }
+        
+        switch game.info.state {
+        case .hiding:
+            // Timer is running: elapsed time + time since started
+            if let startedAt = game.info.hidingStartedAt {
+                return game.info.hidingElapsed + localCurrentTime.timeIntervalSince(startedAt)
+            }
+            return game.info.hidingElapsed
+        default:
+            // Timer is not running: just return elapsed time
+            return game.info.hidingElapsed
+        }
+    }
+    
+    private var currentLocalSeekingTime: TimeInterval {
+        guard let game = currentGame else { return 0 }
+        
+        switch game.info.state {
+        case .seeking:
+            // Timer is running: elapsed time + time since started
+            if let startedAt = game.info.seekingStartedAt {
+                return game.info.seekingElapsed + localCurrentTime.timeIntervalSince(startedAt)
+            }
+            return game.info.seekingElapsed
+        default:
+            // Timer is not running: just return elapsed time
+            return game.info.seekingElapsed
+        }
+    }
+    
+    private func formatTime(_ time: TimeInterval) -> String {
+        let minutes = Int(time) / 60
+        let seconds = Int(time) % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+    
+    // MARK: - Timer Actions
+    
+    private func startHidingPhase() {
+        Task {
+            try? await databaseManager.updateGameState(
+                gameId: gameId, 
+                state: .hiding, 
+                hidingStartedAt: Date(),
+                hidingElapsed: 0 // Reset elapsed time when starting fresh
+            )
+        }
+    }
+    
+    private func pauseHidingPhase() {
+        Task {
+            guard let game = currentGame else { return }
+            let totalElapsed = currentLocalHidingTime
+            try? await databaseManager.updateGameState(
+                gameId: gameId, 
+                state: .hidingPaused, 
+                hidingElapsed: totalElapsed
+            )
+        }
+    }
+    
+    private func resumeHidingPhase() {
+        Task {
+            guard let game = currentGame else { return }
+            // Keep the current elapsed time, just set new start time
+            try? await databaseManager.updateGameState(
+                gameId: gameId, 
+                state: .hiding, 
+                hidingStartedAt: Date()
+            )
+        }
+    }
+    
+    private func skipHidingPhase() {
+        Task {
+            try? await databaseManager.updateGameState(gameId: gameId, state: .preSeeking)
+        }
+    }
+    
+    private func startSeekingPhase() {
+        Task {
+            try? await databaseManager.updateGameState(
+                gameId: gameId, 
+                state: .seeking, 
+                seekingStartedAt: Date(),
+                seekingElapsed: 0 // Reset elapsed time when starting fresh
+            )
+        }
+    }
+    
+    private func pauseSeekingPhase() {
+        Task {
+            guard let game = currentGame else { return }
+            let totalElapsed = currentLocalSeekingTime
+            try? await databaseManager.updateGameState(
+                gameId: gameId, 
+                state: .seekingPaused, 
+                seekingElapsed: totalElapsed
+            )
+        }
+    }
+    
+    private func resumeSeekingPhase() {
+        Task {
+            guard let game = currentGame else { return }
+            // Keep the current elapsed time, just set new start time
+            try? await databaseManager.updateGameState(
+                gameId: gameId, 
+                state: .seeking, 
+                seekingStartedAt: Date()
+            )
+        }
+    }
+    
+    private func endGame() {
+        Task {
+            try? await databaseManager.endGame(gameId: gameId, winner: .seekers)
+        }
+    }
+    
+    // MARK: - Timer Management
+    
+    private func startTimerUpdater() {
+        timerUpdater = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            localCurrentTime = Date()
+            checkForAutoTransitions()
+        }
+    }
+    
+    private func stopTimerUpdater() {
+        timerUpdater?.invalidate()
+        timerUpdater = nil
+    }
+    
+    private func checkForAutoTransitions() {
+        guard let game = currentGame else { return }
+        
+        // Auto-transition from hiding to preSeeking when hiding time is complete
+        if game.info.state == .hiding {
+            let totalHidingTime = TimeInterval(game.info.settings.hidingTime * 60)
+            if currentLocalHidingTime >= totalHidingTime {
+                Task {
+                    try? await databaseManager.updateGameState(gameId: gameId, state: .preSeeking)
+                }
+            }
+        }
     }
 }
 

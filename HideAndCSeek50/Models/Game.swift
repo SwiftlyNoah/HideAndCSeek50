@@ -36,17 +36,11 @@ struct GameInfo: Codable {
     var winner: Team?
     let settings: GameSettings
     
-    // Add hiding timer fields
-    var hidingTimerState: TimerState = .notStarted
-    var hidingTimerStartedAt: Date?
-    var hidingTimerPausedAt: Date?
-    var hidingTimerElapsed: TimeInterval = 0
-    
-    // Add seeking timer fields
-    var seekingTimerState: TimerState = .notStarted
-    var seekingTimerStartedAt: Date?
-    var seekingTimerPausedAt: Date?
-    var seekingTimerElapsed: TimeInterval = 0
+    // Simplified timer fields - just track when each phase started and elapsed time
+    var hidingStartedAt: Date?
+    var hidingElapsed: TimeInterval = 0
+    var seekingStartedAt: Date?
+    var seekingElapsed: TimeInterval = 0
 }
 
 
@@ -80,13 +74,6 @@ struct GameMessage: Codable, Identifiable {
     let team: Team
 }
 
-enum TimerState: String, Codable {
-    case notStarted
-    case running
-    case paused
-    case completed
-    case skipped
-}
 
 
 struct GameQuestion: Codable {
@@ -314,8 +301,12 @@ struct GameEvent: Codable {
 enum GameState: String, Codable {
     case waiting = "waiting"
     case starting = "starting"
-    case inProgress = "inProgress"
-    case paused = "paused"
+    case preHiding = "preHiding"
+    case hiding = "hiding"
+    case hidingPaused = "hidingPaused"
+    case preSeeking = "preSeeking"
+    case seeking = "seeking"
+    case seekingPaused = "seekingPaused"
     case completed = "completed"
     case cancelled = "cancelled"
     
@@ -323,15 +314,24 @@ enum GameState: String, Codable {
         switch self {
         case .waiting: return "Waiting for Players"
         case .starting: return "Starting Soon"
-        case .inProgress: return "In Progress"
-        case .paused: return "Paused"
+        case .preHiding: return "Ready to Hide"
+        case .hiding: return "Hiding"
+        case .hidingPaused: return "Hiding Paused"
+        case .preSeeking: return "Ready to Seek"
+        case .seeking: return "Seeking"
+        case .seekingPaused: return "Seeking Paused"
         case .completed: return "Completed"
         case .cancelled: return "Cancelled"
         }
     }
     
     var isActive: Bool {
-        return self == .inProgress || self == .starting
+        switch self {
+        case .preHiding, .hiding, .hidingPaused, .preSeeking, .seeking, .seekingPaused:
+            return true
+        default:
+            return false
+        }
     }
 }
 
@@ -541,15 +541,29 @@ extension GameInfo {
         return endTime.timeIntervalSince(startTime)
     }
     
-    var remainingTime: TimeInterval? {
-        guard settings.timeLimit > 0, let startTime = startedAt else { return nil }
-        let elapsed = Date().timeIntervalSince(startTime)
-        return max(0, settings.timeLimit - elapsed)
+    var currentHidingTime: TimeInterval {
+        guard let hidingStartTime = hidingStartedAt else { return hidingElapsed }
+        switch state {
+        case .hiding:
+            return hidingElapsed + Date().timeIntervalSince(hidingStartTime)
+        default:
+            return hidingElapsed
+        }
     }
     
-    var isTimeUp: Bool {
-        guard let remaining = remainingTime else { return false }
-        return remaining <= 0
+    var currentSeekingTime: TimeInterval {
+        guard let seekingStartTime = seekingStartedAt else { return seekingElapsed }
+        switch state {
+        case .seeking:
+            return seekingElapsed + Date().timeIntervalSince(seekingStartTime)
+        default:
+            return seekingElapsed
+        }
+    }
+    
+    var hidingTimeRemaining: TimeInterval {
+        let totalHidingTime = TimeInterval(settings.hidingTime * 60)
+        return max(0, totalHidingTime - currentHidingTime)
     }
 }
 
@@ -578,18 +592,20 @@ extension GameInfo {
                 "questionCategories": settings.questionCategories,
                 "bonusPoints": settings.bonusPoints
             ],
-            "hidingTimerState": hidingTimerState.rawValue,
-            "hidingTimerElapsed": hidingTimerElapsed,
-            "seekingTimerState": seekingTimerState.rawValue,
-            "seekingTimerElapsed": seekingTimerElapsed
+            "hidingElapsed": hidingElapsed,
+            "seekingElapsed": seekingElapsed
         ]
+        
         dict["startedAt"] = startedAt?.toFirebaseTimestamp() ?? NSNull()
         dict["endedAt"] = endedAt?.toFirebaseTimestamp() ?? NSNull()
         dict["winner"] = winner?.rawValue ?? NSNull()
-        if let hidingTimerStartedAt = hidingTimerStartedAt { dict["hidingTimerStartedAt"] = hidingTimerStartedAt.toFirebaseTimestamp() }
-        if let hidingTimerPausedAt = hidingTimerPausedAt { dict["hidingTimerPausedAt"] = hidingTimerPausedAt.toFirebaseTimestamp() }
-        if let seekingTimerStartedAt = seekingTimerStartedAt { dict["seekingTimerStartedAt"] = seekingTimerStartedAt.toFirebaseTimestamp() }
-        if let seekingTimerPausedAt = seekingTimerPausedAt { dict["seekingTimerPausedAt"] = seekingTimerPausedAt.toFirebaseTimestamp() }
+        
+        if let hidingStartedAt = hidingStartedAt {
+            dict["hidingStartedAt"] = hidingStartedAt.toFirebaseTimestamp()
+        }
+        if let seekingStartedAt = seekingStartedAt {
+            dict["seekingStartedAt"] = seekingStartedAt.toFirebaseTimestamp()
+        }
         
         return dict
     }
@@ -614,7 +630,7 @@ extension GameInfo {
         
         // Optional timestamps
         let startedAt: Date? = (dictionary["startedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
-        let endedAt: Date?   = (dictionary["endedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
+        let endedAt: Date? = (dictionary["endedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
         
         // Primitive numeric
         let duration = dictionary["duration"] as? TimeInterval ?? 0
@@ -626,16 +642,10 @@ extension GameInfo {
         let settings = try GameSettings.fromDictionary(settingsDict)
         
         // Timer fields
-        let hidingTimerState = TimerState(rawValue: dictionary["hidingTimerState"] as? String ?? "") ?? .notStarted
-        let hidingTimerElapsed = dictionary["hidingTimerElapsed"] as? TimeInterval ?? 0
-        let hidingTimerStartedAt: Date? = (dictionary["hidingTimerStartedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
-        let hidingTimerPausedAt: Date?  = (dictionary["hidingTimerPausedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
-        
-        // Seeking timer (new)
-        let seekingTimerState = TimerState(rawValue: dictionary["seekingTimerState"] as? String ?? "") ?? .notStarted
-        let seekingTimerElapsed = dictionary["seekingTimerElapsed"] as? TimeInterval ?? 0
-        let seekingTimerStartedAt: Date? = (dictionary["seekingTimerStartedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
-        let seekingTimerPausedAt: Date?  = (dictionary["seekingTimerPausedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
+        let hidingElapsed = dictionary["hidingElapsed"] as? TimeInterval ?? 0
+        let seekingElapsed = dictionary["seekingElapsed"] as? TimeInterval ?? 0
+        let hidingStartedAt: Date? = (dictionary["hidingStartedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
+        let seekingStartedAt: Date? = (dictionary["seekingStartedAt"] as? Int64).map(Date.fromFirebaseTimestamp)
     
         // Base instance
         var info = GameInfo(
@@ -655,15 +665,10 @@ extension GameInfo {
         )
         
         // Override timer fields using parsed database values
-        info.hidingTimerState = hidingTimerState
-        info.hidingTimerStartedAt = hidingTimerStartedAt
-        info.hidingTimerPausedAt = hidingTimerPausedAt
-        info.hidingTimerElapsed = hidingTimerElapsed
-        
-        info.seekingTimerState = seekingTimerState
-        info.seekingTimerElapsed = seekingTimerElapsed
-        info.seekingTimerStartedAt = seekingTimerStartedAt
-        info.seekingTimerPausedAt = seekingTimerPausedAt
+        info.hidingStartedAt = hidingStartedAt
+        info.hidingElapsed = hidingElapsed
+        info.seekingStartedAt = seekingStartedAt
+        info.seekingElapsed = seekingElapsed
         
         return info
     }

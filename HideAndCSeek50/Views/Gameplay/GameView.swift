@@ -33,8 +33,8 @@ struct GameView: View {
     @State private var showingFoundConfirmation = false
     @State private var showingTimerActions = false
     @State private var timerUpdater: Timer?
-    
     @State private var showingSearch = false
+    @State private var showingResearchMap = false
     
     // Local timer state for smooth UI updates
     @State private var localCurrentTime = Date()
@@ -70,7 +70,7 @@ struct GameView: View {
                     searchResults: mapSearchViewModel.results,
                     selectedSearchItem: mapSearchViewModel.selectedItem
                 )
-                .ignoresSafeArea(.all) // Make map take up entire screen
+                .ignoresSafeArea(.all)
                 .onAppear {
                     localCurrentTime = Date()
                     setupMapRegion()
@@ -94,8 +94,8 @@ struct GameView: View {
                     updatePlayerLocation(location)
                 }
                 
-                // Minimal overlay controls
-                VStack(spacing: 12) {
+                // Top overlay controls
+                VStack {
                     VStack {
                         HStack {
                             Button(action: { showingSettings = true }) {
@@ -112,22 +112,44 @@ struct GameView: View {
                             timerUI
                             
                             Spacer()
+                            
+                            Color.clear
+                                .frame(width: 40, height: 40)
                         }
                         
                         // Search bar (when visible)
                         if showingSearch {
                             searchBarView
                         }
-                        
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
                     
                     Spacer()
+                }
+                
+                // Bottom action buttons - Fixed positioning
+                VStack {
+                    Spacer()
                     
-                    HStack {
+                    HStack(alignment: .bottom) {
+                        // Left side - Research Map button
+                        Button(action: { showingResearchMap = true }) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.gray.opacity(0.8))
+                                    .frame(width: 56, height: 56)
+                                
+                                Image(systemName: "map")
+                                    .font(.title2)
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .padding(.leading, 20)
+                        
                         Spacer()
                         
+                        // Right side - Game action buttons
                         VStack(spacing: 12) {
                             // Timer Actions Button (only show when timer is running)
                             if gameState == .hiding || gameState == .seeking {
@@ -160,7 +182,7 @@ struct GameView: View {
                             }
                             
                             // Search button
-                            Button(action: { 
+                            Button(action: {
                                 if showingSearch {
                                     mapSearchViewModel.clearSearch()
                                     showingSearch = false
@@ -178,7 +200,7 @@ struct GameView: View {
                                         .foregroundColor(.white)
                                 }
                             }
-                                
+                            
                             // Chat button
                             Button(action: { showingChat = true }) {
                                 ZStack {
@@ -201,87 +223,90 @@ struct GameView: View {
                             }
                         }
                         .padding(.trailing, 20)
-                        .padding(.bottom, 40)
                     }
+                    .padding(.bottom, 40)
                 }
-                .navigationBarHidden(true)
-                .sheet(isPresented: $showingChat) {
-                    NavigationStack {
-                        GameChatView(
-                            gameId: gameId,
-                            currentUser: currentUser,
-                            currentPlayerTeam: playerTeam
-                        )
-                        .environmentObject(chatViewModel)
-                        .navigationTitle("Game Chat")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarTrailing) {
-                                Button("Done") {
-                                    showingChat = false
-                                }
+            }
+            .navigationBarHidden(true)
+            .sheet(isPresented: $showingChat) {
+                NavigationStack {
+                    GameChatView(
+                        gameId: gameId,
+                        currentUser: currentUser,
+                        currentPlayerTeam: playerTeam
+                    )
+                    .environmentObject(chatViewModel)
+                    .navigationTitle("Game Chat")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") {
+                                showingChat = false
                             }
                         }
                     }
-                    .presentationDetents([.medium, .large])
                 }
-                .onChange(of: showingChat) { _, isShowing in
-                    chatViewModel.setViewVisibility(isShowing)
-                }
-                .sheet(isPresented: $showingSettings) {
-                    GameSettingsView(
-                        gameId: gameId,
-                        lobbyCode: lobbyCode,
-                        playerTeam: playerTeam,
-                        onLeaveGame: {
-                            dismiss()
-                            onReturnToMain?() // Call the callback to return to main
-                        }
-                    )
-                }
-                .sheet(isPresented: $showingQuestionView) {
-                    GameQuestionView(
-                        gameId: gameId,
-                        currentUser: currentUser
-                    )
-                }
-                .sheet(isPresented: $showingTimerActions) {
-                    TimerActionsView(
-                        gameState: gameState,
-                        onPause: {
-                            if gameState == .hiding {
-                                pauseHidingPhase()
-                            } else if gameState == .seeking {
-                                pauseSeekingPhase()
-                            }
-                            showingTimerActions = false
-                        },
-                        onSkip: {
-                            showingTimerActions = false
-                            showingSkipConfirmation = true
-                        },
-                        onFound: {
-                            showingTimerActions = false
-                            showingFoundConfirmation = true
-                        }
-                    )
-                }
-                .confirmationDialog("Skip Hiding Phase", isPresented: $showingSkipConfirmation, titleVisibility: .visible) {
-                    Button("Skip", role: .destructive) {
-                        skipHidingPhase()
+                .presentationDetents([.medium, .large])
+            }
+            .onChange(of: showingChat) { _, isShowing in
+                chatViewModel.setViewVisibility(isShowing)
+            }
+            .sheet(isPresented: $showingSettings) {
+                GameSettingsView(
+                    gameId: gameId,
+                    lobbyCode: lobbyCode,
+                    playerTeam: playerTeam,
+                    onLeaveGame: {
+                        dismiss()
+                        onReturnToMain?() // Call the callback to return to main
                     }
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    Text("End hiding phase immediately and move to seeking?")
-                }
-                .confirmationDialog("All Hiders Found", isPresented: $showingFoundConfirmation, titleVisibility: .visible) {
-                    Button("End Game", role: .destructive) {
-                        endGame()
+                )
+            }
+            .sheet(isPresented: $showingQuestionView) {
+                GameQuestionView(
+                    gameId: gameId,
+                    currentUser: currentUser
+                )
+            }
+            .sheet(isPresented: $showingTimerActions) {
+                TimerActionsView(
+                    gameState: gameState,
+                    onPause: {
+                        if gameState == .hiding {
+                            pauseHidingPhase()
+                        } else if gameState == .seeking {
+                            pauseSeekingPhase()
+                        }
+                        showingTimerActions = false
+                    },
+                    onSkip: {
+                        showingTimerActions = false
+                        showingSkipConfirmation = true
+                    },
+                    onFound: {
+                        showingTimerActions = false
+                        showingFoundConfirmation = true
                     }
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    Text("Mark all hiders as found and end the game?")
+                )
+            }
+            .confirmationDialog("Skip Hiding Phase", isPresented: $showingSkipConfirmation, titleVisibility: .visible) {
+                Button("Skip", role: .destructive) {
+                    skipHidingPhase()
                 }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("End hiding phase immediately and move to seeking?")
+            }
+            .confirmationDialog("All Hiders Found", isPresented: $showingFoundConfirmation, titleVisibility: .visible) {
+                Button("End Game", role: .destructive) {
+                    endGame()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Mark all hiders as found and end the game?")
+            }
+            .fullScreenCover(isPresented: $showingResearchMap) {
+                ResearchMapView()
             }
         }
     }

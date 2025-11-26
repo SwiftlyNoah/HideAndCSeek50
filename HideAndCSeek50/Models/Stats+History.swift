@@ -67,6 +67,7 @@ struct Achievements: Codable {
     var masterHider: Bool = false      // Hidden for over 30 minutes
     var teamPlayer: Bool = false       // Won 10 team games
     var veteran: Bool = false          // Played 100+ games
+    var worldTraveler: Bool = false    // Play games in at least three different cities / regions ?
 }
 
 struct GameHistoryEntry: Codable {

@@ -143,8 +143,8 @@ struct LobbyView: View {
                         Color.red
                     }
                 }
-        }
-        .sheet(isPresented: $showingSettings) {
+            }
+            .sheet(isPresented: $showingSettings) {
                 if let lobby = lobby {
                     LobbySettingsView(lobby: lobby, lobbyCode: lobbyCode)
                 }

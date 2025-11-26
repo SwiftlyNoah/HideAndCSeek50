@@ -32,9 +32,14 @@ struct GameView: View {
     @State private var showingSettings = false
     @State private var showingTimerView = false
     @State private var showingSeekingTimerView = false
+    @State private var showingMapToolsView = false
+    @State private var selectedRegions: Set<String> = []
+    @State private var visibleRegions: Set<String> = [] // Track which regions are actually rendered
+    @State private var regionColors: [String: Bool] = [:] // Track color per region (true = red, false = green)
     @State private var gameState: GameState = .inProgress
     @State private var timeRemaining: TimeInterval = 0
     @State private var gameCity: GameCity = .boston
+    @State private var circleItems: [CircleOverlayItem] = []
     
     private var currentUser: User? {
         authManager.currentUser
@@ -53,7 +58,10 @@ struct GameView: View {
                     playerNames: playerNames,
                     currentUserUID: currentUser?.uid ?? "",
                     currentUserTeam: playerTeam,
-                    hidableRegions: hidableRegions
+                    hidableRegions: hidableRegions,
+                    circleItems: circleItems,
+                    selectedRegions: visibleRegions, // Use visibleRegions instead of selectedRegions
+                    regionColors: regionColors // Pass colors
                 )
                 .ignoresSafeArea(.all) // Make map take up entire screen
                 .onAppear {
@@ -141,6 +149,18 @@ struct GameView: View {
                                         .fill(Color.red.opacity(0.9))
                                         .frame(width: 56, height: 56)
                                     Image(systemName: "stopwatch")
+                                        .font(.title2)
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            
+                            // Map Tools button
+                            Button(action: { showingMapToolsView = true }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.blue.opacity(0.9))
+                                        .frame(width: 56, height: 56)
+                                    Image(systemName: "map.fill")
                                         .font(.title2)
                                         .foregroundColor(.white)
                                 }
@@ -257,6 +277,25 @@ struct GameView: View {
                 }
                 .presentationDetents([.medium, .large])
             }
+            .sheet(isPresented: $showingMapToolsView) {
+                NavigationStack {
+                    MapToolsView(
+                        selectedRegions: $selectedRegions,
+                        visibleRegions: $visibleRegions,
+                        regionColors: $regionColors,
+                        mapCenter: Binding(get: { region.center }, set: { region.center = $0 }),
+                        circleItems: $circleItems
+                    )
+                        .navigationTitle("Map Tools")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("Done") { showingMapToolsView = false }
+                            }
+                        }
+                }
+                .presentationDetents([.medium, .large])
+            }
         }
     }
     
@@ -327,39 +366,37 @@ struct GameView: View {
         }
     }
     
-    // ...existing code...
-
-        private func loadGameData() {
-            Task {
-                do {
-                    // Start listening to game updates
-                    databaseManager.startListeningToGame(gameId: gameId)
-                    
-                    let gameInfo = try await databaseManager.getGameInfo(gameId: gameId)
-                    await MainActor.run {
-                        gameState = gameInfo.state
-                        gameCity = gameInfo.settings.city
-                        setupMapRegion()
-                    }
-                    
-                    // Load player teams from the current game
-                    if let currentGame = databaseManager.currentGame {
-                        for (uid, member) in currentGame.teams.hiders.members {
-                            playerTeams[uid] = .hiders
-                            playerNames[uid] = member.displayName
-                        }
-                        for (uid, member) in currentGame.teams.seekers.members {
-                            playerTeams[uid] = .seekers
-                            playerNames[uid] = member.displayName
-                        }
-                    }
-                    
-                    observePlayerLocations()
-                } catch {
-                    print("Error loading game data: \(error)")
+    private func loadGameData() {
+        Task {
+            do {
+                // Start listening to game updates
+                databaseManager.startListeningToGame(gameId: gameId)
+                
+                let gameInfo = try await databaseManager.getGameInfo(gameId: gameId)
+                await MainActor.run {
+                    gameState = gameInfo.state
+                    gameCity = gameInfo.settings.city
+                    setupMapRegion()
                 }
+                
+                // Load player teams from the current game
+                if let currentGame = databaseManager.currentGame {
+                    for (uid, member) in currentGame.teams.hiders.members {
+                        playerTeams[uid] = .hiders
+                        playerNames[uid] = member.displayName
+                    }
+                    for (uid, member) in currentGame.teams.seekers.members {
+                        playerTeams[uid] = .seekers
+                        playerNames[uid] = member.displayName
+                    }
+                }
+                
+                observePlayerLocations()
+            } catch {
+                print("Error loading game data: \(error)")
             }
         }
+    }
 
     private func observeGameUpdates() {
         // Set up real-time game state listener

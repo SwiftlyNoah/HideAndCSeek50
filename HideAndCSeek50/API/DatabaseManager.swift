@@ -8,7 +8,7 @@
 import Foundation
 import Firebase
 import FirebaseDatabase
-import CoreLocation
+import FirebaseAuth
 internal import Combine
 
 enum DatabaseError: LocalizedError {
@@ -95,6 +95,14 @@ class DatabaseManager: ObservableObject {
     @Published var currentLobby: Lobby?
     @Published var publicLobbies: [Lobby] = []
     @Published var isConnected = false
+    
+    // MARK: - Game Persistence Keys
+    private enum PersistenceKeys {
+        static let lastGameId = "lastGameId"
+        static let lastLobbyCode = "lastLobbyCode"
+        static let lastPlayerTeam = "lastPlayerTeam"
+        static let lastGameTimestamp = "lastGameTimestamp"
+    }
     
     private init() {
         // Monitor connection status
@@ -476,6 +484,9 @@ class DatabaseManager: ObservableObject {
             try await leaveLobby(code: lobbyCode, playerUID: playerUID)
         }
         
+        // Clear game persistence when leaving
+        clearGamePersistence()
+        
         // Log leave event
         try await logGameEvent(
             gameId: gameId,
@@ -505,6 +516,100 @@ class DatabaseManager: ObservableObject {
         )
     }
     
+    // MARK: - Game Persistence
+    
+    /// Save the current game information for later rejoining
+    func saveGamePersistence(gameId: String, lobbyCode: String, playerTeam: Team) {
+        let userDefaults = UserDefaults.standard
+        userDefaults.set(gameId, forKey: PersistenceKeys.lastGameId)
+        userDefaults.set(lobbyCode, forKey: PersistenceKeys.lastLobbyCode)
+        userDefaults.set(playerTeam.rawValue, forKey: PersistenceKeys.lastPlayerTeam)
+        userDefaults.set(Date().timeIntervalSince1970, forKey: PersistenceKeys.lastGameTimestamp)
+    }
+    
+    /// Clear saved game persistence data
+    func clearGamePersistence() {
+        let userDefaults = UserDefaults.standard
+        userDefaults.removeObject(forKey: PersistenceKeys.lastGameId)
+        userDefaults.removeObject(forKey: PersistenceKeys.lastLobbyCode)
+        userDefaults.removeObject(forKey: PersistenceKeys.lastPlayerTeam)
+        userDefaults.removeObject(forKey: PersistenceKeys.lastGameTimestamp)
+    }
+    
+    /// Attempt to rejoin the last game the user was in
+    /// Returns the game data and player info if successful, nil otherwise
+    func rejoinGame() async -> (game: Game, lobbyCode: String, playerTeam: Team)? {
+        let userDefaults = UserDefaults.standard
+        
+        // Check if we have saved game data
+        guard let gameId = userDefaults.string(forKey: PersistenceKeys.lastGameId),
+              let lobbyCode = userDefaults.string(forKey: PersistenceKeys.lastLobbyCode),
+              let teamRawValue = userDefaults.string(forKey: PersistenceKeys.lastPlayerTeam),
+              let playerTeam = Team(rawValue: teamRawValue) else {
+            return nil
+        }
+        
+        let timestamp = userDefaults.double(forKey: PersistenceKeys.lastGameTimestamp)
+        let lastGameDate = Date(timeIntervalSince1970: timestamp)
+        
+        // Only try to rejoin if the game was saved within the last 24 hours
+        let twentyFourHoursAgo = Date().addingTimeInterval(-24 * 60 * 60)
+        guard lastGameDate > twentyFourHoursAgo else {
+            clearGamePersistence()
+            return nil
+        }
+        
+        do {
+            // Try to fetch the game from the database
+            let gameRef = DatabaseReference.game(gameId)
+            let snapshot = try await gameRef.getData()
+            
+            guard let gameData = snapshot.value as? [String: Any],
+                  let game = try? Game.fromDictionary(gameData) else {
+                // Game no longer exists
+                clearGamePersistence()
+                return nil
+            }
+            
+            // Check if the game is still joinable (not completed or cancelled)
+            guard game.info.state != .completed && game.info.state != .cancelled else {
+                // Game is over
+                clearGamePersistence()
+                return nil
+            }
+            
+            // Check if the current user is still in the game
+            guard let currentUID = Auth.auth().currentUser?.uid else {
+                clearGamePersistence()
+                return nil
+            }
+            
+            let isInHiders = game.teams.hiders[currentUID] != nil
+            let isInSeekers = game.teams.seekers[currentUID] != nil
+            
+            guard isInHiders || isInSeekers else {
+                // Player is no longer in the game
+                clearGamePersistence()
+                return nil
+            }
+            
+            // Verify the player is in the correct team
+            let actualTeam: Team = isInHiders ? .hiders : .seekers
+            guard actualTeam == playerTeam else {
+                // Team mismatch, update the saved team
+                saveGamePersistence(gameId: gameId, lobbyCode: lobbyCode, playerTeam: actualTeam)
+                return (game: game, lobbyCode: lobbyCode, playerTeam: actualTeam)
+            }
+            
+            return (game: game, lobbyCode: lobbyCode, playerTeam: playerTeam)
+            
+        } catch {
+            print("Error attempting to rejoin game: \(error.localizedDescription)")
+            clearGamePersistence()
+            return nil
+        }
+    }
+    
     func endGame(gameId: String, winner: Team?) async throws {
         let gameRef = DatabaseReference.game(gameId)
         let now = Date()
@@ -523,6 +628,9 @@ class DatabaseManager: ObservableObject {
         // Remove from active games
         try await DatabaseReference.activeGames().child(gameId).removeValue()
         
+        // Clear game persistence since the game is over
+        clearGamePersistence()
+        
         // Update player stats
         try await updateGameStatistics(gameId: gameId)
         
@@ -538,8 +646,8 @@ class DatabaseManager: ObservableObject {
     // MARK: - Game State Management
     
     func updateGameState(
-        gameId: String, 
-        state: GameState, 
+        gameId: String,
+        state: GameState,
         hidingStartedAt: Date? = nil,
         hidingElapsed: TimeInterval? = nil,
         seekingStartedAt: Date? = nil,
@@ -585,6 +693,11 @@ class DatabaseManager: ObservableObject {
         }
         
         try await ref.updateChildValues(updates)
+        
+        // Clear game persistence if the game is ended
+        if state == .completed || state == .cancelled {
+            clearGamePersistence()
+        }
     }
     
     // MARK: - Location Management

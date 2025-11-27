@@ -127,6 +127,7 @@
 				1474BE6E2ED5164B00568A90 /* GameMapView.swift */,
 				1474BE6F2ED5164B00568A90 /* GameView.swift */,
 				1474BE712ED5164B00568A90 /* QuestionView.swift */,
+				DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */,
 			);
 			path = Gameplay;
 			sourceTree = "<group>";
@@ -190,7 +191,6 @@
 				14E268ED2EC9647900FBCF90 /* Stats+History.swift */,
 				142066B52ECBDE200084F53C /* CityRegions.swift */,
 				1474BE852ED65F8200568A90 /* MainMapSearch.swift */,
-				DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -456,7 +456,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 2594GP44RQ;
+				DEVELOPMENT_TEAM = RGM9JAFXFM;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = HideAndCSeek50/Resources/Info.plist;
@@ -489,7 +489,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 2594GP44RQ;
+				DEVELOPMENT_TEAM = RGM9JAFXFM;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = HideAndCSeek50/Resources/Info.plist;

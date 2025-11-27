@@ -151,12 +151,6 @@ struct GameChatView: View {
             .background(Color(.systemBackground))
         }
         .background(Color(.systemGroupedBackground))
-        .onAppear {
-            // View visibility is handled by GameView's onChange modifier
-        }
-        .onDisappear {
-            // View visibility is handled by GameView's onChange modifier  
-        }
     }
     
     private func sendMessage() {

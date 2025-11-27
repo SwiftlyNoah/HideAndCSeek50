@@ -314,10 +314,10 @@ enum GameState: String, Codable {
         switch self {
         case .waiting: return "Waiting for Players"
         case .starting: return "Starting Soon"
-        case .preHiding: return "Ready to Hide"
+        case .preHiding: return "Hiding Starting Soon"
         case .hiding: return "Hiding"
         case .hidingPaused: return "Hiding Paused"
-        case .preSeeking: return "Ready to Seek"
+        case .preSeeking: return "Seeking Starting Soon"
         case .seeking: return "Seeking"
         case .seekingPaused: return "Seeking Paused"
         case .completed: return "Completed"
@@ -344,6 +344,13 @@ enum Team: String, Codable {
         switch self {
         case .hiders: return "Hiders"
         case .seekers: return "Seekers"
+        }
+    }
+    
+    var playerName: String {
+        switch self {
+        case .hiders: return "Hider"
+        case .seekers: return "Seeker"
         }
     }
     

@@ -31,6 +31,13 @@ struct MainView: View {
         )
     }
     
+    // Will present the GameView once set
+    @State private var rejoinGameDestination: RejoinGameDestination?
+    
+    @State private var rejoinGameData: (game: Game, lobbyCode: String, playerTeam: Team)?
+    @State private var showingRejoinGame = false
+    @State private var isCheckingForRejoin = true
+    
     private var displayName: String {
         if let displayName = user?.displayName, !displayName.isEmpty {
             return displayName
@@ -71,16 +78,29 @@ struct MainView: View {
                 }
                 
                 // Loading Overlay
-                if isLoading {
+                if isLoading || isCheckingForRejoin {
                     Color.black.opacity(0.3)
                         .ignoresSafeArea()
                     
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(1.5)
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.5)
+                        
+                        if isCheckingForRejoin {
+                            Text("Checking for previous game...")
+                                .foregroundColor(.white)
+                                .font(.subheadline)
+                        }
+                    }
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                if isCheckingForRejoin {
+                    checkForRejoinableGame()
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: { showingProfile = true }) {
@@ -137,6 +157,34 @@ struct MainView: View {
         }
         .fullScreenCover(item: lobbyDestination) { destination in
             LobbyView(lobbyCode: destination.code, isHost: isLobbyHost)
+        }
+        .fullScreenCover(item: $rejoinGameDestination) { destination in
+            GameView(
+                gameId: destination.gameData.game.info.gameId,
+                lobbyCode: destination.gameData.lobbyCode,
+                playerTeam: destination.gameData.playerTeam,
+                onReturnToMain: {
+                    rejoinGameData = nil
+                }
+            )
+        }
+        .confirmationDialog("Rejoin Game?", isPresented: $showingRejoinGame, titleVisibility: .visible) {
+            Button("Rejoin") {
+                showingRejoinGame = false
+                rejoinGameDestination = rejoinGameData.map(RejoinGameDestination.init)
+            }
+            
+            Button("No thanks", role: .destructive) {
+                // Clear the rejoin data and stay on main menu
+                showingRejoinGame = false
+                databaseManager.clearGamePersistence()
+                rejoinGameData = nil
+            }
+        } message: {
+            if let gameData = rejoinGameData {
+                Text("You were in a game as a \(gameData.playerTeam.playerName). The game state is \(gameData.game.info.state.displayName). Would you like to rejoin?")
+                    .frame(minWidth: 300)
+            }
         }
         .confirmationDialog("Sign Out", isPresented: $showingSignOut, titleVisibility: .visible) {
             Button("Sign Out", role: .destructive) {
@@ -287,12 +335,32 @@ struct MainView: View {
             print("Sign out error: \(error.localizedDescription)")
         }
     }
+    
+    private func checkForRejoinableGame() {
+        
+        Task {
+            let gameData = await databaseManager.rejoinGame()
+            isCheckingForRejoin = false
+            await MainActor.run {
+                if let gameData = gameData {
+                    rejoinGameData = gameData
+                    showingRejoinGame = true
+                }
+            }
+        }
+    }
 }
 
 struct LobbyDestination: Identifiable {
     let code: String
     
     var id: String { code }
+}
+
+struct RejoinGameDestination: Identifiable {
+    let gameData: (game: Game, lobbyCode: String, playerTeam: Team)
+    
+    var id: String { gameData.game.info.gameId }
 }
 
 #Preview {

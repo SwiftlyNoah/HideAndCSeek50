@@ -25,7 +25,6 @@ struct GameView: View {
     @EnvironmentObject private var authManager: AuthenticationManager
     
     @State private var cancellables = Set<AnyCancellable>()
-    @State private var region = MKCoordinateRegion()
     @State private var showingChat = false
     @State private var showingQuestionView = false
     @State private var showingSettings = false
@@ -37,7 +36,8 @@ struct GameView: View {
     @State private var showingResearchMap = false
     @State private var showingDirectionsSheet = false
     @State private var didCenterOnUser = false
-    
+    @FocusState private var isSearchFieldFocused: Bool
+
     // Local timer state for smooth UI updates
     @State private var localCurrentTime = Date()
     
@@ -63,7 +63,7 @@ struct GameView: View {
         NavigationStack {
             ZStack {
                 GameMapView(
-                    region: $region,
+                    region: $mapSearchViewModel.region,
                     game: currentGame,
                     currentUserUID: currentUser?.uid ?? "",
                     currentUserTeam: playerTeam,
@@ -82,6 +82,13 @@ struct GameView: View {
                     chatViewModel.startMonitoring(gameId: gameId)
                     uploadInitialLocation()
                     startTimerUpdater()
+                    
+                    // Save game persistence for rejoining later
+                    databaseManager.saveGamePersistence(
+                        gameId: gameId,
+                        lobbyCode: lobbyCode,
+                        playerTeam: playerTeam
+                    )
                 }
                 .onDisappear {
                     stopTimerUpdater()
@@ -96,7 +103,6 @@ struct GameView: View {
                             latitudinalMeters: 8000,
                             longitudinalMeters: 8000
                         )
-                        region = userRegion
                         mapSearchViewModel.region = userRegion
                         didCenterOnUser = true
                     }
@@ -104,37 +110,36 @@ struct GameView: View {
                 .onChange(of: locationManager.location) { _, location in
                     updatePlayerLocation(location)
                 }
-                .onChange(of: region) { _, newRegion in
-                    // Keep searches scoped to the visible map window
-                    mapSearchViewModel.region = newRegion
-                }
                 
                 // Top overlay controls
                 VStack {
-                    VStack {
-                        HStack {
-                            Button(action: { showingSettings = true }) {
-                                Image(systemName: "gearshape.fill")
-                                    .font(.title3)
-                                    .foregroundColor(.white)
-                                    .frame(width: 40, height: 40)
-                                    .background(Color.black.opacity(0.7))
-                                    .clipShape(Circle())
-                            }
-                            
-                            Spacer()
-                            
-                            timerUI
-                            
-                            Spacer()
-                            
-                            Color.clear
-                                .frame(width: 40, height: 40)
-                        }
-                        
-                        // Search bar (when visible)
+                    Group {
                         if showingSearch {
+                            // Search bar (when visible)
                             searchBarView
+                                .transition(showingSearch ? .opacity : .move(edge: .bottom))
+                        }
+                        else {
+                            HStack {
+                                Button(action: { showingSettings = true }) {
+                                    Image(systemName: "gearshape.fill")
+                                        .font(.title3)
+                                        .foregroundColor(.white)
+                                        .frame(width: 40, height: 40)
+                                        .background(Color.black.opacity(0.7))
+                                        .clipShape(Circle())
+                                }
+                                
+                                Spacer()
+                                
+                                timerUI
+                                
+                                Spacer()
+                                
+                                Color.clear
+                                    .frame(width: 40, height: 40)
+                            }
+                            .transition(showingSearch ? .move(edge: .bottom) : .opacity)
                         }
                     }
                     .padding(.horizontal, 20)
@@ -202,12 +207,15 @@ struct GameView: View {
                             
                             // Search button
                             Button(action: {
-                                if showingSearch {
-                                    // Closing search: also clear any route line
-                                    mapSearchViewModel.clearSearch()
-                                    showingSearch = false
-                                } else {
-                                    showingSearch = true
+                                withAnimation(.spring()) {
+                                    if showingSearch {
+                                        mapSearchViewModel.clearSearch()
+                                        showingSearch = false
+                                        isSearchFieldFocused = false
+                                    } else {
+                                        showingSearch = true
+                                        isSearchFieldFocused = true
+                                    }
                                 }
                             }) {
                                 ZStack {
@@ -349,7 +357,6 @@ struct GameView: View {
                 latitudinalMeters: 8000,
                 longitudinalMeters: 8000
             )
-            region = userRegion
             mapSearchViewModel.region = userRegion
             didCenterOnUser = true
             return
@@ -371,7 +378,6 @@ struct GameView: View {
                 longitudinalMeters: 15000
             )
         }
-        region = newRegion
         mapSearchViewModel.region = newRegion
     }
     
@@ -414,8 +420,8 @@ struct GameView: View {
             } else {
                 // Fallback: Use map center as initial location for simulators
                 let fallbackLocation = CLLocation(
-                    latitude: region.center.latitude,
-                    longitude: region.center.longitude
+                    latitude: mapSearchViewModel.region.center.latitude,
+                    longitude: mapSearchViewModel.region.center.longitude
                 )
                 updatePlayerLocation(fallbackLocation)
             }

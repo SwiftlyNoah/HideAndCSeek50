@@ -181,9 +181,9 @@ struct GameMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             // Sync binding to reflect the new visible region
-            parent.region = mapView.region
             // Allow programmatic updates again after the gesture ends
             DispatchQueue.main.async {
+                self.parent.region = mapView.region
                 self.userIsInteracting = false
             }
         }

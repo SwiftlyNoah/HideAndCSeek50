@@ -58,6 +58,7 @@ struct ProfileView: View {
                     // Stats Section
                     if let stats = currentStats {
                         statsSection(stats: stats)
+                        achievementsSection(achievements: stats.achievements)
                     }
                     
                     // Account Management Section
@@ -336,6 +337,132 @@ struct ProfileView: View {
         .padding(12)
         .background(color.opacity(0.1))
         .cornerRadius(8)
+    }
+    
+    // MARK: - Achievements Section
+    
+    private func achievementsSection(achievements: Achievements) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Achievements")
+                .font(.headline)
+                .fontWeight(.semibold)
+            
+            let earnedAchievements = getEarnedAchievements(achievements)
+            
+            if earnedAchievements.isEmpty {
+                Text("No achievements! (yet!)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(earnedAchievements, id: \.title) { achievement in
+                        achievementRow(
+                            title: achievement.title,
+                            description: achievement.description,
+                            icon: achievement.icon,
+                            color: achievement.color
+                        )
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(.white.opacity(0.2), lineWidth: 1)
+        )
+    }
+    
+    private func achievementRow(title: String, description: String, icon: String, color: Color) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.2))
+                    .frame(width: 44, height: 44)
+                
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundColor(color)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding(12)
+        .background(color.opacity(0.05))
+        .cornerRadius(12)
+    }
+    
+    private func getEarnedAchievements(_ achievements: Achievements) -> [(title: String, description: String, icon: String, color: Color)] {
+        var earned: [(title: String, description: String, icon: String, color: Color)] = []
+        
+        if achievements.quickSeeker {
+            earned.append((
+                title: "Quick Seeker",
+                description: "Found a hider in under 5 minutes",
+                icon: "bolt.fill",
+                color: .orange
+            ))
+        }
+        
+        if achievements.masterHider {
+            earned.append((
+                title: "Master Hider",
+                description: "Hidden for over 30 minutes",
+                icon: "star.fill",
+                color: .purple
+            ))
+        }
+        
+        if achievements.teamPlayer {
+            earned.append((
+                title: "Team Player",
+                description: "Won 10 team games",
+                icon: "person.3.fill",
+                color: .blue
+            ))
+        }
+        
+        if achievements.veteran {
+            earned.append((
+                title: "Veteran",
+                description: "Played 100+ games",
+                icon: "medal.fill",
+                color: .yellow
+            ))
+        }
+        
+        if achievements.worldTraveler {
+            earned.append((
+                title: "World Traveler",
+                description: "Played in 3+ different cities",
+                icon: "globe.americas.fill",
+                color: .green
+            ))
+        }
+        
+        if achievements.earlyAdopter {
+            earned.append((
+                title: "Early Adopter",
+                description: "Played during beta testing",
+                icon: "sparkles",
+                color: .cyan
+            ))
+        }
+        
+        return earned
     }
     
     // MARK: - Account Management Section

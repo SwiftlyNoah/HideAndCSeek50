@@ -68,6 +68,7 @@ struct Achievements: Codable {
     var teamPlayer: Bool = false       // Won 10 team games
     var veteran: Bool = false          // Played 100+ games
     var worldTraveler: Bool = false    // Play games in at least three different cities / regions ?
+    var earlyAdopter: Bool = false     // Played a game during our beta testing period ?
 }
 
 struct GameHistoryEntry: Codable {

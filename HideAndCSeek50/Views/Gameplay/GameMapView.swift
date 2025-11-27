@@ -38,6 +38,7 @@ struct GameMapView: UIViewRepresentable {
     let hidableRegions: [MKPolygon]
     var searchResults: [MKMapItem] = []
     var selectedSearchItem: MKMapItem?
+    var route: MKRoute?
     
     private var visiblePlayerLocations: [(String, CLLocation, Team, String)] {
         guard let game = game else { return [] }
@@ -83,16 +84,42 @@ struct GameMapView: UIViewRepresentable {
     }
     
     func updateUIView(_ mapView: MKMapView, context: Context) {
-        // Update region if significantly different
-        if !mapView.region.isApproximatelyEqual(to: region) {
-            mapView.setRegion(region, animated: true)
+        // If the user is interacting, don't force-set the region
+        if !context.coordinator.userIsInteracting {
+            if !mapView.region.isApproximatelyEqual(to: region) {
+                mapView.setRegion(region, animated: true)
+            }
         }
-        
+
         // Update player annotations
         updatePlayerAnnotations(mapView)
-        
+
         // Update search result annotations
         updateSearchAnnotations(mapView)
+
+        // Update overlays: keep city polygons/circles, replace polylines
+        mapView.removeOverlays(mapView.overlays.filter { !($0 is MKPolygon) && !($0 is MKCircle) })
+        if let route = route {
+            mapView.addOverlay(route.polyline)
+
+            // Auto-zoom to the route only once per new route
+            if context.coordinator.lastRoutedPolyline !== route.polyline {
+                context.coordinator.hasZoomedToRoute = false
+                context.coordinator.lastRoutedPolyline = route.polyline
+            }
+            if !context.coordinator.hasZoomedToRoute && !context.coordinator.userIsInteracting {
+                mapView.setVisibleMapRect(
+                    route.polyline.boundingMapRect,
+                    edgePadding: UIEdgeInsets(top: 80, left: 40, bottom: 80, right: 40),
+                    animated: true
+                )
+                context.coordinator.hasZoomedToRoute = true
+            }
+        } else {
+            // Reset flags when route is cleared
+            context.coordinator.hasZoomedToRoute = false
+            context.coordinator.lastRoutedPolyline = nil
+        }
     }
     
     func makeCoordinator() -> Coordinator {
@@ -139,81 +166,50 @@ struct GameMapView: UIViewRepresentable {
     
     class Coordinator: NSObject, MKMapViewDelegate {
         let parent: GameMapView
-        
+        var userIsInteracting = false
+        var hasZoomedToRoute = false
+        var lastRoutedPolyline: MKPolyline?
+
         init(_ parent: GameMapView) {
             self.parent = parent
         }
-        
-        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-            // Handle search result annotations
-            if let searchAnnotation = annotation as? SearchResultAnnotation {
-                let identifier = "SearchPin"
-                var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
-                
-                if annotationView == nil {
-                    annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
-                    annotationView?.canShowCallout = true
-                    annotationView?.isDraggable = false
-                } else {
-                    annotationView?.annotation = annotation
-                }
-                
-                annotationView?.markerTintColor = searchAnnotation.isSelected ? .red : .orange
-                annotationView?.glyphImage = UIImage(systemName: "mappin.circle.fill")
-                
-                return annotationView
-            }
-            
-            guard let playerAnnotation = annotation as? PlayerAnnotation else {
-                return nil
-            }
-            
-            let identifier = "PlayerPin"
-            var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
-            
-            if annotationView == nil {
-                annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
-                annotationView?.canShowCallout = true
-                annotationView?.isDraggable = false
-            } else {
-                annotationView?.annotation = annotation
-            }
-            
-            // Customize based on team using Team enum properties
-            annotationView?.markerTintColor = playerAnnotation.team.color
-            annotationView?.glyphImage = UIImage(systemName: playerAnnotation.team.iconName)
-            
-            return annotationView
+
+        func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
+            // Mark that the user started interacting (pinch/pan)
+            userIsInteracting = true
         }
-        
+
+        func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+            // Sync binding to reflect the new visible region
+            parent.region = mapView.region
+            // Allow programmatic updates again after the gesture ends
+            DispatchQueue.main.async {
+                self.userIsInteracting = false
+            }
+        }
+
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let polygon = overlay as? MKPolygon {
                 let renderer = MKPolygonRenderer(polygon: polygon)
-                
-                // Style hidable areas
                 renderer.fillColor = UIColor.systemGreen.withAlphaComponent(0.3)
                 renderer.strokeColor = UIColor.systemGreen
                 renderer.lineWidth = 2.0
-                
                 return renderer
             }
-            
             if let circle = overlay as? MKCircle {
                 let renderer = MKCircleRenderer(circle: circle)
-                
-                // Style circle overlay
                 renderer.fillColor = UIColor.systemBlue.withAlphaComponent(0.2)
                 renderer.strokeColor = UIColor.systemBlue
                 renderer.lineWidth = 2.0
-                
                 return renderer
             }
-            
+            if let polyline = overlay as? MKPolyline {
+                let renderer = MKPolylineRenderer(polyline: polyline)
+                renderer.strokeColor = UIColor.systemBlue
+                renderer.lineWidth = 5.0
+                return renderer
+            }
             return MKOverlayRenderer()
-        }
-        
-        func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
-            parent.region = mapView.region
         }
     }
 }
@@ -221,10 +217,19 @@ struct GameMapView: UIViewRepresentable {
 // Extension to compare regions
 extension MKCoordinateRegion {
     func isApproximatelyEqual(to other: MKCoordinateRegion, threshold: Double = 0.001) -> Bool {
-        return abs(center.latitude - other.center.latitude) < threshold &&
+        abs(center.latitude - other.center.latitude) < threshold &&
         abs(center.longitude - other.center.longitude) < threshold &&
         abs(span.latitudeDelta - other.span.latitudeDelta) < threshold &&
         abs(span.longitudeDelta - other.span.longitudeDelta) < threshold
+    }
+}
+
+extension MKCoordinateRegion: Equatable {
+    public static func == (lhs: MKCoordinateRegion, rhs: MKCoordinateRegion) -> Bool {
+        lhs.center.latitude == rhs.center.latitude &&
+        lhs.center.longitude == rhs.center.longitude &&
+        lhs.span.latitudeDelta == rhs.span.latitudeDelta &&
+        lhs.span.longitudeDelta == rhs.span.longitudeDelta
     }
 }
 

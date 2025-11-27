@@ -11,7 +11,7 @@ import MapKit
 
 struct DirectionsSheet: View {
     let destination: MKMapItem
-    @ObservedObject var viewModel: ResearchMapSearchViewModel
+    @ObservedObject var viewModel: MapSearchViewModel
     let onRouteCalculated: () -> Void
     @Environment(\.dismiss) private var dismiss
     
@@ -21,7 +21,7 @@ struct DirectionsSheet: View {
     @State private var hasCalculatedRoute = false
     
     // Initialize with existing route if available
-    init(destination: MKMapItem, viewModel: ResearchMapSearchViewModel, onRouteCalculated: @escaping () -> Void) {
+    init(destination: MKMapItem, viewModel: MapSearchViewModel, onRouteCalculated: @escaping () -> Void) {
         self.destination = destination
         self.viewModel = viewModel
         self.onRouteCalculated = onRouteCalculated
@@ -307,7 +307,7 @@ struct DirectionsSheet: View {
     }
     
     private func getDirections() {
-        let departureType: ResearchMapSearchViewModel.DepartureType
+        let departureType: MapSearchViewModel.DepartureType
         switch selectedDepartureType {
         case 1:
             departureType = .leaveAt(customDate)

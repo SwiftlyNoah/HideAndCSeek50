@@ -35,6 +35,8 @@ struct GameView: View {
     @State private var timerUpdater: Timer?
     @State private var showingSearch = false
     @State private var showingResearchMap = false
+    @State private var showingDirectionsSheet = false
+    @State private var didCenterOnUser = false
     
     // Local timer state for smooth UI updates
     @State private var localCurrentTime = Date()
@@ -60,7 +62,6 @@ struct GameView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Full-screen Map View
                 GameMapView(
                     region: $region,
                     game: currentGame,
@@ -68,23 +69,18 @@ struct GameView: View {
                     currentUserTeam: playerTeam,
                     hidableRegions: hidableRegions,
                     searchResults: mapSearchViewModel.results,
-                    selectedSearchItem: mapSearchViewModel.selectedItem
+                    selectedSearchItem: mapSearchViewModel.selectedItem,
+                    route: mapSearchViewModel.route
                 )
                 .ignoresSafeArea(.all)
                 .onAppear {
                     localCurrentTime = Date()
-                    setupMapRegion()
+                    setupMapRegion() // now prefers user location
                     requestLocationPermission()
                     startLocationUpdates()
-                    
                     observeGameUpdates()
-                    
                     chatViewModel.startMonitoring(gameId: gameId)
-                    
-                    // Upload initial location for simulators
                     uploadInitialLocation()
-                    
-                    // Start timer for UI updates and auto-transitions
                     startTimerUpdater()
                 }
                 .onDisappear {
@@ -92,6 +88,25 @@ struct GameView: View {
                 }
                 .onChange(of: locationManager.location) { _, location in
                     updatePlayerLocation(location)
+                    // Center on user once when first fix arrives; also sync search region
+                    if !didCenterOnUser, let loc = location {
+                        let center = loc.coordinate
+                        let userRegion = MKCoordinateRegion(
+                            center: center,
+                            latitudinalMeters: 8000,
+                            longitudinalMeters: 8000
+                        )
+                        region = userRegion
+                        mapSearchViewModel.region = userRegion
+                        didCenterOnUser = true
+                    }
+                }
+                .onChange(of: locationManager.location) { _, location in
+                    updatePlayerLocation(location)
+                }
+                .onChange(of: region) { _, newRegion in
+                    // Keep searches scoped to the visible map window
+                    mapSearchViewModel.region = newRegion
                 }
                 
                 // Top overlay controls
@@ -133,14 +148,18 @@ struct GameView: View {
                     Spacer()
                     
                     HStack(alignment: .bottom) {
-                        // Left side - Research Map button
-                        Button(action: { showingResearchMap = true }) {
+                        Button(action: {
+                            if mapSearchViewModel.selectedItem != nil {
+                                showingDirectionsSheet = true
+                            } else {
+                                showingSearch = true
+                            }
+                        }) {
                             ZStack {
                                 Circle()
                                     .fill(Color.gray.opacity(0.8))
                                     .frame(width: 56, height: 56)
-                                
-                                Image(systemName: "map")
+                                Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
                                     .font(.title2)
                                     .foregroundColor(.white)
                             }
@@ -184,6 +203,7 @@ struct GameView: View {
                             // Search button
                             Button(action: {
                                 if showingSearch {
+                                    // Closing search: also clear any route line
                                     mapSearchViewModel.clearSearch()
                                     showingSearch = false
                                 } else {
@@ -289,6 +309,17 @@ struct GameView: View {
                     }
                 )
             }
+            .sheet(isPresented: $showingDirectionsSheet) {
+                if let destination = mapSearchViewModel.selectedItem {
+                    DirectionsSheet(
+                        destination: destination,
+                        viewModel: mapSearchViewModel,
+                        onRouteCalculated: {
+                            // Route will render on the main map via mapSearchViewModel.route
+                        }
+                    )
+                }
+            }
             .confirmationDialog("Skip Hiding Phase", isPresented: $showingSkipConfirmation, titleVisibility: .visible) {
                 Button("Skip", role: .destructive) {
                     skipHidingPhase()
@@ -305,15 +336,26 @@ struct GameView: View {
             } message: {
                 Text("Mark all hiders as found and end the game?")
             }
-            .fullScreenCover(isPresented: $showingResearchMap) {
-                ResearchMapView()
-            }
         }
     }
     
 
     
     private func setupMapRegion() {
+        // Prefer current user location; fall back to city region
+        if let loc = locationManager.location?.coordinate {
+            let userRegion = MKCoordinateRegion(
+                center: loc,
+                latitudinalMeters: 8000,
+                longitudinalMeters: 8000
+            )
+            region = userRegion
+            mapSearchViewModel.region = userRegion
+            didCenterOnUser = true
+            return
+        }
+
+        // Fallback: city-based region (unchanged)
         let newRegion: MKCoordinateRegion
         switch gameCity {
         case .boston:
@@ -329,7 +371,6 @@ struct GameView: View {
                 longitudinalMeters: 15000
             )
         }
-        
         region = newRegion
         mapSearchViewModel.region = newRegion
     }

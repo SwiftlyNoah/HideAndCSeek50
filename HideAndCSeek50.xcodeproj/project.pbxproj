@@ -40,8 +40,6 @@
 		14F2BED72EC842A400B5F06B /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 14F2BED62EC842A400B5F06B /* FirebaseStorage */; };
 		14F2BEEA2EC844D400B5F06B /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 14F2BEE92EC844D400B5F06B /* GoogleSignIn */; };
 		14F2BEEC2EC844D400B5F06B /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 14F2BEEB2EC844D400B5F06B /* GoogleSignInSwift */; };
-		DAE3F4BE2ED692280055DBAB /* ResearchMapSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE3F4BD2ED692210055DBAB /* ResearchMapSearch.swift */; };
-		DAE3F4C22ED695320055DBAB /* ResearchMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE3F4C12ED6952E0055DBAB /* ResearchMapView.swift */; };
 		DAE3F4C42ED695680055DBAB /* DirectionsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */; };
 /* End PBXBuildFile section */
 
@@ -78,8 +76,6 @@
 		1474BE852ED65F8200568A90 /* MainMapSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMapSearch.swift; sourceTree = "<group>"; };
 		14E268ED2EC9647900FBCF90 /* Stats+History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Stats+History.swift"; sourceTree = "<group>"; };
 		14E268EF2EC9649300FBCF90 /* Lobby.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lobby.swift; sourceTree = "<group>"; };
-		DAE3F4BD2ED692210055DBAB /* ResearchMapSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchMapSearch.swift; sourceTree = "<group>"; };
-		DAE3F4C12ED6952E0055DBAB /* ResearchMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchMapView.swift; sourceTree = "<group>"; };
 		DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectionsSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -130,7 +126,6 @@
 				1474BE6D2ED5164B00568A90 /* GameChat.swift */,
 				1474BE6E2ED5164B00568A90 /* GameMapView.swift */,
 				1474BE6F2ED5164B00568A90 /* GameView.swift */,
-				DAE3F4C12ED6952E0055DBAB /* ResearchMapView.swift */,
 				1474BE712ED5164B00568A90 /* QuestionView.swift */,
 			);
 			path = Gameplay;
@@ -195,7 +190,6 @@
 				14E268ED2EC9647900FBCF90 /* Stats+History.swift */,
 				142066B52ECBDE200084F53C /* CityRegions.swift */,
 				1474BE852ED65F8200568A90 /* MainMapSearch.swift */,
-				DAE3F4BD2ED692210055DBAB /* ResearchMapSearch.swift */,
 				DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */,
 			);
 			path = Models;
@@ -311,7 +305,6 @@
 				140B02B22EC8791E0005EE81 /* Game.swift in Sources */,
 				140B02B32EC8791E0005EE81 /* HelperViewsActionButton.swift in Sources */,
 				1474BE7E2ED5165200568A90 /* AuthenticationView.swift in Sources */,
-				DAE3F4C22ED695320055DBAB /* ResearchMapView.swift in Sources */,
 				1474BE862ED65F8200568A90 /* MainMapSearch.swift in Sources */,
 				1474BE7F2ED5165200568A90 /* EmailSignInView.swift in Sources */,
 				1474BE802ED5165200568A90 /* ProfileView.swift in Sources */,
@@ -326,7 +319,6 @@
 				142066B62ECBDE200084F53C /* CityRegions.swift in Sources */,
 				142066BA2ECBDFF50084F53C /* LocationManager.swift in Sources */,
 				14E268EE2EC9648000FBCF90 /* Stats+History.swift in Sources */,
-				DAE3F4BE2ED692280055DBAB /* ResearchMapSearch.swift in Sources */,
 				140B02B72EC8791E0005EE81 /* LobbySettingsView.swift in Sources */,
 				140B02B82EC8791E0005EE81 /* LobbyView.swift in Sources */,
 				140B02B92EC8791E0005EE81 /* MainView.swift in Sources */,

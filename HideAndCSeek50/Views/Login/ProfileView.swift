@@ -401,7 +401,7 @@ struct ProfileView: View {
             Spacer()
         }
         .padding(12)
-        .background(color.opacity(0.05))
+        .background(color.opacity(0.1))
         .cornerRadius(12)
     }
     

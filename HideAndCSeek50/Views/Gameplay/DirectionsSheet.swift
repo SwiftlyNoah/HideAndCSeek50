@@ -127,7 +127,7 @@ struct DirectionsSheetContent: View {
                                                     if step.distance > 0 {
                                                         Text(formatDistance(step.distance))
                                                             .font(.caption)
-                                                            .foregroundColor(.white.opacity(0.6))
+                                                            .foregroundColor(.white.opacity(0.5))
                                                     }
                                                     
                                                     if step.transportType == .transit {

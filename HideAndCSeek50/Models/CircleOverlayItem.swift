@@ -7,18 +7,19 @@
 
 import Foundation
 import MapKit
+import SwiftUI
 
 struct CircleOverlayItem: Identifiable, Equatable {
     let id: UUID
     let center: CLLocationCoordinate2D
     let radiusMeters: CLLocationDistance
-    let isRed: Bool
-
-    init(id: UUID = UUID(), center: CLLocationCoordinate2D, radiusMeters: CLLocationDistance, isRed: Bool) {
+    let colorIndex: Int // Index into color array instead of isRed
+    
+    init(id: UUID = UUID(), center: CLLocationCoordinate2D, radiusMeters: CLLocationDistance, colorIndex: Int = 2) { // Default to yellow
         self.id = id
         self.center = center
         self.radiusMeters = radiusMeters
-        self.isRed = isRed
+        self.colorIndex = colorIndex
     }
 
     static func == (lhs: CircleOverlayItem, rhs: CircleOverlayItem) -> Bool {
@@ -26,6 +27,6 @@ struct CircleOverlayItem: Identifiable, Equatable {
             && lhs.center.latitude == rhs.center.latitude
             && lhs.center.longitude == rhs.center.longitude
             && lhs.radiusMeters == rhs.radiusMeters
-            && lhs.isRed == rhs.isRed
+            && lhs.colorIndex == rhs.colorIndex
     }
 }

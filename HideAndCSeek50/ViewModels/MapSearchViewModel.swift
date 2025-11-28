@@ -1,5 +1,5 @@
 //
-//  SearchTest.swift
+//  MapSearchViewModel.swift
 //  HideAndCSeek50
 //
 //  Created by Ryan Eto on 11/25/25.

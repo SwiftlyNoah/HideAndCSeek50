@@ -2,7 +2,7 @@
 //  GameMapView.swift
 //  HideAndCSeek50
 //
-//  Created by Assistant on 11/17/25.
+//  Created by Noah Brauner on 11/17/25.
 //
 
 import SwiftUI
@@ -20,6 +20,12 @@ struct GameMapView: UIViewRepresentable {
     let circleItems: [CircleOverlayItem]
     let selectedRegions: Set<String>
     let regionColors: [String: Bool] // true = red, false = green
+    
+    // Map tools settings
+    let showTrainLines: Bool
+    
+    // Color options for circles (matching the bottom sheet)
+    // Using static reference from MapToolsViewModel
     
     // Search/directions
     var searchResults: [MKMapItem] = []
@@ -64,20 +70,22 @@ struct GameMapView: UIViewRepresentable {
         mapView.userTrackingMode = .none
         mapView.mapType = .mutedStandard
         
-        // Always-on overlays: MBTA linework
-        // Add thin white halos first for contrast, then colored lines on top
-        let mbtaLines = MassachusettsRegions.mbtaLineOverlays
-        var haloOverlays: [MKPolyline] = []
-        for line in mbtaLines {
-            var coords = Array(repeating: kCLLocationCoordinate2DInvalid, count: Int(line.pointCount))
-            line.getCoordinates(&coords, range: NSRange(location: 0, length: Int(line.pointCount)))
-            let halo = MKPolyline(coordinates: coords, count: coords.count)
-            halo.title = line.title // preserve route_id for reference if needed
-            halo.subtitle = "halo"   // mark as halo for renderer
-            haloOverlays.append(halo)
+        // Conditionally add MBTA linework if enabled
+        if showTrainLines {
+            // Add thin white halos first for contrast, then colored lines on top
+            let mbtaLines = MassachusettsRegions.mbtaLineOverlays
+            var haloOverlays: [MKPolyline] = []
+            for line in mbtaLines {
+                var coords = Array(repeating: kCLLocationCoordinate2DInvalid, count: Int(line.pointCount))
+                line.getCoordinates(&coords, range: NSRange(location: 0, length: Int(line.pointCount)))
+                let halo = MKPolyline(coordinates: coords, count: coords.count)
+                halo.title = line.title // preserve route_id for reference if needed
+                halo.subtitle = "halo"   // mark as halo for renderer
+                haloOverlays.append(halo)
+            }
+            if !haloOverlays.isEmpty { mapView.addOverlays(haloOverlays) }
+            mapView.addOverlays(mbtaLines)
         }
-        if !haloOverlays.isEmpty { mapView.addOverlays(haloOverlays) }
-        mapView.addOverlays(mbtaLines)
         
         return mapView
     }
@@ -92,6 +100,9 @@ struct GameMapView: UIViewRepresentable {
         
         // Sync municipality overlays with selectedRegions
         syncMunicipalityOverlays(mapView)
+        
+        // Sync train line overlays with showTrainLines setting
+        syncTrainLineOverlays(mapView)
         
         // Ensure existing polygon renderers reflect latest colors
         updateMunicipalityRendererColors(mapView)
@@ -115,7 +126,7 @@ struct GameMapView: UIViewRepresentable {
 
         for item in circleItems {
             let circle = MKCircle(center: item.center, radius: item.radiusMeters)
-            circle.title = "userCircle:\(item.id.uuidString)"
+            circle.title = "userCircle:\(item.id.uuidString):\(item.colorIndex)"
             mapView.addOverlay(circle)
         }
         
@@ -159,6 +170,37 @@ struct GameMapView: UIViewRepresentable {
     
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
+    }
+    
+    private func syncTrainLineOverlays(_ mapView: MKMapView) {
+        // Get current MBTA line overlays
+        let currentMBTAOverlays = mapView.overlays.filter { overlay in
+            if let polyline = overlay as? MKPolyline,
+               let title = polyline.title as String? {
+                // Check if it's an MBTA line (has route_id) or halo
+                return title.contains("Red") || title.contains("Blue") || title.contains("Orange") || title.contains("Green") || polyline.subtitle == "halo"
+            }
+            return false
+        }
+        
+        if showTrainLines && currentMBTAOverlays.isEmpty {
+            // Add train lines
+            let mbtaLines = MassachusettsRegions.mbtaLineOverlays
+            var haloOverlays: [MKPolyline] = []
+            for line in mbtaLines {
+                var coords = Array(repeating: kCLLocationCoordinate2DInvalid, count: Int(line.pointCount))
+                line.getCoordinates(&coords, range: NSRange(location: 0, length: Int(line.pointCount)))
+                let halo = MKPolyline(coordinates: coords, count: coords.count)
+                halo.title = line.title
+                halo.subtitle = "halo"
+                haloOverlays.append(halo)
+            }
+            if !haloOverlays.isEmpty { mapView.addOverlays(haloOverlays) }
+            mapView.addOverlays(mbtaLines)
+        } else if !showTrainLines && !currentMBTAOverlays.isEmpty {
+            // Remove train lines
+            mapView.removeOverlays(currentMBTAOverlays)
+        }
     }
     
     private func syncMunicipalityOverlays(_ mapView: MKMapView) {
@@ -299,8 +341,26 @@ struct GameMapView: UIViewRepresentable {
             }
             if let circle = overlay as? MKCircle {
                 let renderer = MKCircleRenderer(circle: circle)
-                renderer.fillColor = UIColor.systemBlue.withAlphaComponent(0.2)
-                renderer.strokeColor = UIColor.systemBlue
+                
+                // Extract color index from title if it's a user circle
+                if let title = circle.title as String?, title.hasPrefix("userCircle:") {
+                    let components = title.components(separatedBy: ":")
+                    if components.count >= 3, let colorIndex = Int(components[2]) {
+                        let safeColorIndex = min(max(colorIndex, 0), MapToolsViewModel.colorOptionsUIKit.count - 1)
+                        let color = MapToolsViewModel.colorOptionsUIKit[safeColorIndex]
+                        renderer.fillColor = color.withAlphaComponent(0.2)
+                        renderer.strokeColor = color
+                    } else {
+                        // Fallback to blue if parsing fails
+                        renderer.fillColor = UIColor.systemBlue.withAlphaComponent(0.2)
+                        renderer.strokeColor = UIColor.systemBlue
+                    }
+                } else {
+                    // Default circle styling for non-user circles
+                    renderer.fillColor = UIColor.systemBlue.withAlphaComponent(0.2)
+                    renderer.strokeColor = UIColor.systemBlue
+                }
+                
                 renderer.lineWidth = 2.0
                 return renderer
             }
@@ -386,16 +446,16 @@ class SearchResultAnnotation: NSObject, MKAnnotation {
 class CircleAnnotation: NSObject, MKAnnotation {
     let circleID: UUID
     let coordinate: CLLocationCoordinate2D
-    let isRed: Bool
+    let colorIndex: Int
 
     var title: String? {
         return "Circle Center"
     }
 
-    init(circleID: UUID, coordinate: CLLocationCoordinate2D, isRed: Bool) {
+    init(circleID: UUID, coordinate: CLLocationCoordinate2D, colorIndex: Int) {
         self.circleID = circleID
         self.coordinate = coordinate
-        self.isRed = isRed
+        self.colorIndex = colorIndex
         super.init()
     }
 }

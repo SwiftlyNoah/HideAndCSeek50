@@ -31,7 +31,6 @@ extension MKMapItem {
     }
 }
 
-
 // Extension to compare regions
 extension MKCoordinateRegion {
     func isApproximatelyEqual(to other: MKCoordinateRegion, threshold: Double = 0.001) -> Bool {

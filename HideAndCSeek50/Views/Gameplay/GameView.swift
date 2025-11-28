@@ -2,7 +2,7 @@
 //  GameView.swift
 //  HideAndCSeek50
 //
-//  Created by Assistant on 11/17/25.
+//  Created by Noah Brauner on 11/17/25.
 //
 
 import SwiftUI
@@ -22,6 +22,7 @@ struct GameView: View {
     @StateObject private var databaseManager = DatabaseManager.shared
     @StateObject private var chatViewModel = ChatViewModel()
     @StateObject private var mapSearchViewModel = MapSearchViewModel()
+    @StateObject private var mapToolsViewModel = MapToolsViewModel()
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authManager: AuthenticationManager
     
@@ -34,12 +35,6 @@ struct GameView: View {
     @State private var showingFoundConfirmation = false
     @State private var showingTimerActions = false
     @State private var showingMapToolsView = false
-    
-    // Region selection
-    @State private var selectedRegions: Set<String> = []
-    @State private var visibleRegions: Set<String> = [] // Track which regions are actually rendered
-    @State private var regionColors: [String: Bool] = [:] // Track color per region (true = red, false = green)
-    @State private var circleItems: [CircleOverlayItem] = []
 
     @State private var didCenterOnUser = false
     @FocusState private var isSearchFieldFocused: Bool
@@ -75,9 +70,10 @@ struct GameView: View {
                     currentUserUID: currentUser?.uid ?? "",
                     currentUserTeam: playerTeam,
                     hidableRegions: hidableRegions,
-                    circleItems: circleItems,
-                    selectedRegions: visibleRegions, // Use visibleRegions instead of selectedRegions
-                    regionColors: regionColors, // Pass colors
+                    circleItems: mapToolsViewModel.circleItems,
+                    selectedRegions: mapToolsViewModel.visibleRegions, // Use visibleRegions instead of selectedRegions
+                    regionColors: mapToolsViewModel.regionColors, // Pass colors
+                    showTrainLines: mapToolsViewModel.showTrainLines,
                     searchResults: mapSearchViewModel.results,
                     selectedLandmark: mapSearchViewModel.selectedLandmark,
                     route: mapSearchViewModel.route,
@@ -114,6 +110,15 @@ struct GameView: View {
                     if !results.isEmpty {
                         mapSearchViewModel.showSearchResults()
                     }
+                }
+                
+                // Scope overlay - only show when radius is expanded and mapTools sheet is presented
+                if mapToolsViewModel.radiusExpanded && mapToolsViewModel.mapToolsBottomSheetPosition != .hidden {
+                    Image(systemName: "scope")
+                        .font(.system(size: 40, weight: .medium))
+                        .foregroundColor(mapToolsViewModel.selectedColor)
+                        .opacity(0.8)
+                        .allowsHitTesting(false) // Allow touches to pass through
                 }
                 
                 // Top overlay controls
@@ -159,27 +164,12 @@ struct GameView: View {
                             
                             // Right side - Game action buttons
                             VStack(spacing: 12) {
-                                // Timer Actions Button (only show when timer is running)
-                                if gameState == .hiding || gameState == .seeking {
-                                    Button(action: { showingTimerActions = true }) {
-                                        ZStack {
-                                            Circle()
-                                                .fill((gameState == .hiding ? Color.blue : Color.red).opacity(0.9))
-                                                .frame(width: 56, height: 56)
-                                            
-                                            Image(systemName: "timer")
-                                                .font(.title2)
-                                                .foregroundColor(.white)
-                                        }
-                                    }
-                                }
-                                
                                 // Question button (for seekers only)
                                 if playerTeam == .seekers {
                                     Button(action: { showingQuestionView = true }) {
                                         ZStack {
                                             Circle()
-                                                .fill(Color.orange.opacity(0.9))
+                                                .fill(Color.orange.opacity(0.8))
                                                 .frame(width: 56, height: 56)
                                             
                                             Image(systemName: "questionmark.circle.fill")
@@ -189,15 +179,18 @@ struct GameView: View {
                                     }
                                 }
                                 
-                                // Map Tools button
-                                Button(action: { showingMapToolsView = true }) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.blue.opacity(0.9))
-                                            .frame(width: 56, height: 56)
-                                        Image(systemName: "map.fill")
-                                            .font(.title2)
-                                            .foregroundColor(.white)
+                                // Timer Actions Button (only show when timer is running)
+                                if gameState == .hiding || gameState == .seeking {
+                                    Button(action: { showingTimerActions = true }) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.purple.opacity(0.8))
+                                                .frame(width: 56, height: 56)
+                                            
+                                            Image(systemName: "timer")
+                                                .font(.title2)
+                                                .foregroundColor(.white)
+                                        }
                                     }
                                 }
                                 
@@ -216,10 +209,22 @@ struct GameView: View {
                                 }) {
                                     ZStack {
                                         Circle()
-                                            .fill(Color.purple.opacity(0.7))
+                                            .fill(Color.gray.opacity(0.8))
                                             .frame(width: 56, height: 56)
                                         
                                         Image(systemName: showingSearch ? "xmark.circle.fill" : "magnifyingglass")
+                                            .font(.title2)
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                                
+                                // Map Tools button
+                                Button(action: { mapToolsViewModel.mapToolsBottomSheetPosition = .relative(0.48) }) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.green.opacity(0.8))
+                                            .frame(width: 56, height: 56)
+                                        Image(systemName: "map.fill")
                                             .font(.title2)
                                             .foregroundColor(.white)
                                     }
@@ -298,6 +303,15 @@ struct GameView: View {
                     )
                 }
             }
+            .bottomSheet(bottomSheetPosition: $mapToolsViewModel.mapToolsBottomSheetPosition, switchablePositions: [.relative(0.48), .relativeTop(0.975)]) {
+                MapToolsBottomSheetContent(
+                    viewModel: mapToolsViewModel,
+                    mapCenter: Binding(get: { mapSearchViewModel.region.center }, set: { mapSearchViewModel.region.center = $0 }),
+                    onDismiss: {
+                        mapToolsViewModel.mapToolsBottomSheetPosition = .hidden
+                    }
+                )
+            }
             .sheet(isPresented: $showingChat) {
                 NavigationStack {
                     GameChatView(
@@ -358,25 +372,6 @@ struct GameView: View {
                         showingFoundConfirmation = true
                     }
                 )
-            }
-            .sheet(isPresented: $showingMapToolsView) {
-                NavigationStack {
-                    MapToolsView(
-                        selectedRegions: $selectedRegions,
-                        visibleRegions: $visibleRegions,
-                        regionColors: $regionColors,
-                        mapCenter: Binding(get: { mapSearchViewModel.region.center }, set: { mapSearchViewModel.region.center = $0 }),
-                        circleItems: $circleItems
-                    )
-                        .navigationTitle("Map Tools")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarTrailing) {
-                                Button("Done") { showingMapToolsView = false }
-                            }
-                        }
-                }
-                .presentationDetents([.medium, .large])
             }
             .confirmationDialog("Skip Hiding Phase", isPresented: $showingSkipConfirmation, titleVisibility: .visible) {
                 Button("Skip", role: .destructive) {

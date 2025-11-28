@@ -9,6 +9,7 @@ import SwiftUI
 import MapKit
 import CoreLocation
 import FirebaseAuth
+import BottomSheet
 internal import Combine
 
 struct GameView: View {
@@ -25,20 +26,19 @@ struct GameView: View {
     @EnvironmentObject private var authManager: AuthenticationManager
     
     @State private var cancellables = Set<AnyCancellable>()
+    @State private var showingSearch = false
     @State private var showingChat = false
     @State private var showingQuestionView = false
     @State private var showingSettings = false
     @State private var showingSkipConfirmation = false
     @State private var showingFoundConfirmation = false
     @State private var showingTimerActions = false
-    @State private var timerUpdater: Timer?
-    @State private var showingSearch = false
-    @State private var showingResearchMap = false
-    @State private var showingDirectionsSheet = false
+    
     @State private var didCenterOnUser = false
     @FocusState private var isSearchFieldFocused: Bool
-
+    
     // Local timer state for smooth UI updates
+    @State private var timerUpdater: Timer?
     @State private var localCurrentTime = Date()
     
     private var currentUser: User? {
@@ -69,8 +69,12 @@ struct GameView: View {
                     currentUserTeam: playerTeam,
                     hidableRegions: hidableRegions,
                     searchResults: mapSearchViewModel.results,
-                    selectedSearchItem: mapSearchViewModel.selectedItem,
-                    route: mapSearchViewModel.route
+                    selectedLandmark: mapSearchViewModel.selectedLandmark,
+                    route: mapSearchViewModel.route,
+                    onSearchAnnotationSelected: { mapItem in
+                        mapSearchViewModel.selectItem(mapItem)
+                        mapSearchViewModel.showTransportSelection(for: mapItem)
+                    }
                 )
                 .ignoresSafeArea(.all)
                 .onAppear {
@@ -95,167 +99,183 @@ struct GameView: View {
                 }
                 .onChange(of: locationManager.location) { _, location in
                     updatePlayerLocation(location)
-                    // Center on user once when first fix arrives; also sync search region
-                    if !didCenterOnUser, let loc = location {
-                        let center = loc.coordinate
-                        let userRegion = MKCoordinateRegion(
-                            center: center,
-                            latitudinalMeters: 8000,
-                            longitudinalMeters: 8000
-                        )
-                        mapSearchViewModel.region = userRegion
-                        didCenterOnUser = true
-                    }
                 }
-                .onChange(of: locationManager.location) { _, location in
-                    updatePlayerLocation(location)
+                .onChange(of: mapSearchViewModel.results) { _, results in
+                    if !results.isEmpty {
+                        mapSearchViewModel.showSearchResults()
+                    }
                 }
                 
                 // Top overlay controls
                 VStack {
-                    Group {
-                        if showingSearch {
-                            // Search bar (when visible)
-                            searchBarView
-                                .transition(showingSearch ? .opacity : .move(edge: .bottom))
-                        }
-                        else {
-                            HStack {
-                                Button(action: { showingSettings = true }) {
-                                    Image(systemName: "gearshape.fill")
-                                        .font(.title3)
-                                        .foregroundColor(.white)
-                                        .frame(width: 40, height: 40)
-                                        .background(Color.black.opacity(0.7))
-                                        .clipShape(Circle())
-                                }
-                                
-                                Spacer()
-                                
-                                timerUI
-                                
-                                Spacer()
-                                
-                                Color.clear
-                                    .frame(width: 40, height: 40)
-                            }
-                            .transition(showingSearch ? .move(edge: .bottom) : .opacity)
-                        }
+                    ZStack {
+                        defaultOverlay
+                            .opacity(showingSearch ? 0 : 1)
+                            .animation(.easeInOut.delay(0.2), value: showingSearch)
+                        
+                        searchBarOverlay
+                            .opacity(showingSearch ? 1 : 0)
+                            .offset(y: showingSearch ? 0 : -20)
+                            .disabled(!showingSearch)
+                            
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
                     
                     Spacer()
+                    
+                    // Error message
+                    if let error = mapSearchViewModel.errorMessage {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.white)
+                        }
+                        .padding(8)
+                        .background(Color.black.opacity(0.7))
+                        .cornerRadius(8)
+                    }
                 }
                 
                 // Bottom action buttons - Fixed positioning
-                VStack {
-                    Spacer()
-                    
-                    HStack(alignment: .bottom) {
-                        Button(action: {
-                            if mapSearchViewModel.selectedItem != nil {
-                                showingDirectionsSheet = true
-                            } else {
-                                showingSearch = true
-                            }
-                        }) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.gray.opacity(0.8))
-                                    .frame(width: 56, height: 56)
-                                Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.white)
-                            }
-                        }
-                        .padding(.leading, 20)
-                        
+                if !showingSearch {
+                    VStack {
                         Spacer()
                         
-                        // Right side - Game action buttons
-                        VStack(spacing: 12) {
-                            // Timer Actions Button (only show when timer is running)
-                            if gameState == .hiding || gameState == .seeking {
-                                Button(action: { showingTimerActions = true }) {
+                        HStack {
+                            Spacer()
+                            
+                            // Right side - Game action buttons
+                            VStack(spacing: 12) {
+                                // Timer Actions Button (only show when timer is running)
+                                if gameState == .hiding || gameState == .seeking {
+                                    Button(action: { showingTimerActions = true }) {
+                                        ZStack {
+                                            Circle()
+                                                .fill((gameState == .hiding ? Color.blue : Color.red).opacity(0.9))
+                                                .frame(width: 56, height: 56)
+                                            
+                                            Image(systemName: "timer")
+                                                .font(.title2)
+                                                .foregroundColor(.white)
+                                        }
+                                    }
+                                }
+                                
+                                // Question button (for seekers only)
+                                if playerTeam == .seekers {
+                                    Button(action: { showingQuestionView = true }) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.orange.opacity(0.9))
+                                                .frame(width: 56, height: 56)
+                                            
+                                            Image(systemName: "questionmark.circle.fill")
+                                                .font(.title2)
+                                                .foregroundColor(.white)
+                                        }
+                                    }
+                                }
+                                
+                                // Search button
+                                Button(action: {
+                                    withAnimation(.spring()) {
+                                        if showingSearch {
+                                            mapSearchViewModel.clearSearch()
+                                            showingSearch = false
+                                            isSearchFieldFocused = false
+                                        } else {
+                                            showingSearch = true
+                                            isSearchFieldFocused = true
+                                        }
+                                    }
+                                }) {
                                     ZStack {
                                         Circle()
-                                            .fill((gameState == .hiding ? Color.blue : Color.red).opacity(0.9))
+                                            .fill(Color.purple.opacity(0.7))
                                             .frame(width: 56, height: 56)
                                         
-                                        Image(systemName: "timer")
+                                        Image(systemName: showingSearch ? "xmark.circle.fill" : "magnifyingglass")
                                             .font(.title2)
                                             .foregroundColor(.white)
                                     }
                                 }
-                            }
-                            
-                            // Question button (for seekers only)
-                            if playerTeam == .seekers {
-                                Button(action: { showingQuestionView = true }) {
+                                
+                                // Chat button
+                                Button(action: { showingChat = true }) {
                                     ZStack {
                                         Circle()
-                                            .fill(Color.orange.opacity(0.9))
+                                            .fill(Color.black.opacity(0.8))
                                             .frame(width: 56, height: 56)
                                         
-                                        Image(systemName: "questionmark.circle.fill")
+                                        Image(systemName: "message.fill")
                                             .font(.title2)
                                             .foregroundColor(.white)
+                                        
+                                        // Unread message indicator
+                                        if chatViewModel.hasUnreadMessages {
+                                            Circle()
+                                                .fill(Color.red)
+                                                .frame(width: 16, height: 16)
+                                                .offset(x: 20, y: -20)
+                                        }
                                     }
                                 }
                             }
-                            
-                            // Search button
-                            Button(action: {
-                                withAnimation(.spring()) {
-                                    if showingSearch {
-                                        mapSearchViewModel.clearSearch()
-                                        showingSearch = false
-                                        isSearchFieldFocused = false
-                                    } else {
-                                        showingSearch = true
-                                        isSearchFieldFocused = true
-                                    }
-                                }
-                            }) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.purple.opacity(0.7))
-                                        .frame(width: 56, height: 56)
-                                    
-                                    Image(systemName: showingSearch ? "xmark.circle.fill" : "magnifyingglass")
-                                        .font(.title2)
-                                        .foregroundColor(.white)
-                                }
-                            }
-                            
-                            // Chat button
-                            Button(action: { showingChat = true }) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.black.opacity(0.8))
-                                        .frame(width: 56, height: 56)
-                                    
-                                    Image(systemName: "message.fill")
-                                        .font(.title2)
-                                        .foregroundColor(.white)
-                                    
-                                    // Unread message indicator
-                                    if chatViewModel.hasUnreadMessages {
-                                        Circle()
-                                            .fill(Color.red)
-                                            .frame(width: 16, height: 16)
-                                            .offset(x: 20, y: -20)
-                                    }
-                                }
-                            }
+                            .padding(.trailing, 20)
+                            .ignoresSafeArea(.keyboard)
                         }
-                        .padding(.trailing, 20)
+                        .padding(.bottom, 40)
                     }
-                    .padding(.bottom, 40)
                 }
             }
             .navigationBarHidden(true)
+            .bottomSheet(bottomSheetPosition: $mapSearchViewModel.searchResultsBottomSheetPosition, switchablePositions: [.relative(0.25), .relative(0.5), .relativeTop(0.975)]) {
+                SearchResultsSheetContent(
+                    viewModel: mapSearchViewModel,
+                    userLocation: locationManager.location,
+                    onItemSelected: { item in
+                        mapSearchViewModel.selectItem(item)
+                        mapSearchViewModel.showTransportSelection(for: item)
+                    },
+                    onDismiss: {
+                        mapSearchViewModel.searchResultsBottomSheetPosition = .hidden
+                    }
+                )
+            }
+            .bottomSheet(bottomSheetPosition: $mapSearchViewModel.transportSelectionBottomSheetPosition, switchablePositions: [.dynamic]) {
+                if let destination = mapSearchViewModel.selectedDestination {
+                    TransportSelectionSheetContent(
+                        destination: destination,
+                        userLocation: locationManager.location,
+                        onTransportSelected: { transportType in
+                            mapSearchViewModel.selectTransportAndShowDirections(transportType)
+                        },
+                        onDismiss: {
+                            mapSearchViewModel.transportSelectionBottomSheetPosition = .hidden
+                        }
+                    )
+                }
+            }
+            .bottomSheet(bottomSheetPosition: $mapSearchViewModel.directionsBottomSheetPosition, switchablePositions: [.relative(0.25), .relative(0.5), .relativeTop(0.975)]) {
+                if let destination = mapSearchViewModel.selectedDestination {
+                    DirectionsSheetContent(
+                        destination: destination,
+                        transportType: mapSearchViewModel.selectedTransportType,
+                        viewModel: mapSearchViewModel,
+                        onDismiss: {
+                            mapSearchViewModel.directionsBottomSheetPosition = .hidden
+                            mapSearchViewModel.clearSearch()
+                        },
+                        onRecalculate: {
+                            mapSearchViewModel.directionsBottomSheetPosition = .hidden
+                            mapSearchViewModel.transportSelectionBottomSheetPosition = .dynamic
+                        }
+                    )
+                }
+            }
             .sheet(isPresented: $showingChat) {
                 NavigationStack {
                     GameChatView(
@@ -317,17 +337,6 @@ struct GameView: View {
                     }
                 )
             }
-            .sheet(isPresented: $showingDirectionsSheet) {
-                if let destination = mapSearchViewModel.selectedItem {
-                    DirectionsSheet(
-                        destination: destination,
-                        viewModel: mapSearchViewModel,
-                        onRouteCalculated: {
-                            // Route will render on the main map via mapSearchViewModel.route
-                        }
-                    )
-                }
-            }
             .confirmationDialog("Skip Hiding Phase", isPresented: $showingSkipConfirmation, titleVisibility: .visible) {
                 Button("Skip", role: .destructive) {
                     skipHidingPhase()
@@ -347,21 +356,7 @@ struct GameView: View {
         }
     }
     
-
-    
     private func setupMapRegion() {
-        // Prefer current user location; fall back to city region
-        if let loc = locationManager.location?.coordinate {
-            let userRegion = MKCoordinateRegion(
-                center: loc,
-                latitudinalMeters: 8000,
-                longitudinalMeters: 8000
-            )
-            mapSearchViewModel.region = userRegion
-            didCenterOnUser = true
-            return
-        }
-
         // Fallback: city-based region (unchanged)
         let newRegion: MKCoordinateRegion
         switch gameCity {
@@ -392,6 +387,18 @@ struct GameView: View {
     private func updatePlayerLocation(_ location: CLLocation?) {
         guard let location = location,
               let currentUID = currentUser?.uid else { return }
+        
+        // Center on user once when first fix arrives; also sync search region
+        if !didCenterOnUser {
+            let center = location.coordinate
+            let userRegion = MKCoordinateRegion(
+                center: center,
+                latitudinalMeters: 8000,
+                longitudinalMeters: 8000
+            )
+            mapSearchViewModel.region = userRegion
+            didCenterOnUser = true
+        }
         
         // Update database
         Task {
@@ -428,7 +435,7 @@ struct GameView: View {
         }
     }
     
-
+    
     private func observeGameUpdates() {
         databaseManager.startListeningToGame(gameId: gameId)
         
@@ -455,7 +462,31 @@ struct GameView: View {
             }
             .store(in: &cancellables)
     }
-    // MARK: - Timer UI
+}
+
+// MARK: - Timer UI
+extension GameView {
+    private var defaultOverlay: some View {
+        HStack {
+            Button(action: { showingSettings = true }) {
+                Image(systemName: "gearshape.fill")
+                    .font(.title3)
+                    .foregroundColor(.white)
+                    .frame(width: 40, height: 40)
+                    .background(Color.black.opacity(0.7))
+                    .clipShape(Circle())
+            }
+            
+            Spacer()
+            
+            timerUI
+            
+            Spacer()
+            
+            Color.clear
+                .frame(width: 40, height: 40)
+        }
+    }
     
     @ViewBuilder
     private var timerUI: some View {
@@ -750,142 +781,67 @@ struct GameView: View {
     }
 }
 
-// MARK: - Search Bar View
+// MARK: - Search Bar Overlay View
 extension GameView {
-    private var searchBarView: some View {
-        VStack(spacing: 8) {
+    private var searchBarOverlay: some View {
+        HStack {
+            Button(action: {
+                withAnimation(.spring()) {
+                    showingSearch = false
+                    isSearchFieldFocused = false
+                    mapSearchViewModel.clearSearch()
+                }
+            }) {
+                Image(systemName: "chevron.left")
+                    .font(.title3)
+                    .foregroundColor(.white)
+                    .frame(width: 40, height: 40)
+                    .background(Color.black.opacity(0.7))
+                    .clipShape(Circle())
+            }
+            
             HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.white.opacity(0.7))
-                    .padding(.leading, 12)
-                
                 TextField("Search for places...", text: $mapSearchViewModel.query)
                     .textFieldStyle(.plain)
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .submitLabel(.search)
                     .onSubmit {
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        isSearchFieldFocused = false
                         mapSearchViewModel.search()
                     }
+                    .focused($isSearchFieldFocused)
                 
                 if !mapSearchViewModel.query.isEmpty {
                     Button(action: { mapSearchViewModel.clearSearch() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                    .padding(.trailing, 8)
-                }
-                
-                Button(action: {
-                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    mapSearchViewModel.search()
-                }) {
-                    if mapSearchViewModel.isSearching {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
-                    } else {
-                        Text("Search")
-                            .fontWeight(.semibold)
+                        Image(systemName: "xmark.circle")
                             .foregroundColor(.white)
                     }
                 }
-                .disabled(mapSearchViewModel.query.isEmpty || mapSearchViewModel.isSearching)
-                .padding(.trailing, 12)
             }
-            .padding(.vertical, 12)
+            .padding(.horizontal, 20)
+            .frame(height: 40)
             .background(Color.black.opacity(0.7))
-            .cornerRadius(12)
+            .clipShape(Capsule())
             
-            // Search results list (if any)
-            if !mapSearchViewModel.results.isEmpty {
-                searchResultsList
-            }
-            
-            // Error message
-            if let error = mapSearchViewModel.errorMessage {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(.white)
-                }
-                .padding(8)
-                .background(Color.black.opacity(0.7))
-                .cornerRadius(8)
-            }
-        }
-    }
-    
-    private var searchResultsList: some View {
-        ScrollView {
-            Spacer()
-                .frame(height: 4)
-            
-            VStack(spacing: 8) {
-                ForEach(mapSearchViewModel.results, id: \.self) { item in
-                    Button(action: {
-                        mapSearchViewModel.selectItem(item)
-                        // Region will automatically update via the observer
-                    }) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(item.name ?? "Unknown")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.white)
-                                
-                                if let address = formatAddress(item.placemark) {
-                                    Text(address)
-                                        .font(.caption)
-                                        .foregroundColor(.white.opacity(0.7))
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            if mapSearchViewModel.selectedItem == item {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                            }
-                        }
-                        .padding(12)
-                        .background(
-                            mapSearchViewModel.selectedItem == item ?
-                            Color.blue.opacity(0.3) :
-                                Color.black.opacity(0.7)
-                        )
-                        .cornerRadius(8)
+            Button(action: {
+                    isSearchFieldFocused = false
+                    mapSearchViewModel.search()
+            }) {
+                Group {
+                    if mapSearchViewModel.isSearching {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    } else {
+                        Image(systemName: "magnifyingglass")
+                            .font(.title3)
+                            .foregroundColor(.white)
                     }
                 }
+                .frame(width: 40, height: 40)
+                .background(Color.black.opacity(0.7))
+                .clipShape(Circle())
             }
-            .padding(.horizontal, 4)
-            
-            Spacer()
-                .frame(height: 4)
         }
-        .frame(maxHeight: 200)
-        .background(Color.black.opacity(0.4))
-        .cornerRadius(12)
-    }
-    
-    // MARK: - Search Methods
-    
-    private func formatAddress(_ placemark: MKPlacemark) -> String? {
-        var components: [String] = []
-        
-        if let street = placemark.thoroughfare {
-            components.append(street)
-        }
-        if let city = placemark.locality {
-            components.append(city)
-        }
-        if let state = placemark.administrativeArea {
-            components.append(state)
-        }
-        
-        return components.isEmpty ? nil : components.joined(separator: ", ")
     }
 }
 

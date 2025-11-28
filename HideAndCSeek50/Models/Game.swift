@@ -12,7 +12,6 @@ import MapKit
 import SwiftUI
 
 // MARK: - Game Models
-
 struct Game: Codable {
     let info: GameInfo
     var teams: GameTeams
@@ -73,8 +72,6 @@ struct GameMessage: Codable, Identifiable {
     let questionData: QuestionData?
     let team: Team
 }
-
-
 
 struct GameQuestion: Codable {
     let id: String
@@ -148,90 +145,6 @@ extension PlayerLocation {
             latitude: latitude,
             longitude: longitude,
             timestamp: timestamp
-        )
-    }
-}
-
-extension GameMessage {
-    func toDictionary() throws -> [String: Any] {
-        var dict: [String: Any] = [
-            "id": id,
-            "senderUID": senderUID,
-            "senderName": senderName,
-            "content": content,
-            "type": type.rawValue,
-            "timestamp": timestamp.toFirebaseTimestamp(),
-            "team": team.rawValue
-        ]
-        
-        if let attachments = attachments {
-            dict["attachments"] = [
-                "photoURL": attachments.photoURL as Any,
-                "audioURL": attachments.audioURL as Any,
-                "duration": attachments.duration as Any
-            ]
-        }
-        
-        if let questionData = questionData {
-            dict["questionData"] = [
-                "questionId": questionData.questionId,
-                "questionText": questionData.questionText,
-                "isAnswered": questionData.isAnswered,
-                "correctAnswer": questionData.correctAnswer as Any,
-                "playerAnswer": questionData.playerAnswer as Any
-            ]
-        }
-        
-        return dict
-    }
-    
-    static func fromDictionary(_ dict: [String: Any]) throws -> GameMessage {
-        guard let id = dict["id"] as? String,
-              let senderUID = dict["senderUID"] as? String,
-              let senderName = dict["senderName"] as? String,
-              let content = dict["content"] as? String,
-              let typeRaw = dict["type"] as? String,
-              let type = MessageType(rawValue: typeRaw),
-              let timestampInt = dict["timestamp"] as? Int64,
-              let teamRaw = dict["team"] as? String,
-              let team = Team(rawValue: teamRaw) else {
-            throw DatabaseError.invalidData
-        }
-        
-        let timestamp = Date.fromFirebaseTimestamp(timestampInt)
-        
-        var attachments: MessageAttachments?
-        if let attachmentsDict = dict["attachments"] as? [String: Any] {
-            attachments = MessageAttachments(
-                photoURL: attachmentsDict["photoURL"] as? String,
-                audioURL: attachmentsDict["audioURL"] as? String,
-                duration: attachmentsDict["duration"] as? TimeInterval
-            )
-        }
-        
-        var questionData: QuestionData?
-        if let questionDict = dict["questionData"] as? [String: Any],
-           let questionId = questionDict["questionId"] as? String,
-           let questionText = questionDict["questionText"] as? String {
-            questionData = QuestionData(
-                questionId: questionId,
-                questionText: questionText,
-                isAnswered: questionDict["isAnswered"] as? Bool ?? false,
-                correctAnswer: questionDict["correctAnswer"] as? String,
-                playerAnswer: questionDict["playerAnswer"] as? String
-            )
-        }
-        
-        return GameMessage(
-            id: id,
-            senderUID: senderUID,
-            senderName: senderName,
-            content: content,
-            type: type,
-            timestamp: timestamp,
-            attachments: attachments,
-            questionData: questionData,
-            team: team
         )
     }
 }
@@ -437,8 +350,6 @@ enum EventType: String, Codable {
     case gamePaused = "gamePaused"
     case gameResumed = "gameResumed"
 }
-
-// MARK: - Database Extensions
 
 extension Game {
     var isActive: Bool {
@@ -678,6 +589,90 @@ extension GameInfo {
         info.seekingElapsed = seekingElapsed
         
         return info
+    }
+}
+
+extension GameMessage {
+    func toDictionary() throws -> [String: Any] {
+        var dict: [String: Any] = [
+            "id": id,
+            "senderUID": senderUID,
+            "senderName": senderName,
+            "content": content,
+            "type": type.rawValue,
+            "timestamp": timestamp.toFirebaseTimestamp(),
+            "team": team.rawValue
+        ]
+        
+        if let attachments = attachments {
+            dict["attachments"] = [
+                "photoURL": attachments.photoURL as Any,
+                "audioURL": attachments.audioURL as Any,
+                "duration": attachments.duration as Any
+            ]
+        }
+        
+        if let questionData = questionData {
+            dict["questionData"] = [
+                "questionId": questionData.questionId,
+                "questionText": questionData.questionText,
+                "isAnswered": questionData.isAnswered,
+                "correctAnswer": questionData.correctAnswer as Any,
+                "playerAnswer": questionData.playerAnswer as Any
+            ]
+        }
+        
+        return dict
+    }
+    
+    static func fromDictionary(_ dict: [String: Any]) throws -> GameMessage {
+        guard let id = dict["id"] as? String,
+              let senderUID = dict["senderUID"] as? String,
+              let senderName = dict["senderName"] as? String,
+              let content = dict["content"] as? String,
+              let typeRaw = dict["type"] as? String,
+              let type = MessageType(rawValue: typeRaw),
+              let timestampInt = dict["timestamp"] as? Int64,
+              let teamRaw = dict["team"] as? String,
+              let team = Team(rawValue: teamRaw) else {
+            throw DatabaseError.invalidData
+        }
+        
+        let timestamp = Date.fromFirebaseTimestamp(timestampInt)
+        
+        var attachments: MessageAttachments?
+        if let attachmentsDict = dict["attachments"] as? [String: Any] {
+            attachments = MessageAttachments(
+                photoURL: attachmentsDict["photoURL"] as? String,
+                audioURL: attachmentsDict["audioURL"] as? String,
+                duration: attachmentsDict["duration"] as? TimeInterval
+            )
+        }
+        
+        var questionData: QuestionData?
+        if let questionDict = dict["questionData"] as? [String: Any],
+           let questionId = questionDict["questionId"] as? String,
+           let questionText = questionDict["questionText"] as? String {
+            questionData = QuestionData(
+                questionId: questionId,
+                questionText: questionText,
+                isAnswered: questionDict["isAnswered"] as? Bool ?? false,
+                correctAnswer: questionDict["correctAnswer"] as? String,
+                playerAnswer: questionDict["playerAnswer"] as? String
+            )
+        }
+        
+        return GameMessage(
+            id: id,
+            senderUID: senderUID,
+            senderName: senderName,
+            content: content,
+            type: type,
+            timestamp: timestamp,
+            attachments: attachments,
+            questionData: questionData,
+            team: team
+        )
     }
 }
 

@@ -8,18 +8,26 @@
 import Foundation
 import MapKit
 internal import Combine
+import BottomSheet
 
 @MainActor
 class MapSearchViewModel: ObservableObject {
     @Published var query = ""
     @Published var results: [MKMapItem] = []
+    @Published var hasSearched = false
     @Published var isSearching = false
     @Published var errorMessage: String?
-    @Published var selectedItem: MKMapItem?
+    @Published var selectedLandmark: MKMapItem?
     @Published var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 42.3601, longitude: -71.0589),
         span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
     )
+    
+    @Published var searchResultsBottomSheetPosition: BottomSheetPosition = .hidden
+    @Published var transportSelectionBottomSheetPosition: BottomSheetPosition = .hidden
+    @Published var directionsBottomSheetPosition: BottomSheetPosition = .hidden
+    @Published var selectedDestination: MKMapItem?
+    @Published var selectedTransportType: TransportType = .automobile
     
     // Directions Var's
     @Published var route: MKRoute?
@@ -45,9 +53,17 @@ class MapSearchViewModel: ObservableObject {
         // Prefer user location; fallback to current map center
         if let userLoc = LocationManager.shared.location?.coordinate,
            [.authorizedAlways, .authorizedWhenInUse].contains(LocationManager.shared.authorizationStatus) {
-            request.source = MKMapItem(placemark: MKPlacemark(coordinate: userLoc))
+            if #available(iOS 26.0, *) {
+                request.source = MKMapItem(location: CLLocation(latitude: userLoc.latitude, longitude: userLoc.longitude), address: nil)
+            } else {
+                request.source = MKMapItem(placemark: MKPlacemark(coordinate: userLoc))
+            }
         } else {
-            request.source = MKMapItem(placemark: MKPlacemark(coordinate: region.center))
+            if #available(iOS 26.0, *) {
+                request.source = MKMapItem(location: CLLocation(latitude: region.center.latitude, longitude: region.center.longitude), address: nil)
+            } else {
+                request.source = MKMapItem(placemark: MKPlacemark(coordinate: region.center))
+            }
         }
 
         request.destination = destination
@@ -76,7 +92,7 @@ class MapSearchViewModel: ObservableObject {
                         case .directionsNotFound:
                             self.directionsError = "No routes available. Transit may not operate here or at this time."
                         case .placemarkNotFound:
-                            self.directionsError = "Destination placemark not found."
+                            self.directionsError = "Destination location not found."
                         default:
                             self.directionsError = "Directions unavailable: \(error.localizedDescription)"
                         }
@@ -134,19 +150,23 @@ class MapSearchViewModel: ObservableObject {
                     if items.isEmpty {
                         self.errorMessage = "No results found"
                     }
-
-                    // Do NOT change region here; keep the user's current view
-                    // self.region = ...
                 }
+                
+                self.hasSearched = true
             }
         }
     }
     
     func clearSearch() {
+        searchResultsBottomSheetPosition = .hidden
+        transportSelectionBottomSheetPosition = .hidden
+        directionsBottomSheetPosition = .hidden
+        selectedDestination = nil
+        hasSearched = false
         query = ""
         results = []
         errorMessage = nil
-        selectedItem = nil
+        selectedLandmark = nil
         // Clear any rendered directions
         route = nil
         directionsError = nil
@@ -154,10 +174,44 @@ class MapSearchViewModel: ObservableObject {
     }
     
     func selectItem(_ item: MKMapItem) {
-        selectedItem = item
-        if let coord = item.placemark.location?.coordinate {
-            region.center = coord
-            region.span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+        selectedLandmark = item
+        region.center = item.location.coordinate
+        region.span = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+    }
+    
+    // MARK: - Bottom Sheet Management
+    
+    func showSearchResults() {
+        searchResultsBottomSheetPosition = .relative(0.5)
+    }
+    
+    func showTransportSelection(for destination: MKMapItem) {
+        selectedDestination = destination
+        searchResultsBottomSheetPosition = .hidden
+        transportSelectionBottomSheetPosition = .dynamic
+    }
+    
+    func showDirections() {
+        transportSelectionBottomSheetPosition = .hidden
+        directionsBottomSheetPosition = .relative(0.5)
+    }
+    
+    func hideAllBottomSheets() {
+        searchResultsBottomSheetPosition = .hidden
+        transportSelectionBottomSheetPosition = .hidden
+        directionsBottomSheetPosition = .hidden
+    }
+    
+    func selectTransportAndShowDirections(_ transportType: TransportType) {
+        selectedTransportType = transportType
+        
+        if let destination = selectedDestination {
+            getDirections(
+                to: destination,
+                transportType: transportType.mkDirectionsType,
+                departureType: .leaveNow
+            )
+            showDirections()
         }
     }
 }

@@ -47,6 +47,60 @@ struct Lobby: Codable {
     }
 }
 
+
+struct LobbyPlayer: Codable {
+    let uid: String
+    let displayName: String
+    var team: Team
+    var isReady: Bool = false
+    let joinedAt: Date
+    var isOnline: Bool = true
+}
+
+struct ActiveGame: Codable {
+    let gameId: String
+    var state: GameState
+    var playerCount: Int
+    var lastActivity: Date
+    let hostUID: String
+}
+
+extension LobbyPlayer {
+    func toDictionary() throws -> [String: Any] {
+        return [
+            "uid": uid,
+            "displayName": displayName,
+            "team": team.rawValue,
+            "isReady": isReady,
+            "joinedAt": joinedAt.toFirebaseTimestamp(),
+            "isOnline": isOnline
+        ]
+    }
+    
+    static func fromDictionary(_ dictionary: [String: Any]) throws -> LobbyPlayer {
+        guard let uid = dictionary["uid"] as? String,
+              let displayName = dictionary["displayName"] as? String,
+              let teamString = dictionary["team"] as? String,
+              let team = Team(rawValue: teamString),
+              let joinedAtTimestamp = dictionary["joinedAt"] as? Int64 else {
+            throw DatabaseError.invalidData
+        }
+        
+        let isReady = dictionary["isReady"] as? Bool ?? false
+        let isOnline = dictionary["isOnline"] as? Bool ?? true
+        let joinedAt = Date.fromFirebaseTimestamp(joinedAtTimestamp)
+        
+        return LobbyPlayer(
+            uid: uid,
+            displayName: displayName,
+            team: team,
+            isReady: isReady,
+            joinedAt: joinedAt,
+            isOnline: isOnline
+        )
+    }
+}
+
 extension Lobby {
     func toDictionary() throws -> [String: Any] {
         var dict: [String: Any] = [
@@ -124,59 +178,6 @@ extension Lobby {
             players: players
         )
     }
-}
-
-struct LobbyPlayer: Codable {
-    let uid: String
-    let displayName: String
-    var team: Team
-    var isReady: Bool = false
-    let joinedAt: Date
-    var isOnline: Bool = true
-}
-
-extension LobbyPlayer {
-    func toDictionary() throws -> [String: Any] {
-        return [
-            "uid": uid,
-            "displayName": displayName,
-            "team": team.rawValue,
-            "isReady": isReady,
-            "joinedAt": joinedAt.toFirebaseTimestamp(),
-            "isOnline": isOnline
-        ]
-    }
-    
-    static func fromDictionary(_ dictionary: [String: Any]) throws -> LobbyPlayer {
-        guard let uid = dictionary["uid"] as? String,
-              let displayName = dictionary["displayName"] as? String,
-              let teamString = dictionary["team"] as? String,
-              let team = Team(rawValue: teamString),
-              let joinedAtTimestamp = dictionary["joinedAt"] as? Int64 else {
-            throw DatabaseError.invalidData
-        }
-        
-        let isReady = dictionary["isReady"] as? Bool ?? false
-        let isOnline = dictionary["isOnline"] as? Bool ?? true
-        let joinedAt = Date.fromFirebaseTimestamp(joinedAtTimestamp)
-        
-        return LobbyPlayer(
-            uid: uid,
-            displayName: displayName,
-            team: team,
-            isReady: isReady,
-            joinedAt: joinedAt,
-            isOnline: isOnline
-        )
-    }
-}
-
-struct ActiveGame: Codable {
-    let gameId: String
-    var state: GameState
-    var playerCount: Int
-    var lastActivity: Date
-    let hostUID: String
 }
 
 extension ActiveGame {

@@ -37,8 +37,9 @@ struct GameMapView: UIViewRepresentable {
     let currentUserTeam: Team
     let hidableRegions: [MKPolygon]
     var searchResults: [MKMapItem] = []
-    var selectedSearchItem: MKMapItem?
+    var selectedLandmark: MKMapItem?
     var route: MKRoute?
+    var onSearchAnnotationSelected: ((MKMapItem) -> Void)?
     
     private var visiblePlayerLocations: [(String, CLLocation, Team, String)] {
         guard let game = game else { return [] }
@@ -153,13 +154,18 @@ struct GameMapView: UIViewRepresentable {
         
         // Add new search result annotations
         for item in searchResults {
-            if let coordinate = item.placemark.location?.coordinate {
-                let annotation = SearchResultAnnotation(
-                    name: item.name ?? "Unknown",
-                    coordinate: coordinate,
-                    isSelected: selectedSearchItem == item
-                )
-                mapView.addAnnotation(annotation)
+            let coordinate = item.location.coordinate
+            let isSelected = selectedLandmark == item
+            let annotation = SearchResultAnnotation(
+                name: item.name ?? "Unknown",
+                coordinate: coordinate,
+                isSelected: isSelected
+            )
+            mapView.addAnnotation(annotation)
+            
+            // If this annotation should be selected, select it on the map
+            if isSelected {
+                mapView.selectAnnotation(annotation, animated: false)
             }
         }
     }
@@ -187,6 +193,21 @@ struct GameMapView: UIViewRepresentable {
                 self.userIsInteracting = false
             }
         }
+        
+        func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            // Handle search result annotation selection
+            print("did select annotation", annotation.coordinate)
+            // Find the corresponding MKMapItem by coordinate and name
+            if let mapItem = parent.searchResults.first(where: { item in
+                let itemCoordinate = item.location
+                let distance = CLLocation(latitude: annotation.coordinate.latitude, longitude: annotation.coordinate.longitude)
+                    .distance(from: itemCoordinate)
+                return distance < 10
+            }) {
+                print("map item found", mapItem.address ?? "addy")
+                parent.onSearchAnnotationSelected?(mapItem)
+            }
+        }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let polygon = overlay as? MKPolygon {
@@ -211,25 +232,6 @@ struct GameMapView: UIViewRepresentable {
             }
             return MKOverlayRenderer()
         }
-    }
-}
-
-// Extension to compare regions
-extension MKCoordinateRegion {
-    func isApproximatelyEqual(to other: MKCoordinateRegion, threshold: Double = 0.001) -> Bool {
-        abs(center.latitude - other.center.latitude) < threshold &&
-        abs(center.longitude - other.center.longitude) < threshold &&
-        abs(span.latitudeDelta - other.span.latitudeDelta) < threshold &&
-        abs(span.longitudeDelta - other.span.longitudeDelta) < threshold
-    }
-}
-
-extension MKCoordinateRegion: Equatable {
-    public static func == (lhs: MKCoordinateRegion, rhs: MKCoordinateRegion) -> Bool {
-        lhs.center.latitude == rhs.center.latitude &&
-        lhs.center.longitude == rhs.center.longitude &&
-        lhs.span.latitudeDelta == rhs.span.latitudeDelta &&
-        lhs.span.longitudeDelta == rhs.span.longitudeDelta
     }
 }
 

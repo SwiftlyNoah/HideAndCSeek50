@@ -37,6 +37,13 @@ class MapToolsViewModel: ObservableObject {
     @Published var bisectorItems: [BisectorOverlayItem] = []
     @Published var refreshToken: Bool = false
     
+    // Distance Measuring variables
+    @Published var measureTool = MeasureToolItem()
+    @Published var measureExpanded: Bool = false
+    @Published var measureColorIndex: Int = 5
+    @Published var measureItems: [DistanceOverlayItem] = []
+
+    
     // Color options - static so it can be shared between views
     static let colorOptions: [Color] = [.red, .orange, .yellow, .green, .teal, .blue, .purple]
     static let colorOptionsUIKit: [UIColor] = [
@@ -146,7 +153,7 @@ class MapToolsViewModel: ObservableObject {
         Self.colorOptionsUIKit[min(max(bisectorColorIndex, 0), Self.colorOptionsUIKit.count - 1)]
     }
     
-    // MARK: - Bisector Tool API
+    // MARK: - Bisector Tool Functions
     
     func setBisectorPointA(_ coord: CLLocationCoordinate2D) {
         bisectorTool.pointA = coord
@@ -464,6 +471,94 @@ class MapToolsViewModel: ObservableObject {
         let lineCoords = [lineP1.coordinate, lineP2.coordinate]
         return (polygon)
     }
+    
+    // MARK: - Distance Measuring Tool
+    
+    
+    func updateMeasureLive(toCrosshair crosshair: CLLocationCoordinate2D) {
+        // Only compute if A is set
+        guard let a = measureTool.pointA else {
+            measureTool.polyline = nil
+            measureTool.distanceMeters = nil
+            return
+        }
+        let coords = [a, crosshair]
+        let line = coords.withUnsafeBufferPointer {
+            MKPolyline(coordinates: $0.baseAddress!, count: 2)
+        }
+        line.title = "measure_line_live"
+        measureTool.polyline = line
+
+        let d = CLLocation(latitude: a.latitude, longitude: a.longitude)
+            .distance(from: CLLocation(latitude: crosshair.latitude, longitude: crosshair.longitude))
+        measureTool.distanceMeters = d
+        refreshToken.toggle()
+    }
+    
+    func setMeasurePointA(_ coord: CLLocationCoordinate2D) {
+        measureTool.pointA = coord
+        recomputeMeasureLive()
+        refreshToken.toggle()
+    }
+
+    func clearMeasure() {
+        measureTool.pointA = nil
+        measureTool.pointB = nil
+        measureTool.polyline = nil
+        measureTool.distanceMeters = nil
+        refreshToken.toggle()
+    }
+
+    func addCurrentMeasurement() {
+        guard let a = measureTool.pointA, let b = measureTool.pointB else { return }
+        let distance = CLLocation(latitude: a.latitude, longitude: a.longitude)
+            .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
+
+        let id = UUID()
+        let coords = [a, b]
+        let line = coords.withUnsafeBufferPointer {
+            MKPolyline(coordinates: $0.baseAddress!, count: 2)
+        }
+        line.title = "measure_line:\(id.uuidString):\(measureColorIndex)"
+
+        let item = DistanceOverlayItem(
+            id: id,
+            pointA: a,
+            pointB: b,
+            colorIndex: measureColorIndex,
+            distanceMeters: distance,
+            polyline: line
+        )
+        withAnimation(.easeInOut(duration: 0.18)) {
+            measureItems.append(item)
+        }
+        refreshToken.toggle()
+    }
+
+    func removeMeasurement(id: UUID) {
+        withAnimation(.easeInOut(duration: 0.16)) {
+            measureItems.removeAll { $0.id == id }
+        }
+        refreshToken.toggle()
+    }
+
+    private func recomputeMeasureLive() {
+        guard let a = measureTool.pointA, let b = measureTool.pointB else {
+            measureTool.polyline = nil
+            measureTool.distanceMeters = nil
+            return
+        }
+        let coords = [a, b]
+        let line = coords.withUnsafeBufferPointer {
+            MKPolyline(coordinates: $0.baseAddress!, count: 2)
+        }
+        line.title = "measure_line_live"
+        measureTool.polyline = line
+
+        let d = CLLocation(latitude: a.latitude, longitude: a.longitude)
+            .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
+        measureTool.distanceMeters = d
+    }
 }
 
 final class BisectorToolItem: ObservableObject {
@@ -474,4 +569,11 @@ final class BisectorToolItem: ObservableObject {
     // A large half-plane polygon and the bisector line polyline generated from A/B
     @Published var halfPlanePolygon: MKPolygon?
     @Published var bisectorPolyline: MKPolyline?
+}
+
+final class MeasureToolItem: ObservableObject {
+    @Published var pointA: CLLocationCoordinate2D?
+    @Published var pointB: CLLocationCoordinate2D?
+    @Published var polyline: MKPolyline?
+    @Published var distanceMeters: Double?
 }

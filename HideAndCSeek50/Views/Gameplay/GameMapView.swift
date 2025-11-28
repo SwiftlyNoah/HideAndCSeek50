@@ -122,6 +122,9 @@ struct GameMapView: UIViewRepresentable {
         // Add bisector point annotations (A and B) if set
         syncBisectorPointAnnotations(mapView)
         
+        // Add measurement point annotations (A) if set
+        syncMeasurePointAnnotations(mapView)
+
         // Update circle overlays: remove existing user circles and add current ones
         let overlaysToRemove = mapView.overlays.compactMap { overlay -> MKOverlay? in
             if let c = overlay as? MKCircle, let t = c.title, t.hasPrefix("userCircle:") {
@@ -209,6 +212,26 @@ struct GameMapView: UIViewRepresentable {
         // Add current bisector overlays (if present)
         if let poly = mapToolsViewModel.bisectorTool.halfPlanePolygon {
             mapView.addOverlay(poly)
+        }
+        
+        // Sync measurement overlays
+        let oldMeasureOverlays = mapView.overlays.compactMap { overlay -> MKOverlay? in
+            if let l = overlay as? MKPolyline, let t = l.title {
+                if t.hasPrefix("measure_line:") || t == "measure_line_live" { return l }
+            }
+            return nil
+        }
+        if !oldMeasureOverlays.isEmpty {
+            mapView.removeOverlays(oldMeasureOverlays)
+        }
+
+        // Saved measurements
+        for m in mapToolsViewModel.measureItems {
+            mapView.addOverlay(m.polyline)
+        }
+        // Live measurement
+        if let live = mapToolsViewModel.measureTool.polyline {
+            mapView.addOverlay(live)
         }
     }
     
@@ -367,6 +390,21 @@ struct GameMapView: UIViewRepresentable {
         }
     }
     
+    private func syncMeasurePointAnnotations(_ mapView: MKMapView) {
+        // Remove any existing measurement A annotations
+        let old = mapView.annotations.compactMap { ann -> MKAnnotation? in
+            if let mp = ann as? MeasurePointAnnotation { return mp }
+            return nil
+        }
+        if !old.isEmpty { mapView.removeAnnotations(old) }
+        
+        // Add A (only Point A is used for measure live)
+        if let a = mapToolsViewModel.measureTool.pointA {
+            let ann = MeasurePointAnnotation(kind: .a, coordinate: a)
+            mapView.addAnnotation(ann)
+        }
+    }
+    
     class Coordinator: NSObject, MKMapViewDelegate {
         let parent: GameMapView
         var userIsInteracting = false
@@ -487,6 +525,24 @@ struct GameMapView: UIViewRepresentable {
                     return renderer
                 }
                 
+                // Measurement live/saved line styling
+                if let t = polyline.title, (t.hasPrefix("measure_line:") || t == "measure_line_live") {
+                    let colorIndex: Int = {
+                        if t == "measure_line_live" { return parent.mapToolsViewModel.measureColorIndex }
+                        let comps = t.split(separator: ":")
+                        if comps.count >= 3, let idx = Int(comps[2]) { return idx }
+                        return 0
+                    }()
+                    let safeIdx = min(max(colorIndex, 0), MapToolsViewModel.colorOptionsUIKit.count - 1)
+                    renderer.strokeColor = MapToolsViewModel.colorOptionsUIKit[safeIdx]
+                    renderer.lineWidth = 3.0
+                    // Make live line dashed for clarity
+                    if t == "measure_line_live" {
+                        renderer.lineDashPattern = [8, 6]
+                    }
+                    return renderer
+                }
+                
                 // Check if this is a directions route
                 if polyline.title == "directions_route" {
                     renderer.strokeColor = UIColor.systemBlue
@@ -508,6 +564,25 @@ struct GameMapView: UIViewRepresentable {
         }
         
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            // Measurement point marker (Point A)
+            if let mp = annotation as? MeasurePointAnnotation {
+                let identifier = "MeasurePoint"
+                var view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+                if view == nil {
+                    view = MKMarkerAnnotationView(annotation: mp, reuseIdentifier: identifier)
+                    view?.canShowCallout = false
+                } else {
+                    view?.annotation = mp
+                }
+                // Style: A = blue pin with glyph "A"
+                switch mp.kind {
+                case .a:
+                    view?.markerTintColor = .systemBlue
+                    view?.glyphText = "A"
+                }
+                return view
+            }
+            
             // Bisector point markers
             if let bp = annotation as? BisectorPointAnnotation {
                 let identifier = "BisectorPoint"
@@ -637,6 +712,18 @@ extension GameMapView {
         let hole = holeCoords.withUnsafeBufferPointer { MKPolygon(coordinates: $0.baseAddress!, count: holeCoords.count) }
         let inverse = MKPolygon(coordinates: outerCoords, count: outerCoords.count, interiorPolygons: [hole])
         return inverse
+    }
+}
+
+final class MeasurePointAnnotation: NSObject, MKAnnotation {
+    enum Kind { case a }
+    let kind: Kind
+    dynamic var coordinate: CLLocationCoordinate2D
+    var title: String? { "Measure Point" }
+    init(kind: Kind, coordinate: CLLocationCoordinate2D) {
+        self.kind = kind
+        self.coordinate = coordinate
+        super.init()
     }
 }
 

@@ -51,6 +51,7 @@
 		14F2BEEA2EC844D400B5F06B /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 14F2BEE92EC844D400B5F06B /* GoogleSignIn */; };
 		14F2BEEC2EC844D400B5F06B /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 14F2BEEB2EC844D400B5F06B /* GoogleSignInSwift */; };
 		DA0A67902EDA434D00F5A00D /* BisectorOverlayItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0A678F2EDA434800F5A00D /* BisectorOverlayItem.swift */; };
+		DA0A67932EDA4E1D00F5A00D /* DistanceOverlayItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0A67922EDA4E1900F5A00D /* DistanceOverlayItem.swift */; };
 		DAE3F4C42ED695680055DBAB /* DirectionsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */; };
 /* End PBXBuildFile section */
 
@@ -97,6 +98,7 @@
 		14E268ED2EC9647900FBCF90 /* Stats+History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Stats+History.swift"; sourceTree = "<group>"; };
 		14E268EF2EC9649300FBCF90 /* Lobby.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lobby.swift; sourceTree = "<group>"; };
 		DA0A678F2EDA434800F5A00D /* BisectorOverlayItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BisectorOverlayItem.swift; sourceTree = "<group>"; };
+		DA0A67922EDA4E1900F5A00D /* DistanceOverlayItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DistanceOverlayItem.swift; sourceTree = "<group>"; };
 		DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectionsSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -135,6 +137,7 @@
 				14E268EB2EC9641A00FBCF90 /* Views */,
 				14990F052ED988A600DFD3E5 /* ViewModels */,
 				14E268F12EC964D400FBCF90 /* Models */,
+				DA0A67912EDA4DF900F5A00D /* MapToolItems */,
 				14990EF12ED95A1D00DFD3E5 /* Extensions */,
 				140B02A42EC8791E0005EE81 /* HideAndCSeek50App.swift */,
 				14E268EA2EC963ED00FBCF90 /* Resources */,
@@ -236,8 +239,6 @@
 				14E268EF2EC9649300FBCF90 /* Lobby.swift */,
 				14E268ED2EC9647900FBCF90 /* Stats+History.swift */,
 				142066B52ECBDE200084F53C /* CityRegions.swift */,
-				14990EF92ED9739000DFD3E5 /* CircleOverlayItem.swift */,
-				DA0A678F2EDA434800F5A00D /* BisectorOverlayItem.swift */,
 				14990EEF2ED94E0700DFD3E5 /* TransportType.swift */,
 			);
 			path = Models;
@@ -261,6 +262,16 @@
 				140B02AC2EC8791E0005EE81 /* HideAndCSeek50 */,
 				142066B02ECBCBB40084F53C /* HideAndCSeek50.app */,
 			);
+			sourceTree = "<group>";
+		};
+		DA0A67912EDA4DF900F5A00D /* MapToolItems */ = {
+			isa = PBXGroup;
+			children = (
+				14990EF92ED9739000DFD3E5 /* CircleOverlayItem.swift */,
+				DA0A67922EDA4E1900F5A00D /* DistanceOverlayItem.swift */,
+				DA0A678F2EDA434800F5A00D /* BisectorOverlayItem.swift */,
+			);
+			path = MapToolItems;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -364,6 +375,7 @@
 				1474BE802ED5165200568A90 /* ProfileView.swift in Sources */,
 				14990F002ED984F200DFD3E5 /* GameModels+Dictionary.swift in Sources */,
 				14990F022ED9878100DFD3E5 /* MapToolsViewModel.swift in Sources */,
+				DA0A67932EDA4E1D00F5A00D /* DistanceOverlayItem.swift in Sources */,
 				14E268F02EC9649700FBCF90 /* Lobby.swift in Sources */,
 				1474BE742ED5164B00568A90 /* GameChatView.swift in Sources */,
 				1474BE752ED5164B00568A90 /* GameMapView.swift in Sources */,

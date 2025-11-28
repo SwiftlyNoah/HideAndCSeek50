@@ -9,33 +9,19 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
-class PlayerAnnotation: NSObject, MKAnnotation {
-    let displayName: String
-    let coordinate: CLLocationCoordinate2D
-    let team: Team
-    
-    var title: String? {
-        return displayName
-    }
-    
-    var subtitle: String? {
-        return team.displayName
-    }
-    
-    init(displayName: String, coordinate: CLLocationCoordinate2D, team: Team) {
-        self.displayName = displayName
-        self.coordinate = coordinate
-        self.team = team
-        super.init()
-    }
-}
-
 struct GameMapView: UIViewRepresentable {
     @Binding var region: MKCoordinateRegion
     let game: Game?
     let currentUserUID: String
     let currentUserTeam: Team
+
+    // Region shading
     let hidableRegions: [MKPolygon]
+    let circleItems: [CircleOverlayItem]
+    let selectedRegions: Set<String>
+    let regionColors: [String: Bool] // true = red, false = green
+    
+    // Search/directions
     var searchResults: [MKMapItem] = []
     var selectedLandmark: MKMapItem?
     var route: MKRoute?
@@ -76,10 +62,22 @@ struct GameMapView: UIViewRepresentable {
         mapView.delegate = context.coordinator
         mapView.showsUserLocation = true
         mapView.userTrackingMode = .none
-        mapView.mapType = .standard
+        mapView.mapType = .mutedStandard
         
-        // Add hidable regions as overlays
-        mapView.addOverlays(hidableRegions)
+        // Always-on overlays: MBTA linework
+        // Add thin white halos first for contrast, then colored lines on top
+        let mbtaLines = MassachusettsRegions.mbtaLineOverlays
+        var haloOverlays: [MKPolyline] = []
+        for line in mbtaLines {
+            var coords = Array(repeating: kCLLocationCoordinate2DInvalid, count: Int(line.pointCount))
+            line.getCoordinates(&coords, range: NSRange(location: 0, length: Int(line.pointCount)))
+            let halo = MKPolyline(coordinates: coords, count: coords.count)
+            halo.title = line.title // preserve route_id for reference if needed
+            halo.subtitle = "halo"   // mark as halo for renderer
+            haloOverlays.append(halo)
+        }
+        if !haloOverlays.isEmpty { mapView.addOverlays(haloOverlays) }
+        mapView.addOverlays(mbtaLines)
         
         return mapView
     }
@@ -91,26 +89,62 @@ struct GameMapView: UIViewRepresentable {
                 mapView.setRegion(region, animated: true)
             }
         }
+        
+        // Sync municipality overlays with selectedRegions
+        syncMunicipalityOverlays(mapView)
+        
+        // Ensure existing polygon renderers reflect latest colors
+        updateMunicipalityRendererColors(mapView)
 
         // Update player annotations
         updatePlayerAnnotations(mapView)
 
         // Update search result annotations
         updateSearchAnnotations(mapView)
+        
+        // Update circle overlays: remove existing user circles and add current ones
+        let existingUserCircles = mapView.overlays.compactMap { overlay -> MKOverlay? in
+            if let c = overlay as? MKCircle, let t = c.title, t.hasPrefix("userCircle:") {
+                return c
+            }
+            return nil
+        }
+        if !existingUserCircles.isEmpty {
+            mapView.removeOverlays(existingUserCircles)
+        }
 
-        // Update overlays: keep city polygons/circles, replace polylines
-        mapView.removeOverlays(mapView.overlays.filter { !($0 is MKPolygon) && !($0 is MKCircle) })
+        for item in circleItems {
+            let circle = MKCircle(center: item.center, radius: item.radiusMeters)
+            circle.title = "userCircle:\(item.id.uuidString)"
+            mapView.addOverlay(circle)
+        }
+        
+        // Update route overlay: remove existing route and add new one if present
+        let existingRoutes = mapView.overlays.compactMap { overlay -> MKOverlay? in
+            if let polyline = overlay as? MKPolyline,
+               let title = polyline.title,
+               title == "directions_route" {
+                return polyline
+            }
+            return nil
+        }
+        if !existingRoutes.isEmpty {
+            mapView.removeOverlays(existingRoutes)
+        }
+        
         if let route = route {
-            mapView.addOverlay(route.polyline)
+            let routePolyline = route.polyline
+            routePolyline.title = "directions_route" // Mark this as a route overlay
+            mapView.addOverlay(routePolyline)
 
             // Auto-zoom to the route only once per new route
-            if context.coordinator.lastRoutedPolyline !== route.polyline {
+            if context.coordinator.lastRoutedPolyline !== routePolyline {
                 context.coordinator.hasZoomedToRoute = false
-                context.coordinator.lastRoutedPolyline = route.polyline
+                context.coordinator.lastRoutedPolyline = routePolyline
             }
             if !context.coordinator.hasZoomedToRoute && !context.coordinator.userIsInteracting {
                 mapView.setVisibleMapRect(
-                    route.polyline.boundingMapRect,
+                    routePolyline.boundingMapRect,
                     edgePadding: UIEdgeInsets(top: 80, left: 40, bottom: 80, right: 40),
                     animated: true
                 )
@@ -125,6 +159,51 @@ struct GameMapView: UIViewRepresentable {
     
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
+    }
+    
+    private func syncMunicipalityOverlays(_ mapView: MKMapView) {
+        // Get current municipality polygons on the map (exclude circles)
+        let currentPolygons = mapView.overlays.compactMap { overlay -> MKPolygon? in
+            guard let polygon = overlay as? MKPolygon,
+                  let title = polygon.title as String?,
+                  !title.hasPrefix("userCircle:") else { return nil }
+            return polygon
+        }
+        
+        let currentRegionNames = Set(currentPolygons.compactMap { $0.title as String? })
+        
+        // Remove polygons that are no longer selected
+        let toRemove = currentPolygons.filter { polygon in
+            guard let name = polygon.title as String? else { return false }
+            return !selectedRegions.contains(name)
+        }
+        if !toRemove.isEmpty {
+            mapView.removeOverlays(toRemove)
+        }
+        
+        // Add polygons for newly selected regions
+        let toAdd = selectedRegions.filter { !currentRegionNames.contains($0) }
+        for regionName in toAdd {
+            if let polygon = hidableRegions.first(where: { ($0.title as String?) == regionName }) {
+                mapView.addOverlay(polygon)
+            }
+        }
+    }
+    
+    // Ensure existing MKPolygonRenderers reflect the latest red/green colors
+    private func updateMunicipalityRendererColors(_ mapView: MKMapView) {
+        for overlay in mapView.overlays {
+            guard let polygon = overlay as? MKPolygon,
+                  let title = polygon.title as String? else { continue }
+            if let renderer = mapView.renderer(for: overlay) as? MKPolygonRenderer {
+                let isRed = regionColors[title] ?? false
+                let fillAlpha: CGFloat = isRed ? 0.25 : 0.20
+                renderer.fillColor = (isRed ? UIColor.systemRed : UIColor.systemGreen).withAlphaComponent(fillAlpha)
+                renderer.strokeColor = (isRed ? UIColor.systemRed : UIColor.systemGreen)
+                renderer.lineWidth = 2.0
+                renderer.setNeedsDisplay()
+            }
+        }
     }
     
     private func updatePlayerAnnotations(_ mapView: MKMapView) {
@@ -195,6 +274,7 @@ struct GameMapView: UIViewRepresentable {
         }
         
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            // TODO: This code does not function :(
             // Handle search result annotation selection
             print("did select annotation", annotation.coordinate)
             // Find the corresponding MKMapItem by coordinate and name
@@ -226,12 +306,63 @@ struct GameMapView: UIViewRepresentable {
             }
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
-                renderer.strokeColor = UIColor.systemBlue
-                renderer.lineWidth = 5.0
+                
+                // Check if this is a directions route
+                if polyline.title == "directions_route" {
+                    renderer.strokeColor = UIColor.systemBlue
+                    renderer.lineWidth = 5.0
+                } else if polyline.subtitle == "halo" {
+                    // MBTA line halo (white outline for contrast)
+                    renderer.strokeColor = UIColor.white
+                    renderer.lineWidth = 4.0
+                } else {
+                    // Regular MBTA line - use route_id from title to determine color
+                    let routeID = polyline.title ?? ""
+                    renderer.strokeColor = colorForMBTARoute(routeID)
+                    renderer.lineWidth = 2.0
+                }
+                
                 return renderer
             }
             return MKOverlayRenderer()
         }
+        
+        private func colorForMBTARoute(_ routeID: String) -> UIColor {
+            // Return appropriate colors for MBTA routes
+            switch routeID {
+            case let id where id.contains("Red"):
+                return UIColor.systemRed
+            case let id where id.contains("Blue"):
+                return UIColor.systemBlue
+            case let id where id.contains("Orange"):
+                return UIColor.systemOrange
+            case let id where id.contains("Green"):
+                return UIColor.systemGreen
+            default:
+                return UIColor.systemGray
+            }
+        }
+    }
+}
+
+class PlayerAnnotation: NSObject, MKAnnotation {
+    let displayName: String
+    let coordinate: CLLocationCoordinate2D
+    let team: Team
+    
+    var title: String? {
+        return displayName
+    }
+    
+    var subtitle: String? {
+        return team.displayName
+    }
+    
+    init(displayName: String, coordinate: CLLocationCoordinate2D, team: Team) {
+        self.displayName = displayName
+        self.coordinate = coordinate
+        self.team = team
+        super.init()
     }
 }
 
@@ -248,6 +379,23 @@ class SearchResultAnnotation: NSObject, MKAnnotation {
         self.name = name
         self.coordinate = coordinate
         self.isSelected = isSelected
+        super.init()
+    }
+}
+
+class CircleAnnotation: NSObject, MKAnnotation {
+    let circleID: UUID
+    let coordinate: CLLocationCoordinate2D
+    let isRed: Bool
+
+    var title: String? {
+        return "Circle Center"
+    }
+
+    init(circleID: UUID, coordinate: CLLocationCoordinate2D, isRed: Bool) {
+        self.circleID = circleID
+        self.coordinate = coordinate
+        self.isRed = isRed
         super.init()
     }
 }

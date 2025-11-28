@@ -33,7 +33,14 @@ struct GameView: View {
     @State private var showingSkipConfirmation = false
     @State private var showingFoundConfirmation = false
     @State private var showingTimerActions = false
+    @State private var showingMapToolsView = false
     
+    // Region selection
+    @State private var selectedRegions: Set<String> = []
+    @State private var visibleRegions: Set<String> = [] // Track which regions are actually rendered
+    @State private var regionColors: [String: Bool] = [:] // Track color per region (true = red, false = green)
+    @State private var circleItems: [CircleOverlayItem] = []
+
     @State private var didCenterOnUser = false
     @FocusState private var isSearchFieldFocused: Bool
     
@@ -68,6 +75,9 @@ struct GameView: View {
                     currentUserUID: currentUser?.uid ?? "",
                     currentUserTeam: playerTeam,
                     hidableRegions: hidableRegions,
+                    circleItems: circleItems,
+                    selectedRegions: visibleRegions, // Use visibleRegions instead of selectedRegions
+                    regionColors: regionColors, // Pass colors
                     searchResults: mapSearchViewModel.results,
                     selectedLandmark: mapSearchViewModel.selectedLandmark,
                     route: mapSearchViewModel.route,
@@ -176,6 +186,18 @@ struct GameView: View {
                                                 .font(.title2)
                                                 .foregroundColor(.white)
                                         }
+                                    }
+                                }
+                                
+                                // Map Tools button
+                                Button(action: { showingMapToolsView = true }) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.blue.opacity(0.9))
+                                            .frame(width: 56, height: 56)
+                                        Image(systemName: "map.fill")
+                                            .font(.title2)
+                                            .foregroundColor(.white)
                                     }
                                 }
                                 
@@ -336,6 +358,25 @@ struct GameView: View {
                         showingFoundConfirmation = true
                     }
                 )
+            }
+            .sheet(isPresented: $showingMapToolsView) {
+                NavigationStack {
+                    MapToolsView(
+                        selectedRegions: $selectedRegions,
+                        visibleRegions: $visibleRegions,
+                        regionColors: $regionColors,
+                        mapCenter: Binding(get: { mapSearchViewModel.region.center }, set: { mapSearchViewModel.region.center = $0 }),
+                        circleItems: $circleItems
+                    )
+                        .navigationTitle("Map Tools")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("Done") { showingMapToolsView = false }
+                            }
+                        }
+                }
+                .presentationDetents([.medium, .large])
             }
             .confirmationDialog("Skip Hiding Phase", isPresented: $showingSkipConfirmation, titleVisibility: .visible) {
                 Button("Skip", role: .destructive) {

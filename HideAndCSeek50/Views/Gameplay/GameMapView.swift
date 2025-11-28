@@ -26,6 +26,7 @@ struct GameMapView: UIViewRepresentable {
     // Map tools settings
     let showTrainLines: Bool
     let mapToolsViewModel: MapToolsViewModel
+    let refreshToken: Bool
     
     // Color options for circles (matching the bottom sheet)
     // Using static reference from MapToolsViewModel
@@ -200,15 +201,15 @@ struct GameMapView: UIViewRepresentable {
         if !oldBisectorOverlays.isEmpty {
             mapView.removeOverlays(oldBisectorOverlays)
         }
+        
+        for item in mapToolsViewModel.bisectorItems {
+            mapView.addOverlay(item.halfPlanePolygon)
+        }
 
         // Add current bisector overlays (if present)
         if let poly = mapToolsViewModel.bisectorTool.halfPlanePolygon {
             mapView.addOverlay(poly)
         }
-        if let line = mapToolsViewModel.bisectorTool.bisectorPolyline {
-            mapView.addOverlay(line)
-        }
-        
     }
     
     func makeCoordinator() -> Coordinator {
@@ -411,9 +412,16 @@ struct GameMapView: UIViewRepresentable {
             
             if let polygon = overlay as? MKPolygon,
                let title = polygon.title as String?,
-               title.hasPrefix("bisector_halfplane:") {
+               (title.hasPrefix("bisector_halfplane:") || title == "bisector_halfplane_live") {
                 let renderer = MKPolygonRenderer(polygon: polygon)
-                let uiColor = parent.mapToolsViewModel.bisectorSelectedColor
+                let colorIndex: Int = {
+                    if title == "bisector_halfplane_live" { return parent.mapToolsViewModel.bisectorColorIndex }
+                    let comps = title.split(separator: ":")
+                    if comps.count >= 3, let idx = Int(comps[2]) { return idx }
+                    return 0
+                }()
+                let safeIdx = min(max(colorIndex, 0), MapToolsViewModel.colorOptionsUIKit.count - 1)
+                let uiColor = MapToolsViewModel.colorOptionsUIKit[safeIdx]
                 renderer.fillColor = uiColor.withAlphaComponent(0.20)
                 renderer.strokeColor = uiColor
                 renderer.lineWidth = 2.0
@@ -465,6 +473,19 @@ struct GameMapView: UIViewRepresentable {
             
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
+                
+                if let t = polyline.title, (t.hasPrefix("bisector_line:") || t == "bisector_line_live") {
+                    let colorIndex: Int = {
+                        if t == "bisector_line_live" { return parent.mapToolsViewModel.bisectorColorIndex }
+                        let comps = t.split(separator: ":")
+                        if comps.count >= 3, let idx = Int(comps[2]) { return idx }
+                        return 0
+                    }()
+                    let safeIdx = min(max(colorIndex, 0), MapToolsViewModel.colorOptionsUIKit.count - 1)
+                    renderer.strokeColor = MapToolsViewModel.colorOptionsUIKit[safeIdx]
+                    renderer.lineWidth = 2.0
+                    return renderer
+                }
                 
                 // Check if this is a directions route
                 if polyline.title == "directions_route" {

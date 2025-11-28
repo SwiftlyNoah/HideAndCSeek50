@@ -179,15 +179,15 @@ struct PerpendicularBisectorToolView: View {
             
             HStack(spacing: 12) {
                 Button {
-                    viewModel.computeBisector()
+                    viewModel.addCurrentBisector()
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "gearshape")
-                        Text("Compute")
+                        Image(systemName: "plus.circle.fill")
+                        Text("Add Bisector")
                     }
                     .padding(.vertical, 8)
                     .padding(.horizontal, 12)
-                    .background(Color.white.opacity(0.15))
+                    .background(MapToolsViewModel.colorOptions[viewModel.bisectorColorIndex].opacity(0.35))
                     .foregroundColor(.white)
                     .cornerRadius(8)
                 }
@@ -213,6 +213,35 @@ struct PerpendicularBisectorToolView: View {
             Text("Choose A and B, then press Compute to draw the perpendicular bisector and shade a side.")
                 .font(.caption)
                 .foregroundColor(.white.opacity(0.7))
+            
+            if !viewModel.bisectorItems.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Saved Bisectors")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                    ForEach(viewModel.bisectorItems) { item in
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(MapToolsViewModel.colorOptions[min(item.colorIndex, MapToolsViewModel.colorOptions.count - 1)])
+                                .frame(width: 10, height: 10)
+                            Text("A:(\(item.pointA.latitude, specifier: "%.3f")), B:(\(item.pointB.latitude, specifier: "%.3f"))")
+                                .font(.caption2)
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                            Spacer()
+                            Button(role: .destructive) {
+                                viewModel.removeBisector(id: item.id)
+                            } label: {
+                                Image(systemName: "trash")
+                                    .foregroundColor(.red)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+                .padding(.top, 8)
+            }
         }
     }
 }

@@ -103,7 +103,7 @@ struct GameView: View {
         GameMapView(
             region: $mapSearchViewModel.region,
             crosshairCoordinate: $crosshairCoordinate,
-            crosshairYOffsetFraction: 0.25,
+            crosshairYOffsetFraction: 0.35,
             game: currentGame,
             currentUserUID: currentUser?.uid ?? "",
             currentUserTeam: playerTeam,
@@ -113,6 +113,7 @@ struct GameView: View {
             regionColors: mapToolsViewModel.regionColors,
             showTrainLines: mapToolsViewModel.showTrainLines,
             mapToolsViewModel: mapToolsViewModel,
+            refreshToken: mapToolsViewModel.refreshToken,
             searchResults: mapSearchViewModel.results,
             selectedLandmark: mapSearchViewModel.selectedLandmark,
             route: mapSearchViewModel.route,
@@ -187,7 +188,7 @@ struct GameView: View {
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(.white)
                         .shadow(color: .black.opacity(0.6), radius: 4, x: 0, y: 2)
-                        .position(x: proxy.size.width / 2, y: proxy.size.height * 0.25)
+                        .position(x: proxy.size.width / 2, y: proxy.size.height * 0.35)
                         .allowsHitTesting(false)
                 }
                 .ignoresSafeArea()

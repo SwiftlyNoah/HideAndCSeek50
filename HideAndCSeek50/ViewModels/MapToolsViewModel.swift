@@ -34,6 +34,8 @@ class MapToolsViewModel: ObservableObject {
     @Published var bisectorTool = BisectorToolItem()
     @Published var bisectorExpanded: Bool = false
     @Published var bisectorColorIndex: Int = 5
+    @Published var bisectorItems: [BisectorOverlayItem] = []
+    @Published var refreshToken: Bool = false
     
     // Color options - static so it can be shared between views
     static let colorOptions: [Color] = [.red, .orange, .yellow, .green, .teal, .blue, .purple]
@@ -148,10 +150,12 @@ class MapToolsViewModel: ObservableObject {
     
     func setBisectorPointA(_ coord: CLLocationCoordinate2D) {
         bisectorTool.pointA = coord
+        refreshToken.toggle()
     }
     
     func setBisectorPointB(_ coord: CLLocationCoordinate2D) {
         bisectorTool.pointB = coord
+        refreshToken.toggle()
     }
     
     func toggleBisectorSide(_ fillPositive: Bool) {
@@ -159,7 +163,8 @@ class MapToolsViewModel: ObservableObject {
     }
     
     func computeBisector() {
-        recomputeBisector()
+        recomputeBisectorLive()
+        refreshToken.toggle()
     }
     
     func clearBisector() {
@@ -167,6 +172,52 @@ class MapToolsViewModel: ObservableObject {
         bisectorTool.pointB = nil
         bisectorTool.halfPlanePolygon = nil
         bisectorTool.bisectorPolyline = nil
+        refreshToken.toggle()
+    }
+    
+    private func recomputeBisectorLive() {
+        guard let a = bisectorTool.pointA, let b = bisectorTool.pointB else {
+            bisectorTool.halfPlanePolygon = nil
+            bisectorTool.bisectorPolyline = nil
+            refreshToken.toggle()
+            return
+        }
+        let (poly) = generateBisectorGeometry(pointA: a, pointB: b, fillPositive: bisectorTool.fillPositiveSide)
+        bisectorTool.halfPlanePolygon = poly
+        bisectorTool.bisectorPolyline = nil // do not draw a line
+        refreshToken.toggle()
+    }
+    
+    func addCurrentBisector() {
+        guard let a = bisectorTool.pointA, let b = bisectorTool.pointB else { return }
+        if bisectorTool.halfPlanePolygon == nil || bisectorTool.bisectorPolyline == nil {
+            recomputeBisectorLive()
+        }
+        guard let poly = bisectorTool.halfPlanePolygon else { return }
+
+        let id = UUID()
+        poly.title = "bisector_halfplane:\(id.uuidString):\(bisectorColorIndex):\(bisectorTool.fillPositiveSide ? "pos" : "neg")"
+
+        let item = BisectorOverlayItem(
+            id: id,
+            pointA: a,
+            pointB: b,
+            fillPositiveSide: bisectorTool.fillPositiveSide,
+            colorIndex: bisectorColorIndex,
+            halfPlanePolygon: poly,
+            bisectorPolyline: MKPolyline()
+        )
+        withAnimation(.easeInOut(duration: 0.18)) {
+            bisectorItems.append(item)
+        }
+        refreshToken.toggle()
+    }
+
+    func removeBisector(id: UUID) {
+        withAnimation(.easeInOut(duration: 0.16)) {
+            bisectorItems.removeAll { $0.id == id }
+        }
+        refreshToken.toggle()
     }
     
     private func recomputeBisector() {
@@ -308,6 +359,110 @@ class MapToolsViewModel: ObservableObject {
         let polygon = coords.withUnsafeBufferPointer { MKPolygon(coordinates: $0.baseAddress!, count: coords.count) }
         polygon.title = "bisector_halfplane:\(keepPositive ? "pos" : "neg")"
         bisectorTool.halfPlanePolygon = polygon
+    }
+    
+    private func generateBisectorGeometry(pointA: CLLocationCoordinate2D,
+                                          pointB: CLLocationCoordinate2D,
+                                          fillPositive: Bool) -> (MKPolygon) {
+        let aP = MKMapPoint(pointA)
+        let bP = MKMapPoint(pointB)
+        let midP = MKMapPoint(x: (aP.x + bP.x) * 0.5, y: (aP.y + bP.y) * 0.5)
+        let vx = bP.x - aP.x
+        let vy = bP.y - aP.y
+        let len = sqrt(vx * vx + vy * vy)
+        guard len > 0 else {
+            let emptyPoly = MKPolygon()
+            emptyPoly.title = "bisector_halfplane_live"
+            return (emptyPoly)
+        }
+        let ux = vx / len
+        let uy = vy / len
+        let nx = -uy
+        let ny = ux
+
+        // Large rectangle bounds
+        let extent: Double = 2_500_000
+        let rectP: [MKMapPoint] = [
+            MKMapPoint(x: midP.x - extent, y: midP.y - extent),
+            MKMapPoint(x: midP.x + extent, y: midP.y - extent),
+            MKMapPoint(x: midP.x + extent, y: midP.y + extent),
+            MKMapPoint(x: midP.x - extent, y: midP.y + extent)
+        ]
+
+        // Line (midP + t*nx, midP + t*(-ny)) intersect edges
+        func intersectEdge(p1: MKMapPoint, p2: MKMapPoint) -> MKMapPoint? {
+            // Edge param form
+            let ex = p2.x - p1.x
+            let ey = p2.y - p1.y
+            // Use line in param: L(t) = mid + t*(nx, ny)
+            // Solve with segment p1 + s*(ex, ey)
+            let denom = ex * ny - ey * nx
+            if abs(denom) < 1e-9 { return nil }
+            let s = ((midP.x - p1.x) * ny - (midP.y - p1.y) * nx) / denom
+            if s < 0 || s > 1 { return nil }
+            // t from x
+            // Not strictly needed; compute intersection point
+            let ix = p1.x + ex * s
+            let iy = p1.y + ey * s
+            return MKMapPoint(x: ix, y: iy)
+        }
+
+        var intersections: [MKMapPoint] = []
+        var idxMap: [Int] = []
+        for i in 0..<4 {
+            if let ip = intersectEdge(p1: rectP[i], p2: rectP[(i + 1) & 3]) {
+                intersections.append(ip)
+                idxMap.append(i)
+            }
+        }
+        if intersections.count < 2 {
+            let emptyPoly = MKPolygon()
+            let emptyLine = MKPolyline()
+            emptyPoly.title = "bisector_halfplane_live"
+            emptyLine.title = "bisector_line_live"
+            return (emptyPoly)
+        }
+        let i1 = intersections[0]
+        let i2 = intersections[1]
+        let eA = idxMap[0]
+        let eB = idxMap[1]
+
+        var polyA: [MKMapPoint] = [i1]
+        var v = (eA + 1) & 3
+        while v != ((eB + 1) & 3) {
+            polyA.append(rectP[v])
+            v = (v + 1) & 3
+        }
+        polyA.append(rectP[(eB + 1) & 3])
+        polyA.append(i2)
+
+        var polyB: [MKMapPoint] = [i2]
+        v = (eB + 1) & 3
+        while v != ((eA + 1) & 3) {
+            polyB.append(rectP[v])
+            v = (v + 1) & 3
+        }
+        polyB.append(rectP[(eA + 1) & 3])
+        polyB.append(i1)
+
+        let cA = aP
+        let cB = bP
+        let vUnit = MKMapPoint(x: ux, y: uy)
+        let dA = (cA.x - midP.x) * vUnit.x + (cA.y - midP.y) * vUnit.y
+        let dB = (cB.x - midP.x) * vUnit.x + (cB.y - midP.y) * vUnit.y
+        let chosen = fillPositive ? (dA >= dB ? polyA : polyB) : (dA < dB ? polyA : polyB)
+
+        let coords = chosen.map { $0.coordinate }
+        let polygon = coords.withUnsafeBufferPointer {
+            MKPolygon(coordinates: $0.baseAddress!, count: coords.count)
+        }
+        polygon.title = "bisector_halfplane_live"
+
+        let lineExtent: Double = 2_000_000
+        let lineP1 = MKMapPoint(x: midP.x - ny * lineExtent, y: midP.y + nx * lineExtent)
+        let lineP2 = MKMapPoint(x: midP.x + ny * lineExtent, y: midP.y - nx * lineExtent)
+        let lineCoords = [lineP1.coordinate, lineP2.coordinate]
+        return (polygon)
     }
 }
 

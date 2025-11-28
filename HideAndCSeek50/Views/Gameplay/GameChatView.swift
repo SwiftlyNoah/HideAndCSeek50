@@ -8,6 +8,7 @@
 import SwiftUI
 import FirebaseAuth
 internal import Combine
+import CoreLocation
 
 struct GameChatView: View {
     let gameId: String
@@ -16,6 +17,8 @@ struct GameChatView: View {
     
     @EnvironmentObject private var chatViewModel: ChatViewModel
     @State private var messageText = ""
+    
+    @State private var locationSendError: String?
     
     private var currentUserName: String {
         currentUser?.displayName ?? "Anonymous"
@@ -48,18 +51,32 @@ struct GameChatView: View {
             
             // Message Input
             HStack(spacing: 12) {
+                // Location send button (seekers only)
+                if currentPlayerTeam == .seekers {
+                    Button(action: sendLocationMessage) {
+                        Image(systemName: "location.fill")
+                            .foregroundColor(.white)
+                            .padding(8)
+                            .background(Color.red)
+                            .clipShape(Circle())
+                            .accessibilityLabel("Send Current Location")
+                    }
+                    .disabled(chatViewModel.isLoading)
+                    .help("Send your current coordinates to chat")
+                }
                 TextField("Type a message...", text: $messageText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...4)
-                    .onSubmit {
-                        sendMessage()
-                    }
-                
+                    .onSubmit { sendMessage() }
+
                 Button(action: sendMessage) {
                     Image(systemName: "paperplane.fill")
                         .foregroundColor(.white)
                         .padding(8)
-                        .background(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray : Color.blue)
+                        .background(
+                            messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                ? Color.gray : Color.blue
+                        )
                         .clipShape(Circle())
                 }
                 .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chatViewModel.isLoading)
@@ -67,6 +84,13 @@ struct GameChatView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(Color(.systemBackground))
+
+            if let locationSendError = locationSendError {
+                Text(locationSendError)
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .padding(.bottom, 4)
+            }
         }
         .background(Color(.systemGroupedBackground))
     }
@@ -81,6 +105,28 @@ struct GameChatView: View {
                 currentPlayerTeam: currentPlayerTeam
             )
             messageText = ""
+        }
+    }
+    
+    private func sendLocationMessage() {
+        guard currentPlayerTeam == .seekers else { return }
+        guard let loc = LocationManager.shared.location else {
+            locationSendError = "Location unavailable"
+            return
+        }
+        let content = String(
+            format: "Latitude: %.5f, Longitude: %.5f",
+            loc.coordinate.latitude,
+            loc.coordinate.longitude
+        )
+        Task {
+            await chatViewModel.sendMessage(
+                gameId: gameId,
+                content: content,
+                currentUser: currentUser,
+                currentUserName: currentUserName,
+                currentPlayerTeam: currentPlayerTeam
+            )
         }
     }
 }

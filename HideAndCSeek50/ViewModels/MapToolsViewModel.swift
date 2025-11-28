@@ -466,9 +466,6 @@ class MapToolsViewModel: ObservableObject {
         polygon.title = "bisector_halfplane_live"
 
         let lineExtent: Double = 2_000_000
-        let lineP1 = MKMapPoint(x: midP.x - ny * lineExtent, y: midP.y + nx * lineExtent)
-        let lineP2 = MKMapPoint(x: midP.x + ny * lineExtent, y: midP.y - nx * lineExtent)
-        let lineCoords = [lineP1.coordinate, lineP2.coordinate]
         return (polygon)
     }
     

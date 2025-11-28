@@ -184,12 +184,26 @@ struct GameView: View {
         Group {
             if mapToolsViewModel.mapToolsBottomSheetPosition != .hidden {
                 GeometryReader { proxy in
-                    Image(systemName: "scope")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(.white)
-                        .shadow(color: .black.opacity(0.6), radius: 4, x: 0, y: 2)
-                        .position(x: proxy.size.width / 2, y: proxy.size.height * 0.35)
-                        .allowsHitTesting(false)
+                    let x = proxy.size.width / 2
+                    let y = proxy.size.height * 0.35
+                    VStack(spacing: 6) {
+                        Image(systemName: "scope")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(.white)
+                            .shadow(color: .black.opacity(0.6), radius: 4, x: 0, y: 2)
+                        // Live lat/lon readout
+                        Text(String(format: "Lat: %.5f\nLon: %.5f", crosshairCoordinate.latitude, crosshairCoordinate.longitude))
+                            .font(.caption2.monospacedDigit())
+                            .multilineTextAlignment(.center)
+                            .padding(6)
+                            .background(Color.black.opacity(0.65))
+                            .cornerRadius(6)
+                            .foregroundColor(.white)
+                            .shadow(radius: 2)
+                    }
+                    .position(x: x, y: y)
+                    .offset(y: 12) // Shift entire VStack downward slightly
+                    .allowsHitTesting(false)
                 }
                 .ignoresSafeArea()
             }

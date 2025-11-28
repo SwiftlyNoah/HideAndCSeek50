@@ -665,11 +665,11 @@ struct MeasureToolView: View {
             }
         }
         // Live update when crosshair (mapCenter) moves; observe components to avoid Equatable constraint
-        .onChange(of: mapCenter.latitude) { newLat in
+        .onChange(of: mapCenter.latitude, initial: false) { oldLat, newLat in
             let newCenter = CLLocationCoordinate2D(latitude: newLat, longitude: mapCenter.longitude)
             viewModel.updateMeasureLive(toCrosshair: newCenter)
         }
-        .onChange(of: mapCenter.longitude) { newLon in
+        .onChange(of: mapCenter.longitude, initial: false) { oldLon, newLon in
             let newCenter = CLLocationCoordinate2D(latitude: mapCenter.latitude, longitude: newLon)
             viewModel.updateMeasureLive(toCrosshair: newCenter)
         }

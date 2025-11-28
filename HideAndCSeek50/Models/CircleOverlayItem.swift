@@ -13,13 +13,15 @@ struct CircleOverlayItem: Identifiable, Equatable {
     let id: UUID
     let center: CLLocationCoordinate2D
     let radiusMeters: CLLocationDistance
-    let colorIndex: Int // Index into color array instead of isRed
+    let colorIndex: Int
+    let shadeOutside: Bool
     
-    init(id: UUID = UUID(), center: CLLocationCoordinate2D, radiusMeters: CLLocationDistance, colorIndex: Int = 2) { // Default to yellow
+    init(id: UUID = UUID(), center: CLLocationCoordinate2D, radiusMeters: CLLocationDistance, colorIndex: Int = 2, shadeOutside: Bool = false) { // Default to yellow
         self.id = id
         self.center = center
         self.radiusMeters = radiusMeters
         self.colorIndex = colorIndex
+        self.shadeOutside = shadeOutside
     }
 
     static func == (lhs: CircleOverlayItem, rhs: CircleOverlayItem) -> Bool {

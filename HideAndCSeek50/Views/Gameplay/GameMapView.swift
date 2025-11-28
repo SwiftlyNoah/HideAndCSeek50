@@ -11,6 +11,8 @@ import CoreLocation
 
 struct GameMapView: UIViewRepresentable {
     @Binding var region: MKCoordinateRegion
+    @Binding var crosshairCoordinate: CLLocationCoordinate2D
+    let crosshairYOffsetFraction: CGFloat
     let game: Game?
     let currentUserUID: String
     let currentUserTeam: Team
@@ -23,6 +25,7 @@ struct GameMapView: UIViewRepresentable {
     
     // Map tools settings
     let showTrainLines: Bool
+    let mapToolsViewModel: MapToolsViewModel
     
     // Color options for circles (matching the bottom sheet)
     // Using static reference from MapToolsViewModel
@@ -112,22 +115,39 @@ struct GameMapView: UIViewRepresentable {
 
         // Update search result annotations
         updateSearchAnnotations(mapView)
+        // Update the crosshair coordinate for the current camera/viewport
+        updateCrosshairCoordinate(in: mapView)
+        
+        // Add bisector point annotations (A and B) if set
+        syncBisectorPointAnnotations(mapView)
         
         // Update circle overlays: remove existing user circles and add current ones
-        let existingUserCircles = mapView.overlays.compactMap { overlay -> MKOverlay? in
+        let overlaysToRemove = mapView.overlays.compactMap { overlay -> MKOverlay? in
             if let c = overlay as? MKCircle, let t = c.title, t.hasPrefix("userCircle:") {
                 return c
             }
+            if let p = overlay as? MKPolygon, let t = p.title, t.hasPrefix("userCircleOutside:") {
+                return p
+            }
             return nil
         }
-        if !existingUserCircles.isEmpty {
-            mapView.removeOverlays(existingUserCircles)
+        if !overlaysToRemove.isEmpty {
+            mapView.removeOverlays(overlaysToRemove)
         }
 
         for item in circleItems {
-            let circle = MKCircle(center: item.center, radius: item.radiusMeters)
-            circle.title = "userCircle:\(item.id.uuidString):\(item.colorIndex)"
-            mapView.addOverlay(circle)
+            if item.shadeOutside {
+                let polygon = GameMapView.makeInverseCirclePolygon(
+                    center: item.center,
+                    radiusMeters: item.radiusMeters
+                )
+                polygon.title = "userCircleOutside:\(item.id.uuidString):\(item.colorIndex)"
+                mapView.addOverlay(polygon)
+            } else {
+                let circle = MKCircle(center: item.center, radius: item.radiusMeters)
+                circle.title = "userCircle:\(item.id.uuidString):\(item.colorIndex)"
+                mapView.addOverlay(circle)
+            }
         }
         
         // Update route overlay: remove existing route and add new one if present
@@ -166,10 +186,44 @@ struct GameMapView: UIViewRepresentable {
             context.coordinator.hasZoomedToRoute = false
             context.coordinator.lastRoutedPolyline = nil
         }
+        
+        // Remove any old bisector overlays before adding current ones
+        let oldBisectorOverlays = mapView.overlays.filter { overlay in
+            if let p = overlay as? MKPolygon, let t = p.title as String? {
+                return t.hasPrefix("bisector_halfplane:")
+            }
+            if let l = overlay as? MKPolyline, let t = l.title {
+                return t == "bisector_line"
+            }
+            return false
+        }
+        if !oldBisectorOverlays.isEmpty {
+            mapView.removeOverlays(oldBisectorOverlays)
+        }
+
+        // Add current bisector overlays (if present)
+        if let poly = mapToolsViewModel.bisectorTool.halfPlanePolygon {
+            mapView.addOverlay(poly)
+        }
+        if let line = mapToolsViewModel.bisectorTool.bisectorPolyline {
+            mapView.addOverlay(line)
+        }
+        
     }
     
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
+    }
+    
+    private func updateCrosshairCoordinate(in mapView: MKMapView) {
+        let bounds = mapView.bounds
+        let targetPoint = CGPoint(x: bounds.midX, y: bounds.height * crosshairYOffsetFraction)
+        let coord = mapView.convert(targetPoint, toCoordinateFrom: mapView)
+        if coord.latitude != crosshairCoordinate.latitude || coord.longitude != crosshairCoordinate.longitude {
+            DispatchQueue.main.async {
+                self.crosshairCoordinate = coord
+            }
+        }
     }
     
     private func syncTrainLineOverlays(_ mapView: MKMapView) {
@@ -291,6 +345,27 @@ struct GameMapView: UIViewRepresentable {
         }
     }
     
+    // Add or update A/B point markers for bisector tool
+    private func syncBisectorPointAnnotations(_ mapView: MKMapView) {
+        // Remove any existing A/B annotations
+        let old = mapView.annotations.compactMap { ann -> MKAnnotation? in
+            if let bp = ann as? BisectorPointAnnotation { return bp }
+            return nil
+        }
+        if !old.isEmpty { mapView.removeAnnotations(old) }
+        
+        // Add A
+        if let a = mapToolsViewModel.bisectorTool.pointA {
+            let ann = BisectorPointAnnotation(kind: .a, coordinate: a)
+            mapView.addAnnotation(ann)
+        }
+        // Add B
+        if let b = mapToolsViewModel.bisectorTool.pointB {
+            let ann = BisectorPointAnnotation(kind: .b, coordinate: b)
+            mapView.addAnnotation(ann)
+        }
+    }
+    
     class Coordinator: NSObject, MKMapViewDelegate {
         let parent: GameMapView
         var userIsInteracting = false
@@ -313,6 +388,7 @@ struct GameMapView: UIViewRepresentable {
                 self.parent.region = mapView.region
                 self.userIsInteracting = false
             }
+            parent.updateCrosshairCoordinate(in: mapView)
         }
         
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
@@ -332,38 +408,61 @@ struct GameMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            
+            if let polygon = overlay as? MKPolygon,
+               let title = polygon.title as String?,
+               title.hasPrefix("bisector_halfplane:") {
+                let renderer = MKPolygonRenderer(polygon: polygon)
+                let uiColor = parent.mapToolsViewModel.bisectorSelectedColor
+                renderer.fillColor = uiColor.withAlphaComponent(0.20)
+                renderer.strokeColor = uiColor
+                renderer.lineWidth = 2.0
+                return renderer
+            }
+            
             if let polygon = overlay as? MKPolygon {
+                if let title = polygon.title as String?, title.hasPrefix("userCircleOutside:") {
+                    let renderer = MKPolygonRenderer(polygon: polygon)
+                    // Parse color index
+                    let components = title.components(separatedBy: ":")
+                    if components.count >= 3, let colorIndex = Int(components[2]),
+                       !MapToolsViewModel.colorOptionsUIKit.isEmpty {
+                        let safeIdx = min(max(colorIndex, 0), MapToolsViewModel.colorOptionsUIKit.count - 1)
+                        let color = MapToolsViewModel.colorOptionsUIKit[safeIdx]
+                        renderer.fillColor = color.withAlphaComponent(0.2)
+                        renderer.strokeColor = color
+                    } else {
+                        renderer.fillColor = UIColor.systemBlue.withAlphaComponent(0.2)
+                        renderer.strokeColor = UIColor.systemBlue
+                    }
+                    renderer.lineWidth = 2.0
+                    return renderer
+                }
+
+                // Default polygon rendering (e.g., city regions)
                 let renderer = MKPolygonRenderer(polygon: polygon)
                 renderer.fillColor = UIColor.systemGreen.withAlphaComponent(0.3)
                 renderer.strokeColor = UIColor.systemGreen
                 renderer.lineWidth = 2.0
                 return renderer
             }
+            
             if let circle = overlay as? MKCircle {
                 let renderer = MKCircleRenderer(circle: circle)
-                
-                // Extract color index from title if it's a user circle
-                if let title = circle.title as String?, title.hasPrefix("userCircle:") {
-                    let components = title.components(separatedBy: ":")
-                    if components.count >= 3, let colorIndex = Int(components[2]) {
-                        let safeColorIndex = min(max(colorIndex, 0), MapToolsViewModel.colorOptionsUIKit.count - 1)
-                        let color = MapToolsViewModel.colorOptionsUIKit[safeColorIndex]
-                        renderer.fillColor = color.withAlphaComponent(0.2)
-                        renderer.strokeColor = color
-                    } else {
-                        // Fallback to blue if parsing fails
-                        renderer.fillColor = UIColor.systemBlue.withAlphaComponent(0.2)
-                        renderer.strokeColor = UIColor.systemBlue
-                    }
-                } else {
-                    // Default circle styling for non-user circles
-                    renderer.fillColor = UIColor.systemBlue.withAlphaComponent(0.2)
-                    renderer.strokeColor = UIColor.systemBlue
-                }
-                
+                let colorIndex: Int = {
+                    if let title = circle.title as String?,
+                       let comp = title.split(separator: ":").last,
+                       let idx = Int(comp) { return idx }
+                    return 0
+                }()
+                let safeIdx = min(max(colorIndex, 0), MapToolsViewModel.colorOptionsUIKit.count - 1)
+                let color = MapToolsViewModel.colorOptionsUIKit[safeIdx]
+                renderer.fillColor = color.withAlphaComponent(0.2)
+                renderer.strokeColor = color
                 renderer.lineWidth = 2.0
                 return renderer
             }
+            
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
                 
@@ -385,6 +484,31 @@ struct GameMapView: UIViewRepresentable {
                 return renderer
             }
             return MKOverlayRenderer()
+        }
+        
+        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            // Bisector point markers
+            if let bp = annotation as? BisectorPointAnnotation {
+                let identifier = "BisectorPoint"
+                var view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+                if view == nil {
+                    view = MKMarkerAnnotationView(annotation: bp, reuseIdentifier: identifier)
+                    view?.canShowCallout = false
+                } else {
+                    view?.annotation = bp
+                }
+                // Style: A = blue dot, B = red dot
+                switch bp.kind {
+                case .a:
+                    view?.markerTintColor = .systemBlue
+                    view?.glyphText = "A"
+                case .b:
+                    view?.markerTintColor = .systemRed
+                    view?.glyphText = "B"
+                }
+                return view
+            }
+            return nil
         }
         
         private func colorForMBTARoute(_ routeID: String) -> UIColor {
@@ -456,6 +580,58 @@ class CircleAnnotation: NSObject, MKAnnotation {
         self.circleID = circleID
         self.coordinate = coordinate
         self.colorIndex = colorIndex
+        super.init()
+    }
+}
+
+extension GameMapView {
+    static func makeInverseCirclePolygon(center: CLLocationCoordinate2D, radiusMeters: CLLocationDistance) -> MKPolygon {
+        // Outer polygon covering a wide area around the center
+        let deltaLat: CLLocationDegrees = 10.0
+        let deltaLon: CLLocationDegrees = 10.0
+        let outerCoords = [
+            CLLocationCoordinate2D(latitude: center.latitude - deltaLat, longitude: center.longitude - deltaLon),
+            CLLocationCoordinate2D(latitude: center.latitude - deltaLat, longitude: center.longitude + deltaLon),
+            CLLocationCoordinate2D(latitude: center.latitude + deltaLat, longitude: center.longitude + deltaLon),
+            CLLocationCoordinate2D(latitude: center.latitude + deltaLat, longitude: center.longitude - deltaLon)
+        ]
+
+        // Approximate circle hole with N points using spherical formulas
+        let points = 128
+        var holeCoords: [CLLocationCoordinate2D] = []
+        holeCoords.reserveCapacity(points)
+
+        let earthRadius: Double = 6_371_000.0
+        let lat0 = center.latitude * .pi / 180.0
+        let lon0 = center.longitude * .pi / 180.0
+        let angDist = radiusMeters / earthRadius
+
+        for i in 0..<points {
+            let theta = (Double(i) / Double(points)) * 2.0 * .pi
+            let lat = asin(sin(lat0) * cos(angDist) + cos(lat0) * sin(angDist) * cos(theta))
+            let lon = lon0 + atan2(sin(theta) * sin(angDist) * cos(lat0), cos(angDist) - sin(lat0) * sin(lat))
+            holeCoords.append(CLLocationCoordinate2D(latitude: lat * 180.0 / .pi, longitude: lon * 180.0 / .pi))
+        }
+
+        let hole = holeCoords.withUnsafeBufferPointer { MKPolygon(coordinates: $0.baseAddress!, count: holeCoords.count) }
+        let inverse = MKPolygon(coordinates: outerCoords, count: outerCoords.count, interiorPolygons: [hole])
+        return inverse
+    }
+}
+
+final class BisectorPointAnnotation: NSObject, MKAnnotation {
+    enum Kind { case a, b }
+    let kind: Kind
+    dynamic var coordinate: CLLocationCoordinate2D
+    var title: String? {
+        switch kind {
+        case .a: return "Point A"
+        case .b: return "Point B"
+        }
+    }
+    init(kind: Kind, coordinate: CLLocationCoordinate2D) {
+        self.kind = kind
+        self.coordinate = coordinate
         super.init()
     }
 }

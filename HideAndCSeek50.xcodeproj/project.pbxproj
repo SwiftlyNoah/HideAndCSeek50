@@ -38,7 +38,7 @@
 		14990EF62ED9735B00DFD3E5 /* Rapid_Transit_Routes.geojson in Resources */ = {isa = PBXBuildFile; fileRef = 14990EF52ED9735B00DFD3E5 /* Rapid_Transit_Routes.geojson */; };
 		14990EFA2ED9739000DFD3E5 /* CircleOverlayItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990EF92ED9739000DFD3E5 /* CircleOverlayItem.swift */; };
 		14990EFC2ED973E300DFD3E5 /* ma.json in Resources */ = {isa = PBXBuildFile; fileRef = 14990EFB2ED973E300DFD3E5 /* ma.json */; };
-		14990EFE2ED97BA500DFD3E5 /* MapToolsBottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990EFD2ED97BA500DFD3E5 /* MapToolsBottomSheet.swift */; };
+		14990EFE2ED97BA500DFD3E5 /* MapToolsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990EFD2ED97BA500DFD3E5 /* MapToolsSheet.swift */; };
 		14990F002ED984F200DFD3E5 /* GameModels+Dictionary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990EFF2ED984F200DFD3E5 /* GameModels+Dictionary.swift */; };
 		14990F022ED9878100DFD3E5 /* MapToolsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990F012ED9878100DFD3E5 /* MapToolsViewModel.swift */; };
 		14990F072ED988FF00DFD3E5 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990F062ED988FC00DFD3E5 /* ChatViewModel.swift */; };
@@ -89,7 +89,7 @@
 		14990EF52ED9735B00DFD3E5 /* Rapid_Transit_Routes.geojson */ = {isa = PBXFileReference; lastKnownFileType = text; path = Rapid_Transit_Routes.geojson; sourceTree = "<group>"; };
 		14990EF92ED9739000DFD3E5 /* CircleOverlayItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleOverlayItem.swift; sourceTree = "<group>"; };
 		14990EFB2ED973E300DFD3E5 /* ma.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ma.json; sourceTree = "<group>"; };
-		14990EFD2ED97BA500DFD3E5 /* MapToolsBottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapToolsBottomSheet.swift; sourceTree = "<group>"; };
+		14990EFD2ED97BA500DFD3E5 /* MapToolsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapToolsSheet.swift; sourceTree = "<group>"; };
 		14990EFF2ED984F200DFD3E5 /* GameModels+Dictionary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GameModels+Dictionary.swift"; sourceTree = "<group>"; };
 		14990F012ED9878100DFD3E5 /* MapToolsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapToolsViewModel.swift; sourceTree = "<group>"; };
 		14990F062ED988FC00DFD3E5 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
@@ -151,7 +151,7 @@
 				14990EE82ED93DEA00DFD3E5 /* SearchResultsSheet.swift */,
 				14990EED2ED94C2F00DFD3E5 /* TransportSelectionSheet.swift */,
 				DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */,
-				14990EFD2ED97BA500DFD3E5 /* MapToolsBottomSheet.swift */,
+				14990EFD2ED97BA500DFD3E5 /* MapToolsSheet.swift */,
 			);
 			path = Gameplay;
 			sourceTree = "<group>";
@@ -351,7 +351,7 @@
 				140B02AF2EC8791E0005EE81 /* CreateLobbyView.swift in Sources */,
 				140B02B02EC8791E0005EE81 /* DatabaseManager.swift in Sources */,
 				140B02B22EC8791E0005EE81 /* Game.swift in Sources */,
-				14990EFE2ED97BA500DFD3E5 /* MapToolsBottomSheet.swift in Sources */,
+				14990EFE2ED97BA500DFD3E5 /* MapToolsSheet.swift in Sources */,
 				140B02B32EC8791E0005EE81 /* HelperViewsActionButton.swift in Sources */,
 				14990EF02ED94E0700DFD3E5 /* TransportType.swift in Sources */,
 				1474BE7E2ED5165200568A90 /* AuthenticationView.swift in Sources */,

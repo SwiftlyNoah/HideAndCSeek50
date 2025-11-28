@@ -1,5 +1,5 @@
 //
-//  MapToolsBottomSheet.swift
+//  MapToolsSheet.swift
 //  HideAndCSeek50
 //
 //  Created by Noah Brauner on 11/28/25.
@@ -8,7 +8,7 @@
 import SwiftUI
 import MapKit
 
-struct MapToolsBottomSheetContent: View {
+struct MapToolsSheetContent: View {
     @ObservedObject var viewModel: MapToolsViewModel
     @Binding var mapCenter: CLLocationCoordinate2D
     let onDismiss: () -> Void

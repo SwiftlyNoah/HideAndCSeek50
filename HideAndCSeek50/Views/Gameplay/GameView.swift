@@ -304,7 +304,7 @@ struct GameView: View {
                 }
             }
             .bottomSheet(bottomSheetPosition: $mapToolsViewModel.mapToolsBottomSheetPosition, switchablePositions: [.relative(0.48), .relativeTop(0.975)]) {
-                MapToolsBottomSheetContent(
+                MapToolsSheetContent(
                     viewModel: mapToolsViewModel,
                     mapCenter: Binding(get: { mapSearchViewModel.region.center }, set: { mapSearchViewModel.region.center = $0 }),
                     onDismiss: {

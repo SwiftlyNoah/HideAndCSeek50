@@ -395,6 +395,17 @@ struct MunicipalitiesSectionView: View {
 struct RadiusSectionView: View {
     @ObservedObject var viewModel: MapToolsViewModel
     @Binding var mapCenter: CLLocationCoordinate2D
+    @FocusState private var isCustomRadiusFocused: Bool
+    
+    private var firstRowIndices: [Int] {
+        let count = viewModel.milesOptions.count
+        return Array(0..<(count / 2 + count % 2))
+    }
+    private var secondRowIndices: [Int] {
+        let count = viewModel.milesOptions.count
+        return Array((count / 2 + count % 2)..<count)
+    }
+    
     var body: some View {
         DisclosureGroup(isExpanded: $viewModel.radiusExpanded) {
             VStack(alignment: .leading, spacing: 16) {
@@ -435,13 +446,89 @@ struct RadiusSectionView: View {
                 }
                 .toggleStyle(SwitchToggleStyle(tint: .blue))
                 .padding(.top, 4)
-                Picker("Radius (miles)", selection: $viewModel.radiusMilesIndex) {
-                    ForEach(viewModel.milesOptions.indices, id: \.self) { idx in
-                        Text("\(viewModel.milesOptions[idx], specifier: "%.1f") mi").tag(idx)
+                
+                // Preset radius chips in two rows (replaces segmented Picker)
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        ForEach(firstRowIndices, id: \.self) { idx in
+                            Button {
+                                viewModel.radiusMilesIndex = idx
+                                viewModel.useCustomRadius = false
+                            } label: {
+                                Text("\(viewModel.milesOptions[idx], specifier: "%.1f") mi")
+                                    .font(.caption)
+                                    .padding(.vertical, 6)
+                                    .padding(.horizontal, 10)
+                                    .background(
+                                        (viewModel.radiusMilesIndex == idx && !viewModel.useCustomRadius)
+                                        ? MapToolsViewModel.colorOptions[viewModel.radiusColorIndex].opacity(0.30)
+                                        : Color.white.opacity(0.12)
+                                    )
+                                    .foregroundColor(.white)
+                                    .clipShape(Capsule())
+                                    .overlay(
+                                        Capsule().stroke(Color.white.opacity(
+                                            (viewModel.radiusMilesIndex == idx && !viewModel.useCustomRadius) ? 0.8 : 0.2
+                                        ), lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        ForEach(secondRowIndices, id: \.self) { idx in
+                            Button {
+                                viewModel.radiusMilesIndex = idx
+                                viewModel.useCustomRadius = false
+                            } label: {
+                                Text("\(viewModel.milesOptions[idx], specifier: "%.1f") mi")
+                                    .font(.caption)
+                                    .padding(.vertical, 6)
+                                    .padding(.horizontal, 10)
+                                    .background(
+                                        (viewModel.radiusMilesIndex == idx && !viewModel.useCustomRadius)
+                                        ? MapToolsViewModel.colorOptions[viewModel.radiusColorIndex].opacity(0.30)
+                                        : Color.white.opacity(0.12)
+                                    )
+                                    .foregroundColor(.white)
+                                    .clipShape(Capsule())
+                                    .overlay(
+                                        Capsule().stroke(Color.white.opacity(
+                                            (viewModel.radiusMilesIndex == idx && !viewModel.useCustomRadius) ? 0.8 : 0.2
+                                        ), lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
-                .pickerStyle(SegmentedPickerStyle())
-                .colorScheme(.dark)
+
+                // Custom radius input
+                HStack(spacing: 12) {
+                    Toggle(isOn: $viewModel.useCustomRadius) {
+                        Text("Use custom radius")
+                            .foregroundColor(.white)
+                    }
+                    .toggleStyle(SwitchToggleStyle(tint: .blue))
+                }
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Custom Radius (mi)")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.7))
+                        TextField("e.g. 0.75", value: $viewModel.customRadiusMiles, format: .number)
+                            .keyboardType(.decimalPad)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 120)
+                            .focused($isCustomRadiusFocused)
+                            .onChange(of: viewModel.customRadiusMiles) { _, newVal in
+                                if newVal < 0 { viewModel.customRadiusMiles = 0 }
+                            }
+                    }
+                    Spacer()
+                }
+                
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Center:")
@@ -498,6 +585,22 @@ struct RadiusSectionView: View {
             .padding(16)
             .background(Color.white.opacity(0.1))
             .cornerRadius(12)
+            
+            // Dismiss keyboard when tapping outside the TextField
+            .onTapGesture {
+                if isCustomRadiusFocused {
+                    isCustomRadiusFocused = false
+                }
+            }
+            // Add a keyboard toolbar Done button
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        isCustomRadiusFocused = false
+                    }
+                }
+            }
         } label: {
             HStack {
                 Image(systemName: "circle.fill")

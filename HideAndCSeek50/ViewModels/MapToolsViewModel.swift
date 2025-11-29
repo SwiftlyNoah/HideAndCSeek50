@@ -29,6 +29,8 @@ class MapToolsViewModel: ObservableObject {
     @Published var radiusExpanded: Bool = false
     @Published var shadeOutsideCircle: Bool = false
     @Published var circleItems: [CircleOverlayItem] = []
+    @Published var useCustomRadius: Bool = false
+    @Published var customRadiusMiles: Double = 1.0
     
     // Bisector variables
     @Published var bisectorTool = BisectorToolItem()
@@ -51,7 +53,7 @@ class MapToolsViewModel: ObservableObject {
             .systemTeal, .systemBlue, .systemPurple
     ]
     
-    let milesOptions: [Double] = [0.5, 1, 3, 5, 10]
+    let milesOptions: [Double] = [0.25, 0.5, 1, 3, 5, 10, 25, 50, 100]
     let allRegionNames = MassachusettsRegions.allRegionNames
     
     // Computed properties for green and red regions
@@ -121,7 +123,7 @@ class MapToolsViewModel: ObservableObject {
     // MARK: - Circle Management Functions
     
     func addCircleAtCenter(_ mapCenter: CLLocationCoordinate2D) {
-        let miles = milesOptions[radiusMilesIndex]
+        let miles = radiusSelectedMiles
         let meters = miles * 1609.34
         let item = CircleOverlayItem(
             center: mapCenter,
@@ -146,7 +148,7 @@ class MapToolsViewModel: ObservableObject {
     }
     
     var radiusSelectedMiles: Double {
-        milesOptions[radiusMilesIndex]
+        useCustomRadius ? max(customRadiusMiles, 0) : milesOptions[radiusMilesIndex]
     }
     
     var bisectorSelectedColor: UIColor {

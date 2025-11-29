@@ -711,45 +711,88 @@ class DatabaseManager: ObservableObject {
     }
     
     
-    // MARK: - Questions
-    func sendQuestion(gameId: String, question: GameQuestion) async throws {
-        let questionRef = DatabaseReference.game(gameId).child("questions").child(question.id)
-        try await questionRef.setValue(try question.toDictionary())
+    // MARK: - Question Answering
+    
+    /// Updates a question message with the hider's answer
+    func answerQuestion(
+        gameId: String,
+        questionMessageId: String,
+        answer: String,
+        answeredBy: String
+    ) async throws {
+        // Get the current message
+        guard let currentGame = self.currentGame,
+              let questionMessage = currentGame.messages[questionMessageId],
+              questionMessage.type == .question,
+              var questionData = questionMessage.questionData else {
+            throw DatabaseError.invalidData
+        }
         
-        // Also send as message
-        let message = GameMessage(
-            id: UUID().uuidString,
-            senderUID: question.askedBy,
-            senderName: "Seekers",
-            content: question.question,
+        // Update the question data
+        questionData.isAnswered = true
+        questionData.playerAnswer = answer
+        
+        // Update the message with the answer
+        let updatedMessage = GameMessage(
+            id: questionMessage.id,
+            senderUID: questionMessage.senderUID,
+            senderName: questionMessage.senderName,
+            content: questionMessage.content,
             type: .question,
-            timestamp: question.askedAt,
-            attachments: nil,
-            questionData: QuestionData(
-                questionId: question.id,
-                questionText: question.question,
-                correctAnswer: nil,
-                playerAnswer: nil
-            ),
-            team: .seekers
+            timestamp: questionMessage.timestamp,
+            attachments: questionMessage.attachments,
+            questionData: questionData,
+            team: questionMessage.team
         )
         
-        try await sendMessage(gameId: gameId, message: message)
-        
-        // Don't log question events - questions are stored separately under questions node
+        // Update in database
+        let messageRef = DatabaseReference.game(gameId).child("messages").child(questionMessageId)
+        try await messageRef.setValue(try updatedMessage.toDictionary())
     }
     
-    func answerQuestion(gameId: String, questionId: String, answer: String, answeredBy: String) async throws {
-        let questionRef = DatabaseReference.game(gameId).child("questions").child(questionId)
-        let updates: [String: Any] = [
-            "answeredBy": answeredBy,
-            "answeredAt": Date().toFirebaseTimestamp(),
-            "answer": answer
-        ]
+    /// Updates a question message with a photo answer
+    func answerQuestionWithPhoto(
+        gameId: String,
+        questionMessageId: String,
+        photoURL: String,
+        answeredBy: String
+    ) async throws {
+        // Get the current message
+        guard let currentGame = self.currentGame,
+              let questionMessage = currentGame.messages[questionMessageId],
+              questionMessage.type == .question,
+              var questionData = questionMessage.questionData else {
+            throw DatabaseError.invalidData
+        }
         
-        try await questionRef.updateChildValues(updates)
+        // Update the question data
+        questionData.isAnswered = true
+        questionData.playerAnswer = "Photo attached"
+        
+        // Create attachments for the photo
+        let attachments = MessageAttachments(
+            photoURL: photoURL,
+            audioURL: nil,
+            duration: nil
+        )
+        
+        // Update the message with the answer and photo
+        let updatedMessage = GameMessage(
+            id: questionMessage.id,
+            senderUID: questionMessage.senderUID,
+            senderName: questionMessage.senderName,
+            content: questionMessage.content,
+            type: .question,
+            timestamp: questionMessage.timestamp,
+            attachments: attachments,
+            questionData: questionData,
+            team: questionMessage.team
+        )
+        
+        // Update in database
+        let messageRef = DatabaseReference.game(gameId).child("messages").child(questionMessageId)
+        try await messageRef.setValue(try updatedMessage.toDictionary())
     }
-    
     
     // MARK: - Real-time Listeners
     func startListeningToGame(gameId: String) {

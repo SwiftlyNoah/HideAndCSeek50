@@ -1,0 +1,64 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Rules for game chat photos
+    match /games/{gameId}/photos/{photoId} {
+      // Allow authenticated users to upload photos
+      allow create: if request.auth != null
+                    && request.resource.size < 10 * 1024 * 1024  // Max 10MB
+                    && request.resource.contentType.matches('image/jpeg')  // Only JPEG
+                    && request.resource.metadata.uploadedBy == request.auth.uid;  // Must include uploader UID
+      
+      // Allow authenticated users to read photos from any game
+      allow read: if request.auth != null;
+      
+      // Allow users to delete their own photos
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.metadata.uploadedBy;
+      
+      // Prevent updates to existing photos
+      allow update: if false;
+    }
+    
+    // Rules for question answer photos
+    match /games/{gameId}/questions/{questionAnswerPhoto} {
+      // Allow authenticated users to upload question answer photos
+      allow create: if request.auth != null
+                    && request.resource.size < 10 * 1024 * 1024  // Max 10MB
+                    && request.resource.contentType.matches('image/jpeg')  // Only JPEG
+                    && request.resource.metadata.uploadedBy == request.auth.uid;  // Must include uploader UID
+      
+      // Allow authenticated game participants to read question photos
+      allow read: if request.auth != null;
+      
+      // Allow users to delete their own question answer photos
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.metadata.uploadedBy;
+      
+      // Prevent updates to existing photos
+      allow update: if false;
+    }
+    
+    // Rules for user profile pictures
+    match /users/{userId}/profile/{fileName} {
+      // Users can only upload to their own profile folder
+      allow create, update: if request.auth != null
+                            && request.auth.uid == userId
+                            && request.resource.size < 5 * 1024 * 1024  // Max 5MB
+                            && request.resource.contentType.matches('image/.*');
+      
+      // Anyone authenticated can read profile pictures
+      allow read: if request.auth != null;
+      
+      // Users can only delete their own profile pictures
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Deny all other access by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

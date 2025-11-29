@@ -56,16 +56,16 @@ Complete game state with real-time updates:
 **Communication System (`/games/{gameID}/messages`):**
 - **Multi-format Messages**: Text, photos, voice, system notifications
 - **Team-based Chat**: Separate channels for hiders, seekers, and all
-- **Question Integration**: Special message types for game questions
+- **Question Integration**: Questions stored as special message types with questionData
+- **Answer Tracking**: Question messages updated with answers, separate answer messages sent
 - **Reactions**: Emoji responses to messages
 - **Real-time Delivery**: Instant message propagation
 
-**Question & Answer System (`/games/{gameID}/questions`):**
-- **Question Types**: Location, photo, distance, landmark, direction
-- **Answer Tracking**: Who asked, who answered, correctness validation
-- **Map Integration**: Questions trigger map area elimination
-- **Point System**: Rewards for good questions and answers
-- **Photo Evidence**: Support for visual question responses
+**Events System (`/games/{gameID}/events`):**
+- **Game Events**: Player joined/left, game started/ended, state changes
+- **Question Events**: Questions asked and answered (tracked in events for analytics)
+- **Automated Logging**: System automatically records important game moments
+- **Game Analysis**: Post-game review of key events
 
 ### 3. Lobbies Collection (`/lobbies/{gameCode}`)
 
@@ -111,7 +111,8 @@ Performance optimization for game discovery:
 - **Multi-modal Messaging**: Text, voice, and photo support
 - **Team Channels**: Private communication within teams
 - **System Notifications**: Automated game state updates
-- **Question Integration**: Seamless Q&A within chat flow
+- **Question Integration**: Questions and answers seamlessly integrated as special message types
+- **Question Tracking**: Questions have questionData with answer status, separate answer messages sent
 
 ## 🚀 Performance Optimizations
 

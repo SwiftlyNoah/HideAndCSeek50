@@ -298,18 +298,29 @@ struct GameQuestionView: View {
         
         do {
             let fullQuestion = selectedCategory.writeQuestion(arg: selectedQuestion)
-            let question = GameQuestion(
+            let questionId = UUID().uuidString
+            
+            // Create message with question type and questionData
+            let message = GameMessage(
                 id: UUID().uuidString,
-                type: selectedCategory.questionType,
-                question: fullQuestion,
-                askedBy: currentUID,
-                askedAt: Date(),
-                answeredBy: nil,
-                answeredAt: nil,
-                answer: nil
+                senderUID: currentUID,
+                senderName: "Seekers",
+                content: fullQuestion,
+                type: .question,
+                timestamp: Date(),
+                attachments: nil,
+                questionData: QuestionData(
+                    questionId: questionId,
+                    questionText: fullQuestion,
+                    questionType: selectedCategory.questionType,
+                    isAnswered: false,
+                    correctAnswer: nil,
+                    playerAnswer: nil
+                ),
+                team: .seekers
             )
             
-            try await databaseManager.sendQuestion(gameId: gameId, question: question)
+            try await databaseManager.sendMessage(gameId: gameId, message: message)
             
             await MainActor.run {
                 successMessage = "Question sent to hiders!"

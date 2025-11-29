@@ -27,15 +27,6 @@ extension Game {
             dict["messages"] = messagesDict
         }
         
-        // Add questions if they exist
-        if !questions.isEmpty {
-            var questionsDict: [String: Any] = [:]
-            for (key, question) in questions {
-                questionsDict[key] = try question.toDictionary()
-            }
-            dict["questions"] = questionsDict
-        }
-        
         // Add events if they exist
         if !events.isEmpty {
             var eventsDict: [String: Any] = [:]
@@ -71,14 +62,6 @@ extension Game {
             }
         }
         
-        // Parse questions
-        var questions: [String: GameQuestion] = [:]
-        if let questionsDict = dictionary["questions"] as? [String: [String: Any]] {
-            for (key, questionDict) in questionsDict {
-                questions[key] = try GameQuestion.fromDictionary(questionDict)
-            }
-        }
-        
         // Parse events
         var events: [String: GameEvent] = [:]
         if let eventsDict = dictionary["events"] as? [String: [String: Any]] {
@@ -91,7 +74,6 @@ extension Game {
             info: info,
             teams: teams,
             messages: messages,
-            questions: questions,
             events: events
         )
     }
@@ -329,6 +311,7 @@ extension GameMessage {
             dict["questionData"] = [
                 "questionId": questionData.questionId,
                 "questionText": questionData.questionText,
+                "questionType": questionData.questionType.rawValue,
                 "isAnswered": questionData.isAnswered,
                 "correctAnswer": questionData.correctAnswer as Any,
                 "playerAnswer": questionData.playerAnswer as Any
@@ -365,10 +348,13 @@ extension GameMessage {
         var questionData: QuestionData?
         if let questionDict = dict["questionData"] as? [String: Any],
            let questionId = questionDict["questionId"] as? String,
-           let questionText = questionDict["questionText"] as? String {
+           let questionText = questionDict["questionText"] as? String,
+           let questionTypeRaw = questionDict["questionType"] as? String,
+           let questionType = QuestionType(rawValue: questionTypeRaw) {
             questionData = QuestionData(
                 questionId: questionId,
                 questionText: questionText,
+                questionType: questionType,
                 isAnswered: questionDict["isAnswered"] as? Bool ?? false,
                 correctAnswer: questionDict["correctAnswer"] as? String,
                 playerAnswer: questionDict["playerAnswer"] as? String

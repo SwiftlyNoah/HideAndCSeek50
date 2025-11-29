@@ -16,7 +16,6 @@ struct Game: Codable {
     let info: GameInfo
     var teams: GameTeams
     var messages: [String: GameMessage] = [:]
-    var questions: [String: GameQuestion] = [:]
     var events: [String: GameEvent] = [:]
 }
 
@@ -111,6 +110,7 @@ struct MessageAttachments: Codable {
 struct QuestionData: Codable {
     let questionId: String
     let questionText: String
+    let questionType: QuestionType
     var isAnswered: Bool = false
     let correctAnswer: String?
     var playerAnswer: String?

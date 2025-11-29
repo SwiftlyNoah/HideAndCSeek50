@@ -19,7 +19,6 @@ hideandcseek50/
 │       ├── info/
 │       ├── teams/
 │       ├── messages/
-│       ├── questions/
 │       └── events/
 │
 ├── lobbies/
@@ -202,34 +201,11 @@ games: {
 }
 ```
 
----
-
-## Questions
-
-```jsonc
-"questions": {
-  "questionID1": {
-    "id": "string",
-    "type": "location|photo|distance|landmark|direction",
-    "question": "string",
-    "askedBy": "string",
-    "askedAt": "timestamp",
-    "answeredBy": "string",
-    "answeredAt": "timestamp",
-    "answer": "string",
-    "isCorrect": true,
-    "pointsAwarded": 0,
-
-    "attachments": {
-      "photoURL": "string",
-      "coordinates": {
-        "lat": 0,
-        "lng": 0
-      }
-    }
-  }
-}
-```
+**Notes:**
+- Questions are stored as messages with `type: "question"` and include `questionData`
+- When a question is answered, the original message's `questionData.isAnswered` is updated to `true` and `questionData.playerAnswer` is set
+- A separate message with `type: "answer"` is also sent to the chat
+- All question/answer interactions are visible in the messages collection
 
 ---
 
@@ -357,14 +333,6 @@ invitations: {
         "messages": {
           "$messageId": {
             ".write": "auth != null && newData.child('senderUID').val() == auth.uid && (root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists())",
-            ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists())"
-          }
-        },
-
-        // Questions - seekers can ask, hiders can answer
-        "questions": {
-          "$questionId": {
-            ".write": "auth != null && ((newData.child('askedBy').val() == auth.uid && root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists()) || (newData.child('answeredBy').val() == auth.uid && root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists()))",
             ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists())"
           }
         },

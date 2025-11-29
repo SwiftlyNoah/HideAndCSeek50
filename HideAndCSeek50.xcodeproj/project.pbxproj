@@ -22,6 +22,8 @@
 		140B02C02EC8791E0005EE81 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 140B02A12EC8791E0005EE81 /* GoogleService-Info.plist */; };
 		142066B62ECBDE200084F53C /* CityRegions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 142066B52ECBDE200084F53C /* CityRegions.swift */; };
 		142066BA2ECBDFF50084F53C /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 142066B92ECBDFF50084F53C /* LocationManager.swift */; };
+		143B7FDB2EDAD09E0093A0C6 /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 143B7FDA2EDAD09E0093A0C6 /* ImagePicker.swift */; };
+		143B7FE32EDAD1070093A0C6 /* UIImage+Compression.swift in Sources */ = {isa = PBXBuildFile; fileRef = 143B7FE22EDAD1070093A0C6 /* UIImage+Compression.swift */; };
 		1474BE742ED5164B00568A90 /* GameChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE6D2ED5164B00568A90 /* GameChatView.swift */; };
 		1474BE752ED5164B00568A90 /* GameMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE6E2ED5164B00568A90 /* GameMapView.swift */; };
 		1474BE762ED5164B00568A90 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE6F2ED5164B00568A90 /* GameView.swift */; };
@@ -76,6 +78,9 @@
 		142066B02ECBCBB40084F53C /* HideAndCSeek50.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HideAndCSeek50.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		142066B52ECBDE200084F53C /* CityRegions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CityRegions.swift; sourceTree = "<group>"; };
 		142066B92ECBDFF50084F53C /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
+		143B7FDA2EDAD09E0093A0C6 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
+		143B7FE22EDAD1070093A0C6 /* UIImage+Compression.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Compression.swift"; sourceTree = "<group>"; };
+		143B7FF22EDAD39C0093A0C6 /* QUICK_START.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = QUICK_START.md; sourceTree = "<group>"; };
 		1474BE6D2ED5164B00568A90 /* GameChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameChatView.swift; sourceTree = "<group>"; };
 		1474BE6E2ED5164B00568A90 /* GameMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameMapView.swift; sourceTree = "<group>"; };
 		1474BE6F2ED5164B00568A90 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
@@ -123,6 +128,7 @@
 		140B02992EC8791E0005EE81 /* Markdown */ = {
 			isa = PBXGroup;
 			children = (
+				143B7FF22EDAD39C0093A0C6 /* QUICK_START.md */,
 				140B02962EC8791E0005EE81 /* AUTHENTICATION.md */,
 				140B02972EC8791E0005EE81 /* DATABASE_SCHEMA_JSON.md */,
 				140B02982EC8791E0005EE81 /* DATABASE_SCHEMA_OVERWIEW.md */,
@@ -193,6 +199,7 @@
 				14990F062ED988FC00DFD3E5 /* ChatViewModel.swift */,
 				1474BE852ED65F8200568A90 /* MapSearchViewModel.swift */,
 				14990F012ED9878100DFD3E5 /* MapToolsViewModel.swift */,
+				143B7FE22EDAD1070093A0C6 /* UIImage+Compression.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -205,6 +212,7 @@
 				140B029A2EC8791E0005EE81 /* Assets.xcassets */,
 				140B02A12EC8791E0005EE81 /* GoogleService-Info.plist */,
 				140B02A52EC8791E0005EE81 /* Info.plist */,
+				143B7FDA2EDAD09E0093A0C6 /* ImagePicker.swift */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -377,11 +385,13 @@
 				14990F022ED9878100DFD3E5 /* MapToolsViewModel.swift in Sources */,
 				DA0A67932EDA4E1D00F5A00D /* DistanceOverlayItem.swift in Sources */,
 				14E268F02EC9649700FBCF90 /* Lobby.swift in Sources */,
+				143B7FE32EDAD1070093A0C6 /* UIImage+Compression.swift in Sources */,
 				1474BE742ED5164B00568A90 /* GameChatView.swift in Sources */,
 				1474BE752ED5164B00568A90 /* GameMapView.swift in Sources */,
 				1474BE762ED5164B00568A90 /* GameView.swift in Sources */,
 				14990EFA2ED9739000DFD3E5 /* CircleOverlayItem.swift in Sources */,
 				1474BE782ED5164B00568A90 /* QuestionView.swift in Sources */,
+				143B7FDB2EDAD09E0093A0C6 /* ImagePicker.swift in Sources */,
 				DA0A67902EDA434D00F5A00D /* BisectorOverlayItem.swift in Sources */,
 				14990EF42ED9654F00DFD3E5 /* MapExtensions.swift in Sources */,
 				140B02B52EC8791E0005EE81 /* HideAndCSeek50App.swift in Sources */,

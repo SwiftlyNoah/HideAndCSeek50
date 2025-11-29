@@ -1,5 +1,5 @@
 //
-//  GameChat.swift
+//  GameChatView.swift
 //  HideAndCSeek50
 //
 //  Created by Noah Brauner on 11/17/25.
@@ -7,29 +7,26 @@
 
 import SwiftUI
 import FirebaseAuth
-internal import Combine
-import CoreLocation
 
 struct GameChatView: View {
     let gameId: String
-    let currentUser: User? // FirebaseAuth.User
+    let currentUser: User?
     let currentPlayerTeam: Team
     
     @EnvironmentObject private var chatViewModel: ChatViewModel
     @State private var messageText = ""
-    
-    @State private var locationSendError: String?
-    
-    private var currentUserName: String {
-        currentUser?.displayName ?? "Anonymous"
-    }
+    @State private var showingImagePicker = false
+    @State private var showingImageSourceSelection = false
+    @State private var imageSourceType: UIImagePickerController.SourceType = .photoLibrary
+    @State private var selectedImage: UIImage?
+    @State private var showingCameraPermissionAlert = false
     
     var body: some View {
         VStack(spacing: 0) {
-            // Messages List
+            // Messages list
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 8) {
+                    LazyVStack(spacing: 12) {
                         ForEach(chatViewModel.messages) { message in
                             MessageBubble(
                                 message: message,
@@ -37,94 +34,126 @@ struct GameChatView: View {
                             )
                         }
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding()
                 }
-                .onChange(of: chatViewModel.messages.count) {
+                .onChange(of: chatViewModel.messages.count) { _, _ in
                     if let lastMessage = chatViewModel.messages.last {
-                        withAnimation(.easeOut(duration: 0.3)) {
+                        withAnimation {
                             proxy.scrollTo(lastMessage.id, anchor: .bottom)
                         }
                     }
                 }
             }
             
-            // Message Input
-            HStack(spacing: 12) {
-                // Location send button (seekers only)
-                if currentPlayerTeam == .seekers {
-                    Button(action: sendLocationMessage) {
-                        Image(systemName: "location.fill")
-                            .foregroundColor(.white)
-                            .padding(8)
-                            .background(Color.red)
-                            .clipShape(Circle())
-                            .accessibilityLabel("Send Current Location")
-                    }
-                    .disabled(chatViewModel.isLoading)
-                    .help("Send your current coordinates to chat")
+            Divider()
+            
+            // Upload progress indicator
+            if chatViewModel.isLoading && chatViewModel.uploadProgress > 0 {
+                VStack(spacing: 4) {
+                    ProgressView(value: chatViewModel.uploadProgress)
+                        .progressViewStyle(.linear)
+                    Text("Uploading: \(Int(chatViewModel.uploadProgress * 100))%")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
+                .padding(.horizontal)
+                .padding(.top, 8)
+            }
+            
+            // Message input area
+            HStack(spacing: 12) {
+                // Photo button
+                Button {
+                    showingImageSourceSelection = true
+                } label: {
+                    Image(systemName: "photo")
+                        .font(.title3)
+                        .foregroundColor(.blue)
+                        .frame(width: 40, height: 40)
+                }
+                .disabled(chatViewModel.isLoading)
+                
+                // Text field
                 TextField("Type a message...", text: $messageText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
-                    .lineLimit(1...4)
-                    .onSubmit { sendMessage() }
-
-                Button(action: sendMessage) {
-                    Image(systemName: "paperplane.fill")
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(
-                            messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                ? Color.gray : Color.blue
-                        )
-                        .clipShape(Circle())
+                    .lineLimit(1...5)
+                    .disabled(chatViewModel.isLoading)
+                
+                // Send button
+                Button {
+                    sendTextMessage()
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .blue)
                 }
                 .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chatViewModel.isLoading)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color(.systemBackground))
-
-            if let locationSendError = locationSendError {
-                Text(locationSendError)
-                    .font(.caption)
-                    .foregroundColor(.orange)
-                    .padding(.bottom, 4)
+            .padding()
+        }
+        .confirmationDialog("Choose Photo Source", isPresented: $showingImageSourceSelection, titleVisibility: .visible) {
+            Button("Camera") {
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    imageSourceType = .camera
+                    showingImagePicker = true
+                } else {
+                    showingCameraPermissionAlert = true
+                }
+            }
+            
+            Button("Photo Library") {
+                imageSourceType = .photoLibrary
+                showingImagePicker = true
+            }
+            
+            Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showingImagePicker) {
+            ImagePicker(selectedImage: $selectedImage, sourceType: imageSourceType)
+        }
+        .onChange(of: selectedImage) { _, newImage in
+            if let image = newImage {
+                sendPhotoMessage(image: image)
+                selectedImage = nil
             }
         }
-        .background(Color(.systemGroupedBackground))
-    }
-    
-    private func sendMessage() {
-        Task {
-            await chatViewModel.sendMessage(
-                gameId: gameId,
-                content: messageText,
-                currentUser: currentUser,
-                currentUserName: currentUserName,
-                currentPlayerTeam: currentPlayerTeam
-            )
-            messageText = ""
+        .alert("Camera Not Available", isPresented: $showingCameraPermissionAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Camera is not available on this device or permission has been denied.")
         }
     }
     
-    private func sendLocationMessage() {
-        guard currentPlayerTeam == .seekers else { return }
-        guard let loc = LocationManager.shared.location else {
-            locationSendError = "Location unavailable"
+    private func sendTextMessage() {
+        let text = messageText
+        messageText = ""
+        
+        guard let displayName = currentUser?.displayName ?? currentUser?.email else {
             return
         }
-        let content = String(
-            format: "Latitude: %.5f, Longitude: %.5f",
-            loc.coordinate.latitude,
-            loc.coordinate.longitude
-        )
+        
         Task {
             await chatViewModel.sendMessage(
                 gameId: gameId,
-                content: content,
+                content: text,
                 currentUser: currentUser,
-                currentUserName: currentUserName,
+                currentUserName: displayName,
+                currentPlayerTeam: currentPlayerTeam
+            )
+        }
+    }
+    
+    private func sendPhotoMessage(image: UIImage) {
+        guard let displayName = currentUser?.displayName ?? currentUser?.email else {
+            return
+        }
+        
+        Task {
+            await chatViewModel.sendPhotoMessage(
+                gameId: gameId,
+                image: image,
+                currentUser: currentUser,
+                currentUserName: displayName,
                 currentPlayerTeam: currentPlayerTeam
             )
         }
@@ -135,47 +164,130 @@ struct MessageBubble: View {
     let message: GameMessage
     let isCurrentUser: Bool
     
-    private var teamColor: Color {
-        switch message.team {
-        case .hiders: return .blue
-        case .seekers: return .red
-        }
-    }
+    @State private var showFullImage = false
     
     var body: some View {
         HStack {
             if isCurrentUser {
-                Spacer(minLength: 60)
+                Spacer()
             }
             
             VStack(alignment: isCurrentUser ? .trailing : .leading, spacing: 4) {
+                // Sender name
                 if !isCurrentUser {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(teamColor)
-                            .frame(width: 8, height: 8)
-                        
-                        Text(message.senderName)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    Text(message.senderName)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 
-                Text(message.content)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(isCurrentUser ? Color.blue : Color(.systemGray5))
-                    .foregroundColor(isCurrentUser ? .white : .primary)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                // Message content
+                if message.type == .photo,
+                   let photoURL = message.attachments?.photoURL {
+                    // Photo message
+                    Button {
+                        showFullImage = true
+                    } label: {
+                        AsyncImage(url: URL(string: photoURL)) { phase in
+                            switch phase {
+                            case .empty:
+                                ProgressView()
+                                    .frame(width: 200, height: 200)
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(maxWidth: 200, maxHeight: 200)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            case .failure:
+                                VStack {
+                                    Image(systemName: "photo.fill")
+                                        .font(.largeTitle)
+                                        .foregroundColor(.gray)
+                                    Text("Failed to load")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
+                                .frame(width: 200, height: 200)
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                    }
+                    .sheet(isPresented: $showFullImage) {
+                        FullScreenImageView(imageURL: photoURL)
+                    }
+                } else {
+                    // Text message
+                    Text(message.content)
+                        .padding(10)
+                        .background(isCurrentUser ? Color.blue : Color.gray.opacity(0.2))
+                        .foregroundColor(isCurrentUser ? .white : .primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                }
                 
-                Text(message.timestamp, style: .time)
+                // Timestamp
+                Text(message.timestamp.formatted(date: .omitted, time: .shortened))
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
             
             if !isCurrentUser {
-                Spacer(minLength: 60)
+                Spacer()
             }
         }
+    }
+}
+
+struct FullScreenImageView: View {
+    let imageURL: String
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                
+                AsyncImage(url: URL(string: imageURL)) { phase in
+                    switch phase {
+                    case .empty:
+                        ProgressView()
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    case .failure:
+                        VStack {
+                            Image(systemName: "photo.fill")
+                                .font(.largeTitle)
+                                .foregroundColor(.gray)
+                            Text("Failed to load image")
+                                .foregroundColor(.gray)
+                        }
+                    @unknown default:
+                        EmptyView()
+                    }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .foregroundColor(.white)
+                }
+            }
+        }
+    }
+}
+
+#Preview {
+    NavigationStack {
+        GameChatView(
+            gameId: "preview-game",
+            currentUser: nil,
+            currentPlayerTeam: .hiders
+        )
+        .environmentObject(ChatViewModel())
     }
 }

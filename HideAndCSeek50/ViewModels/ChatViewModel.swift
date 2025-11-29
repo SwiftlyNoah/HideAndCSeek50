@@ -8,14 +8,17 @@
 import SwiftUI
 internal import Combine
 import FirebaseAuth
+import FirebaseStorage
 
 @MainActor
 class ChatViewModel: ObservableObject {
     @Published var messages: [GameMessage] = []
     @Published var hasUnreadMessages = false
     @Published var isLoading = false
+    @Published var uploadProgress: Double = 0.0
     
     private let databaseManager = DatabaseManager.shared
+    private let storage = Storage.storage()
     private var cancellables = Set<AnyCancellable>()
     private var lastReadMessageId: String?
     private var isViewVisible = false
@@ -87,5 +90,110 @@ class ChatViewModel: ObservableObject {
         }
         
         isLoading = false
+    }
+    
+    // MARK: - Photo Sending
+    
+    /// Uploads an image to Firebase Storage and sends it as a message
+    func sendPhotoMessage(
+        gameId: String,
+        image: UIImage,
+        currentUser: User?,
+        currentUserName: String,
+        currentPlayerTeam: Team
+    ) async {
+        guard let currentUID = currentUser?.uid else {
+            return
+        }
+        
+        isLoading = true
+        uploadProgress = 0.0
+        
+        do {
+            // Fix image orientation and compress to JPEG
+            let orientationCorrectedImage = image.fixOrientation()
+            
+            // Use smart compression with max size of 5MB
+            guard let imageData = orientationCorrectedImage.compressedJPEGData(maxSizeInMB: 5.0, compressionQuality: 0.7) else {
+                print("Failed to convert image to data")
+                isLoading = false
+                return
+            }
+            
+            // Create unique filename
+            let messageId = UUID().uuidString
+            let filename = "\(messageId).jpg"
+            let storagePath = "games/\(gameId)/photos/\(filename)"
+            
+            // Upload to Firebase Storage
+            let storageRef = storage.reference().child(storagePath)
+            
+            // Create metadata with uploadedBy
+            let metadata = StorageMetadata()
+            metadata.contentType = "image/jpeg"
+            metadata.customMetadata = ["uploadedBy": currentUID]
+            
+            // Upload with progress tracking using async/await
+            let downloadURL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
+                let uploadTask = storageRef.putData(imageData, metadata: metadata)
+                
+                // Observe upload progress
+                uploadTask.observe(.progress) { [weak self] snapshot in
+                    guard let self = self,
+                          let progress = snapshot.progress else { return }
+                    Task { @MainActor in
+                        self.uploadProgress = Double(progress.completedUnitCount) / Double(progress.totalUnitCount)
+                    }
+                }
+                
+                // Observe completion
+                uploadTask.observe(.success) { _ in
+                    storageRef.downloadURL { url, error in
+                        if let error = error {
+                            continuation.resume(throwing: error)
+                        } else if let url = url {
+                            continuation.resume(returning: url)
+                        } else {
+                            continuation.resume(throwing: NSError(domain: "ChatViewModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to get download URL"]))
+                        }
+                    }
+                }
+                
+                // Observe failure
+                uploadTask.observe(.failure) { snapshot in
+                    if let error = snapshot.error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(throwing: NSError(domain: "ChatViewModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Upload failed"]))
+                    }
+                }
+            }
+            
+            // Create message with photo attachment
+            let message = GameMessage(
+                id: messageId,
+                senderUID: currentUID,
+                senderName: currentUserName,
+                content: "📷 Photo",
+                type: .photo,
+                timestamp: Date(),
+                attachments: MessageAttachments(
+                    photoURL: downloadURL.absoluteString,
+                    audioURL: nil,
+                    duration: nil
+                ),
+                questionData: nil,
+                team: currentPlayerTeam
+            )
+            
+            // Send message to database
+            try await databaseManager.sendMessage(gameId: gameId, message: message)
+            
+        } catch {
+            print("Error sending photo message: \(error.localizedDescription)")
+        }
+        
+        isLoading = false
+        uploadProgress = 0.0
     }
 }

@@ -299,6 +299,7 @@ struct GameView: View {
             func body(content: Content) -> some View {
                 content.bottomSheet(bottomSheetPosition: $vm.searchResultsBottomSheetPosition, switchablePositions: [.relative(0.25), .relative(0.5), .relativeTop(0.975)]) {
                     SearchResultsSheetContent(viewModel: vm, userLocation: userLocation, onItemSelected: onItemSelected, onDismiss: onDismiss)
+                        .preferredColorScheme(.dark)
                 }
             }
         }

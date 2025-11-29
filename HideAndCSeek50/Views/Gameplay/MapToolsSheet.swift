@@ -34,12 +34,12 @@ struct MapToolsSheetContent: View {
                     Text("Map Tools: \(item.name ?? "Location")")
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                 } else {
                     Text("Map Tools")
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                 }
                 
                 Spacer()
@@ -51,9 +51,10 @@ struct MapToolsSheetContent: View {
                     onDismiss()
                 }) {
                     Image(systemName: "xmark")
-                        .foregroundStyle(.white.opacity(0.7))
+                        .tint(.primary)
+                        .opacity(0.7)
                         .padding(8)
-                        .background(Color.white.opacity(0.2))
+                        .background(Color.primary.opacity(0.2))
                         .clipShape(Circle())
                 }
             }
@@ -86,14 +87,14 @@ struct MapToolsSheetContent: View {
                             contextItem: contextItem
                         )
                         .padding(16)
-                        .background(Color.white.opacity(0.1))
+                        .background(Color.primary.opacity(0.1))
                         .cornerRadius(12)
                     } label: {
                         HStack {
                             Image(systemName: "ruler")
-                                .foregroundColor(.white.opacity(0.8))
+                                .foregroundColor(.primary.opacity(0.8))
                             Text("Measure Distance")
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                             Spacer()
                         }
                         .padding(.vertical, 4)
@@ -108,14 +109,14 @@ struct MapToolsSheetContent: View {
                             contextItem: contextItem
                         )
                         .padding(16)
-                        .background(Color.white.opacity(0.1))
+                        .background(Color.primary.opacity(0.1))
                         .cornerRadius(12)
                     } label: {
                         HStack {
                             Image(systemName: "line.diagonal")
-                                .foregroundColor(.white.opacity(0.8))
+                                .foregroundColor(.primary.opacity(0.8))
                             Text("Perpendicular Bisector")
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                             Spacer()
                         }
                         .padding(.vertical, 4)
@@ -184,15 +185,15 @@ struct PerpendicularBisectorToolView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Point A")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.primary.opacity(0.7))
                     if let item = contextItem {
                         Text(item.name ?? "Selected Location")
                             .font(.caption2)
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     } else {
                         Text(viewModel.bisectorTool.pointA.map { "Lat: \($0.latitude, specifier: "%.5f"), Lon: \($0.longitude, specifier: "%.5f")" } ?? "Not set")
                             .font(.caption2)
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     }
                 }
                 Spacer()
@@ -206,8 +207,8 @@ struct PerpendicularBisectorToolView: View {
                         }
                         .padding(.vertical, 8)
                         .padding(.horizontal, 12)
-                        .background(Color.white.opacity(0.12))
-                        .foregroundColor(.white)
+                        .background(Color.primary.opacity(0.12))
+                        .foregroundColor(.primary)
                         .cornerRadius(8)
                     }
                     .buttonStyle(.plain)
@@ -218,10 +219,10 @@ struct PerpendicularBisectorToolView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Point B")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.primary.opacity(0.7))
                     Text(viewModel.bisectorTool.pointB.map { "Lat: \($0.latitude, specifier: "%.5f"), Lon: \($0.longitude, specifier: "%.5f")" } ?? "Not set")
                         .font(.caption2)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                 }
                 Spacer()
                 Button {
@@ -233,8 +234,8 @@ struct PerpendicularBisectorToolView: View {
                     }
                     .padding(.vertical, 8)
                     .padding(.horizontal, 12)
-                    .background(Color.white.opacity(0.12))
-                    .foregroundColor(.white)
+                    .background(Color.primary.opacity(0.12))
+                    .foregroundColor(.primary)
                     .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
@@ -243,7 +244,7 @@ struct PerpendicularBisectorToolView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Bisector Color:")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.primary.opacity(0.7))
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(Array(MapToolsViewModel.colorOptions.enumerated()), id: \.offset) { index, color in
@@ -257,7 +258,7 @@ struct PerpendicularBisectorToolView: View {
                                     .frame(width: 28, height: 28)
                                     .overlay(
                                         Circle()
-                                            .stroke(Color.white, lineWidth: viewModel.bisectorColorIndex == index ? 3 : 0)
+                                            .stroke(Color.primary, lineWidth: viewModel.bisectorColorIndex == index ? 3 : 0)
                                     )
                                     .scaleEffect(viewModel.bisectorColorIndex == index ? 1.1 : 1.0)
                             }
@@ -274,9 +275,9 @@ struct PerpendicularBisectorToolView: View {
             )) {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right")
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(.primary.opacity(0.8))
                     Text("Side")
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                 }
             }
             .toggleStyle(SwitchToggleStyle(tint: .blue))
@@ -292,7 +293,7 @@ struct PerpendicularBisectorToolView: View {
                     .padding(.vertical, 8)
                     .padding(.horizontal, 12)
                     .background(MapToolsViewModel.colorOptions[viewModel.bisectorColorIndex].opacity(0.35))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
@@ -316,13 +317,13 @@ struct PerpendicularBisectorToolView: View {
             
             Text("Choose A and B, then press Compute to draw the perpendicular bisector and shade a side.")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(.primary.opacity(0.7))
             
             if !viewModel.bisectorItems.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Saved Bisectors")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.primary.opacity(0.7))
                     ForEach(viewModel.bisectorItems) { item in
                         HStack(spacing: 10) {
                             Circle()
@@ -330,7 +331,7 @@ struct PerpendicularBisectorToolView: View {
                                 .frame(width: 10, height: 10)
                             Text("A:(\(item.pointA.latitude, specifier: "%.3f")), B:(\(item.pointB.latitude, specifier: "%.3f"))")
                                 .font(.caption2)
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                                 .lineLimit(1)
                             Spacer()
                             Button(role: .destructive) {
@@ -356,9 +357,9 @@ struct TrainLinesToggleView: View {
     var body: some View {
         HStack {
             Image(systemName: "tram.fill")
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.primary.opacity(0.8))
             Text("Train Lines")
-                .foregroundColor(.white)
+                .foregroundColor(.primary)
             Spacer()
             Toggle("", isOn: $viewModel.showTrainLines)
                 .toggleStyle(SwitchToggleStyle(tint: .green))
@@ -417,9 +418,9 @@ struct MunicipalitiesSectionView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "map")
                             .font(.title)
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(.primary.opacity(0.6))
                         Text("No regions available")
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(.primary.opacity(0.6))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)
@@ -435,14 +436,14 @@ struct MunicipalitiesSectionView: View {
                 }
             }
             .padding(16)
-            .background(Color.white.opacity(0.1))
+            .background(Color.primary.opacity(0.1))
             .cornerRadius(12)
         } label: {
             HStack {
                 Image(systemName: "building.2.fill")
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.primary.opacity(0.8))
                 Text("Municipalities")
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 Spacer()
             }
             .padding(.vertical, 4)
@@ -459,7 +460,7 @@ struct MunicipalitiesSectionView: View {
             .buttonStyle(.plain)
             Text(regionName)
                 .font(.body)
-                .foregroundColor(.white)
+                .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button(action: { viewModel.toggleRed(regionName) }) {
                 Image(systemName: viewModel.redRegions.contains(regionName) ? "checkmark.square.fill" : "square")
@@ -469,7 +470,7 @@ struct MunicipalitiesSectionView: View {
             .buttonStyle(.plain)
         }
         .padding(12)
-        .background(Color.white.opacity(0.05))
+        .background(Color.primary.opacity(0.05))
         .cornerRadius(8)
     }
 }
@@ -496,7 +497,7 @@ struct RadiusSectionView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Circle Color:")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.primary.opacity(0.7))
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             ForEach(Array(MapToolsViewModel.colorOptions.enumerated()), id: \.offset) { index, color in
@@ -510,7 +511,7 @@ struct RadiusSectionView: View {
                                         .frame(width: 32, height: 32)
                                         .overlay(
                                             Circle()
-                                                .stroke(Color.white, lineWidth: viewModel.radiusColorIndex == index ? 3 : 0)
+                                                .stroke(Color.primary, lineWidth: viewModel.radiusColorIndex == index ? 3 : 0)
                                         )
                                         .scaleEffect(viewModel.radiusColorIndex == index ? 1.1 : 1.0)
                                 }
@@ -523,9 +524,9 @@ struct RadiusSectionView: View {
                 Toggle(isOn: $viewModel.shadeOutsideCircle) {
                     HStack(spacing: 8) {
                         Image(systemName: "circle.dotted")
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(.primary.opacity(0.8))
                         Text("Shade outside the circle")
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     }
                 }
                 .toggleStyle(SwitchToggleStyle(tint: .blue))
@@ -544,12 +545,12 @@ struct RadiusSectionView: View {
                                 .background(
                                     viewModel.useCustomRadius
                                     ? MapToolsViewModel.colorOptions[viewModel.radiusColorIndex].opacity(0.30)
-                                    : Color.white.opacity(0.12)
+                                    : Color.primary.opacity(0.12)
                                 )
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                                 .clipShape(Capsule())
                                 .overlay(
-                                    Capsule().stroke(Color.white.opacity(
+                                    Capsule().stroke(Color.primary.opacity(
                                         viewModel.useCustomRadius ? 0.8 : 0.2
                                     ), lineWidth: 1)
                                 )
@@ -568,12 +569,12 @@ struct RadiusSectionView: View {
                                     .background(
                                         (viewModel.radiusMilesIndex == idx && !viewModel.useCustomRadius)
                                         ? MapToolsViewModel.colorOptions[viewModel.radiusColorIndex].opacity(0.30)
-                                        : Color.white.opacity(0.12)
+                                        : Color.primary.opacity(0.12)
                                     )
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                     .clipShape(Capsule())
                                     .overlay(
-                                        Capsule().stroke(Color.white.opacity(
+                                        Capsule().stroke(Color.primary.opacity(
                                             (viewModel.radiusMilesIndex == idx && !viewModel.useCustomRadius) ? 0.8 : 0.2
                                         ), lineWidth: 1)
                                     )
@@ -594,12 +595,12 @@ struct RadiusSectionView: View {
                                     .background(
                                         (viewModel.radiusMilesIndex == idx && !viewModel.useCustomRadius)
                                         ? MapToolsViewModel.colorOptions[viewModel.radiusColorIndex].opacity(0.30)
-                                        : Color.white.opacity(0.12)
+                                        : Color.primary.opacity(0.12)
                                     )
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                     .clipShape(Capsule())
                                     .overlay(
-                                        Capsule().stroke(Color.white.opacity(
+                                        Capsule().stroke(Color.primary.opacity(
                                             (viewModel.radiusMilesIndex == idx && !viewModel.useCustomRadius) ? 0.8 : 0.2
                                         ), lineWidth: 1)
                                     )
@@ -617,7 +618,7 @@ struct RadiusSectionView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Custom Radius (mi)")
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(.primary.opacity(0.7))
                             TextField("e.g. 0.75", value: $viewModel.customRadiusMiles, format: .number)
                                 .keyboardType(.decimalPad)
                                 .textFieldStyle(.roundedBorder)
@@ -635,18 +636,18 @@ struct RadiusSectionView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Center:")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundColor(.primary.opacity(0.7))
                         if let item = contextItem {
                             Text(item.name ?? "Selected Location")
                                 .font(.caption2)
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                         } else {
                             Text("Lat: \(mapCenter.latitude, specifier: "%.5f")")
                                 .font(.caption2)
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                             Text("Lon: \(mapCenter.longitude, specifier: "%.5f")")
                                 .font(.caption2)
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                         }
                     }
                     Spacer()
@@ -661,7 +662,7 @@ struct RadiusSectionView: View {
                         .padding(.vertical, 10)
                         .padding(.horizontal, 16)
                         .background(MapToolsViewModel.colorOptions[viewModel.radiusColorIndex].opacity(0.4))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .cornerRadius(8)
                     }
                     .buttonStyle(.plain)
@@ -675,7 +676,7 @@ struct RadiusSectionView: View {
                                     .frame(width: 12, height: 12)
                                 Text("\(item.radiusMeters / 1609.34, specifier: "%.1f") mi — Lat:\(item.center.latitude, specifier: "%.3f")")
                                     .font(.caption)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                 Spacer()
                                 Button(role: .destructive) {
                                     withAnimation(.easeInOut(duration: 0.16)) {
@@ -694,7 +695,7 @@ struct RadiusSectionView: View {
                 }
             }
             .padding(16)
-            .background(Color.white.opacity(0.1))
+            .background(Color.primary.opacity(0.1))
             .cornerRadius(12)
             
             // Dismiss keyboard when tapping outside the TextField
@@ -715,9 +716,9 @@ struct RadiusSectionView: View {
         } label: {
             HStack {
                 Image(systemName: "circle.fill")
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.primary.opacity(0.8))
                 Text("Radius Tools")
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 Spacer()
             }
             .padding(.vertical, 4)
@@ -748,15 +749,15 @@ struct MeasureToolView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Live Distance")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.primary.opacity(0.7))
                 if let d = viewModel.measureTool.distanceMeters, viewModel.measureTool.pointA != nil {
                     Text("\(formatDistance(d))")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                 } else {
                     Text("Set Point A to start")
                         .font(.caption2)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.primary.opacity(0.7))
                 }
             }
             
@@ -764,15 +765,15 @@ struct MeasureToolView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Measure Point")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.primary.opacity(0.7))
                     if let item = contextItem {
                         Text(item.name ?? "Selected Location")
                             .font(.caption2)
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     } else {
                         Text(viewModel.measureTool.pointA.map { "Lat: \($0.latitude, specifier: "%.5f"), Lon: \($0.longitude, specifier: "%.5f")" } ?? "Not set")
                             .font(.caption2)
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     }
                 }
                 Spacer()
@@ -787,8 +788,8 @@ struct MeasureToolView: View {
                         }
                         .padding(.vertical, 8)
                         .padding(.horizontal, 12)
-                        .background(Color.white.opacity(0.12))
-                        .foregroundColor(.white)
+                        .background(Color.primary.opacity(0.12))
+                        .foregroundColor(.primary)
                         .cornerRadius(8)
                     }
                     .buttonStyle(.plain)
@@ -799,7 +800,7 @@ struct MeasureToolView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Line Color:")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.primary.opacity(0.7))
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(Array(MapToolsViewModel.colorOptions.enumerated()), id: \.offset) { index, color in
@@ -813,7 +814,7 @@ struct MeasureToolView: View {
                                     .frame(width: 28, height: 28)
                                     .overlay(
                                         Circle()
-                                            .stroke(Color.white, lineWidth: viewModel.measureColorIndex == index ? 3 : 0)
+                                            .stroke(Color.primary, lineWidth: viewModel.measureColorIndex == index ? 3 : 0)
                                     )
                                     .scaleEffect(viewModel.measureColorIndex == index ? 1.1 : 1.0)
                             }
@@ -837,7 +838,7 @@ struct MeasureToolView: View {
                     .padding(.vertical, 8)
                     .padding(.horizontal, 12)
                     .background(MapToolsViewModel.colorOptions[viewModel.measureColorIndex].opacity(0.35))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
@@ -862,7 +863,7 @@ struct MeasureToolView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Saved Measurements")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.primary.opacity(0.7))
                     ForEach(viewModel.measureItems) { item in
                         HStack(spacing: 10) {
                             Circle()
@@ -870,7 +871,7 @@ struct MeasureToolView: View {
                                 .frame(width: 10, height: 10)
                             Text("\(formatDistance(item.distanceMeters)) — A:(\(item.pointA.latitude, specifier: "%.3f")), B:(\(item.pointB.latitude, specifier: "%.3f"))")
                                 .font(.caption2)
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                                 .lineLimit(1)
                             Spacer()
                             Button(role: .destructive) {

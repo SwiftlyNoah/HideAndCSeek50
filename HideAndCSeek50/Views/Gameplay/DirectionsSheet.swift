@@ -27,12 +27,12 @@ struct DirectionsSheetContent: View {
                                 Text(destination.name ?? "Unknown")
                                     .font(.title3)
                                     .fontWeight(.semibold)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                 
                                 if let address = destination.address {
                                     Text(address)
                                         .font(.caption)
-                                        .foregroundColor(.white.opacity(0.7))
+                                        .foregroundColor(.primary.opacity(0.7))
                                 }
                                 
                                 HStack(spacing: 6) {
@@ -53,7 +53,7 @@ struct DirectionsSheetContent: View {
                                         .font(.subheadline)
                                         .fontWeight(.medium)
                                 }
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                                 .padding(.top, 8)
                             }
                             
@@ -61,10 +61,11 @@ struct DirectionsSheetContent: View {
                             
                             Button(action: onDismiss) {
                                 Image(systemName: "xmark")
-                                    .foregroundStyle(.white.opacity(0.7))
+                                    .tint(.primary)
+                                    .opacity(0.7)
                                     .padding(8)
                                     .background(
-                                        Color.white.opacity(0.2)
+                                        Color.primary.opacity(0.2)
                                     )
                                     .clipShape(Circle())
                             }
@@ -76,7 +77,7 @@ struct DirectionsSheetContent: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Advisories")
                                     .font(.headline)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.primary)
                                 
                                 ForEach(route.advisoryNotices, id: \.self) { notice in
                                     HStack(alignment: .top, spacing: 8) {
@@ -99,7 +100,7 @@ struct DirectionsSheetContent: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Directions")
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                             
                             VStack(alignment: .leading, spacing: 0) {
                                 let steps = route.steps.suffix(route.steps.count - 1)
@@ -114,20 +115,20 @@ struct DirectionsSheetContent: View {
                                                 Text("\(index + 1)")
                                                     .font(.caption2)
                                                     .fontWeight(.bold)
-                                                    .foregroundColor(.white)
+                                                    .foregroundColor(.primary)
                                             }
                                             
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text(step.instructions)
                                                     .font(.subheadline)
-                                                    .foregroundColor(.white)
+                                                    .foregroundColor(.primary)
                                                     .multilineTextAlignment(.leading)
                                                 
                                                 HStack(spacing: 12) {
                                                     if step.distance > 0 {
                                                         Text(formatDistance(step.distance))
                                                             .font(.caption)
-                                                            .foregroundColor(.white.opacity(0.5))
+                                                            .foregroundColor(.primary.opacity(0.5))
                                                     }
                                                     
                                                     if step.transportType == .transit {
@@ -149,13 +150,13 @@ struct DirectionsSheetContent: View {
                                         
                                         if index < route.steps.count - 1 {
                                             Divider()
-                                                .background(Color.white.opacity(0.2))
+                                                .background(Color.primary.opacity(0.2))
                                                 .padding(.horizontal, 20)
                                         }
                                     }
                                 }
                             }
-                            .background(Color.white.opacity(0.05))
+                            .background(Color.primary.opacity(0.05))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                         .padding(.horizontal, 20)
@@ -168,8 +169,8 @@ struct DirectionsSheetContent: View {
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(Color.white.opacity(0.1))
-                            .foregroundColor(.white)
+                            .background(Color.primary.opacity(0.1))
+                            .foregroundColor(.primary)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                         .padding(.horizontal, 20)
@@ -178,10 +179,10 @@ struct DirectionsSheetContent: View {
                         // Loading state
                         VStack(spacing: 16) {
                             ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .progressViewStyle(CircularProgressViewStyle(tint: .primary))
                             
                             Text("Calculating directions...")
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                         }
                         .padding(.top, 40)
                         
@@ -194,11 +195,11 @@ struct DirectionsSheetContent: View {
                             
                             Text("Directions Unavailable")
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                             
                             Text(error)
                                 .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(.primary.opacity(0.7))
                                 .multilineTextAlignment(.center)
                             
                             Button("Try Again") {
@@ -207,7 +208,7 @@ struct DirectionsSheetContent: View {
                             .padding(.vertical, 12)
                             .padding(.horizontal, 24)
                             .background(Color.blue)
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                         .padding(.horizontal, 20)

@@ -44,16 +44,15 @@ struct SearchResultDetailSheetContent: View {
                     Text(destination.name ?? "Unknown Location")
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundColor(.white)
                     
                     if let address = destination.address {
                         HStack(spacing: 6) {
                             Image(systemName: "location")
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(.primary.opacity(0.7))
                             Text(address)
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(.primary.opacity(0.7))
                         }
                     }
                     
@@ -74,10 +73,11 @@ struct SearchResultDetailSheetContent: View {
                 
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
-                        .foregroundStyle(.white.opacity(0.7))
+                        .tint(.primary)
+                        .opacity(0.7)
                         .padding(8)
                         .background(
-                            Color.white.opacity(0.2)
+                            Color.primary.opacity(0.2)
                         )
                         .clipShape(Circle())
                 }
@@ -91,18 +91,18 @@ struct SearchResultDetailSheetContent: View {
                     // Icon
                     Image(systemName: "map")
                         .font(.title2)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .frame(width: 32, height: 32)
                     
                     // Text
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Map Tools")
                             .font(.headline)
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                         
                         Text("Use this location with radius, measure, and bisector tools")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundColor(.primary.opacity(0.7))
                     }
                     
                     Spacer()
@@ -110,11 +110,11 @@ struct SearchResultDetailSheetContent: View {
                     // Arrow
                     Image(systemName: "chevron.right")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.primary.opacity(0.5))
                 }
                 .padding(.vertical, 16)
                 .padding(.horizontal, 16)
-                .background(Color.white.opacity(0.1))
+                .background(Color.primary.opacity(0.1))
                 .cornerRadius(12)
             }
             .buttonStyle(.plain)
@@ -147,18 +147,18 @@ struct SearchResultDetailSheetContent: View {
                     // Icon
                     Image(systemName: transportType.iconName)
                         .font(.title2)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .frame(width: 32, height: 32)
                     
                     // Text
                     VStack(alignment: .leading, spacing: 2) {
                         Text(transportType.displayName)
                             .font(.headline)
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                         
                         Text(transportType.description)
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundColor(.primary.opacity(0.7))
                     }
                     
                     Spacer()
@@ -166,11 +166,11 @@ struct SearchResultDetailSheetContent: View {
                     // Arrow
                     Image(systemName: "chevron.right")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.primary.opacity(0.5))
                 }
                 .padding(.vertical, 16)
                 .padding(.horizontal, 16)
-                .background(Color.white.opacity(0.1))
+                .background(Color.primary.opacity(0.1))
                 .cornerRadius(12)
             }
             .buttonStyle(.plain)

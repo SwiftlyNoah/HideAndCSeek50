@@ -22,16 +22,16 @@ struct SearchResultsSheetContent: View {
                 Text(viewModel.query)
                     .font(.title3)
                     .fontWeight(.semibold)
-                    .foregroundColor(.white)
                 
                 Spacer()
                 
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
-                        .foregroundStyle(.white.opacity(0.7))
+                        .tint(.primary)
+                        .opacity(0.7)
                         .padding(8)
                         .background(
-                            Color.white.opacity(0.2)
+                            Color.primary.opacity(0.2)
                         )
                         .clipShape(Circle())
                 }
@@ -55,7 +55,7 @@ struct SearchResultsSheetContent: View {
                         
                         if item != viewModel.results.last {
                             Divider()
-                                .background(Color.white.opacity(0.2))
+                                .background(Color.primary.opacity(0.2))
                                 .padding(.horizontal, 20)
                         }
                     }
@@ -96,14 +96,14 @@ struct SearchResultRow: View {
                     Text(item.name ?? "Unknown")
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .lineLimit(1)
                     
                     HStack(spacing: 8) {
                         if let address = item.address {
                             Text(address)
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(.primary.opacity(0.7))
                                 .lineLimit(1)
                         }
                         

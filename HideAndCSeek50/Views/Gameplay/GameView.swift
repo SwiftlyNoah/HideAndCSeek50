@@ -13,6 +13,8 @@ import BottomSheet
 internal import Combine
 
 struct GameView: View {
+    static let CrosshairYOffsetFraction = 0.35
+    
     let gameId: String
     let lobbyCode: String
     let playerTeam: Team
@@ -103,7 +105,7 @@ struct GameView: View {
         GameMapView(
             region: $mapSearchViewModel.region,
             crosshairCoordinate: $crosshairCoordinate,
-            crosshairYOffsetFraction: 0.35,
+            crosshairYOffsetFraction: Self.CrosshairYOffsetFraction,
             game: currentGame,
             currentUserUID: currentUser?.uid ?? "",
             currentUserTeam: playerTeam,
@@ -185,14 +187,15 @@ struct GameView: View {
             if mapToolsViewModel.mapToolsBottomSheetPosition != .hidden {
                 GeometryReader { proxy in
                     let x = proxy.size.width / 2
-                    let y = proxy.size.height * 0.35
-                    VStack(spacing: 6) {
+                    let y = proxy.size.height * Self.CrosshairYOffsetFraction
+                    ZStack {
                         Image(systemName: "scope")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundColor(.white)
                             .shadow(color: .black.opacity(0.6), radius: 4, x: 0, y: 2)
+                            .position(x: x, y: y)
                         // Live lat/lon readout
-                        Text(String(format: "Lat: %.5f\nLon: %.5f", crosshairCoordinate.latitude, crosshairCoordinate.longitude))
+                        Text(String(format: "(%.5f,%.5f)", crosshairCoordinate.latitude, crosshairCoordinate.longitude))
                             .font(.caption2.monospacedDigit())
                             .multilineTextAlignment(.center)
                             .padding(6)
@@ -200,9 +203,8 @@ struct GameView: View {
                             .cornerRadius(6)
                             .foregroundColor(.white)
                             .shadow(radius: 2)
+                            .position(x: x, y: y + 30)
                     }
-                    .position(x: x, y: y)
-                    .offset(y: 12) // Shift entire VStack downward slightly
                     .allowsHitTesting(false)
                 }
                 .ignoresSafeArea()

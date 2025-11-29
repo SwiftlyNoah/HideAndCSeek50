@@ -18,7 +18,6 @@ struct TransportSelectionSheetContent: View {
     let onUseAsCircleCenter: (_ radiusMeters: Double, _ colorIndex: Int, _ shadeOutside: Bool) -> Void
     @ObservedObject var mapToolsViewModel: MapToolsViewModel
 
-    
     private var distance: String? {
         guard let userLocation = userLocation else {
             return nil

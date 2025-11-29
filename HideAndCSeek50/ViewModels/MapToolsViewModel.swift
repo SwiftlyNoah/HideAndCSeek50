@@ -22,7 +22,6 @@ class MapToolsViewModel: ObservableObject {
     @Published var regionColors: [String: Bool] = [:] // Track color per region (true = red, false = green)
     @Published var municipalitiesExpanded: Bool = false
     
-    
     // Radius variables
     @Published var radiusColorIndex: Int = 2 // Default to yellow (index 2)
     @Published var radiusMilesIndex: Int = 2
@@ -45,7 +44,6 @@ class MapToolsViewModel: ObservableObject {
     @Published var measureColorIndex: Int = 5
     @Published var measureItems: [DistanceOverlayItem] = []
 
-    
     // Color options - static so it can be shared between views
     static let colorOptions: [Color] = [.red, .orange, .yellow, .green, .teal, .blue, .purple]
     static let colorOptionsUIKit: [UIColor] = [

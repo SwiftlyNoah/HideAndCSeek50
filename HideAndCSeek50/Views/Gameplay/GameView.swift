@@ -315,6 +315,7 @@ struct GameView: View {
         struct Mod: ViewModifier {
             @ObservedObject var vm: MapSearchViewModel
             let userLocation: CLLocation?
+            @ObservedObject var mapToolsVM: MapToolsViewModel
             func body(content: Content) -> some View {
                 content.bottomSheet(bottomSheetPosition: $vm.transportSelectionBottomSheetPosition, switchablePositions: [.dynamic]) {
                     if let destination = vm.selectedDestination {
@@ -322,32 +323,41 @@ struct GameView: View {
                             destination: destination,
                             userLocation: userLocation,
                             onTransportSelected: { vm.selectTransportAndShowDirections($0) },
-                            onDismiss: { vm.transportSelectionBottomSheetPosition = .hidden }
+                            onDismiss: { vm.transportSelectionBottomSheetPosition = .hidden },
+                            onUseAsCircleCenter: { radiusMeters, colorIndex, shadeOutside in
+                                mapToolsVM.addCircle(
+                                    at: destination.location.coordinate,
+                                    radiusMeters: radiusMeters,
+                                    colorIndex: colorIndex,
+                                    shadeOutside: shadeOutside
+                                )
+                            },
+                            mapToolsViewModel: mapToolsVM
                         )
                     }
                 }
             }
         }
-        return Mod(vm: mapSearchViewModel, userLocation: locationManager.location)
+        return Mod(
+            vm: mapSearchViewModel,
+            userLocation: locationManager.location,
+            mapToolsVM: mapToolsViewModel
+        )
     }
 
     private func directionsSheet() -> some ViewModifier {
         struct Mod: ViewModifier {
             @ObservedObject var vm: MapSearchViewModel
             func body(content: Content) -> some View {
-                content.bottomSheet(bottomSheetPosition: $vm.directionsBottomSheetPosition, switchablePositions: [.relative(0.25), .relative(0.5), .relativeTop(0.975)]) {
+                content.bottomSheet(bottomSheetPosition: $vm.directionsBottomSheetPosition, switchablePositions: [.relative(0.4), .relativeTop(0.975)]) {
                     if let destination = vm.selectedDestination {
                         DirectionsSheetContent(
                             destination: destination,
                             transportType: vm.selectedTransportType,
                             viewModel: vm,
-                            onDismiss: {
-                                vm.directionsBottomSheetPosition = .hidden
-                                vm.clearSearch()
-                            },
+                            onDismiss: { vm.directionsBottomSheetPosition = .hidden },
                             onRecalculate: {
-                                vm.directionsBottomSheetPosition = .hidden
-                                vm.transportSelectionBottomSheetPosition = .dynamic
+                                vm.showTransportSelection(for: destination)
                             }
                         )
                     }

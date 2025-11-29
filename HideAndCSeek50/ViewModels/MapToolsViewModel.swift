@@ -122,14 +122,20 @@ class MapToolsViewModel: ObservableObject {
     
     // MARK: - Circle Management Functions
     
-    func addCircleAtCenter(_ mapCenter: CLLocationCoordinate2D) {
-        let miles = radiusSelectedMiles
-        let meters = miles * 1609.34
+    func addCircle(
+            at center: CLLocationCoordinate2D,
+            radiusMeters: CLLocationDistance? = nil,
+            colorIndex: Int? = nil,
+            shadeOutside: Bool? = nil
+        ) {
+        let meters = radiusMeters ?? (radiusSelectedMiles * 1609.34)
+        let color = colorIndex ?? radiusColorIndex
+        let shade = shadeOutside ?? shadeOutsideCircle
         let item = CircleOverlayItem(
-            center: mapCenter,
+            center: center,
             radiusMeters: meters,
-            colorIndex: radiusColorIndex,
-            shadeOutside: shadeOutsideCircle
+            colorIndex: color,
+            shadeOutside: shade
         )
         withAnimation(.easeInOut(duration: 0.18)) {
             circleItems.append(item)
@@ -467,7 +473,6 @@ class MapToolsViewModel: ObservableObject {
         }
         polygon.title = "bisector_halfplane_live"
 
-        let lineExtent: Double = 2_000_000
         return (polygon)
     }
     

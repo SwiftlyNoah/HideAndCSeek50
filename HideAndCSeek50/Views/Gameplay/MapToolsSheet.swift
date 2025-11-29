@@ -542,7 +542,7 @@ struct RadiusSectionView: View {
                             .foregroundColor(.white)
                     }
                     Spacer()
-                    Button(action: { viewModel.addCircleAtCenter(mapCenter) }) {
+                    Button(action: { viewModel.addCircle(at: mapCenter) }) {
                         HStack(spacing: 8) {
                             Image(systemName: "plus.circle.fill")
                             Text("Add Circle")

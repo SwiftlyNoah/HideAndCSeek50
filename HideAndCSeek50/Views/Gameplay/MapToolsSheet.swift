@@ -13,14 +13,34 @@ struct MapToolsSheetContent: View {
     @Binding var mapCenter: CLLocationCoordinate2D
     let onDismiss: () -> Void
     
+    // Optional: if provided, this is a location-specific context
+    let contextItem: MKMapItem?
+    
+    init(viewModel: MapToolsViewModel, 
+         mapCenter: Binding<CLLocationCoordinate2D>, 
+         onDismiss: @escaping () -> Void,
+         contextItem: MKMapItem? = nil) {
+        self.viewModel = viewModel
+        self._mapCenter = mapCenter
+        self.onDismiss = onDismiss
+        self.contextItem = contextItem
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Map Tools")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                if let item = contextItem {
+                    Text("Map Tools: \(item.name ?? "Location")")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                } else {
+                    Text("Map Tools")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                }
                 
                 Spacer()
                 
@@ -43,22 +63,27 @@ struct MapToolsSheetContent: View {
             // Content
             ScrollView {
                 VStack(spacing: 16) {
-                    // Train Lines Toggle (extracted subview)
-                    TrainLinesToggleView(viewModel: viewModel)
+                    // Train Lines Toggle (only show if no context item)
+                    if contextItem == nil {
+                        TrainLinesToggleView(viewModel: viewModel)
+                    }
                 
-                    // Municipalities group (extracted subview)
-                    MunicipalitiesSectionView(viewModel: viewModel)
-                        .animation(.easeInOut(duration: 0.2), value: viewModel.municipalitiesExpanded)
+                    // Municipalities group (only show if no context item)
+                    if contextItem == nil {
+                        MunicipalitiesSectionView(viewModel: viewModel)
+                            .animation(.easeInOut(duration: 0.2), value: viewModel.municipalitiesExpanded)
+                    }
                     
                     // Radius group (extracted subview)
-                    RadiusSectionView(viewModel: viewModel, mapCenter: $mapCenter)
+                    RadiusSectionView(viewModel: viewModel, mapCenter: $mapCenter, contextItem: contextItem)
                         .animation(.easeInOut(duration: 0.2), value: viewModel.radiusExpanded)
                     
                     // Measure Distance Tool (NEW)
                     DisclosureGroup(isExpanded: $viewModel.measureExpanded) {
                         MeasureToolView(
                             viewModel: viewModel,
-                            mapCenter: $mapCenter
+                            mapCenter: $mapCenter,
+                            contextItem: contextItem
                         )
                         .padding(16)
                         .background(Color.white.opacity(0.1))
@@ -79,7 +104,8 @@ struct MapToolsSheetContent: View {
                     DisclosureGroup(isExpanded: $viewModel.bisectorExpanded) {
                         PerpendicularBisectorToolView(
                             viewModel: viewModel,
-                            mapCenter: $mapCenter
+                            mapCenter: $mapCenter,
+                            contextItem: contextItem
                         )
                         .padding(16)
                         .background(Color.white.opacity(0.1))
@@ -100,16 +126,47 @@ struct MapToolsSheetContent: View {
                 .padding(.bottom, 20)
             }
         }
+        .onChange(of: viewModel.radiusExpanded) { oldValue, newValue in
+            // Ensure only one disclosure group is open at a time
+            if newValue == true {
+                viewModel.measureExpanded = false
+                viewModel.bisectorExpanded = false
+            }
+        }
         .onChange(of: viewModel.measureExpanded) { oldValue, newValue in
-            // When the measure tool is collapsed, clear transient overlays
-            if newValue == false {
+            if newValue == true {
+                // Ensure only one disclosure group is open at a time
+                viewModel.bisectorExpanded = false
+                
+                // Set default point when opening if context item exists
+                if let item = contextItem, viewModel.measureTool.pointA == nil {
+                    let coord = item.location.coordinate
+                    viewModel.setMeasurePointA(coord)
+                    viewModel.updateMeasureLive(toCrosshair: mapCenter)
+                }
+            } else {
+                // When the measure tool is collapsed, clear transient overlays
                 viewModel.clearMeasure()
             }
         }
         .onChange(of: viewModel.bisectorExpanded) { oldValue, newValue in
-            // When the bisector tool is collapsed, clear its transient points/overlays
-            if newValue == false {
+            if newValue == true {
+                viewModel.measureExpanded = false
+                
+                // Set default point when opening if context item exists
+                if let item = contextItem, viewModel.bisectorTool.pointA == nil {
+                    let coord = item.location.coordinate
+                    viewModel.setBisectorPointA(coord)
+                }
+            } else {
+                // When the bisector tool is collapsed, clear its transient points/overlays
                 viewModel.clearBisector()
+            }
+        }
+        .onChange(of: viewModel.municipalitiesExpanded) { oldValue, newValue in
+            if newValue == true {
+                viewModel.measureExpanded = false
+                viewModel.bisectorExpanded = false
             }
         }
     }
@@ -119,6 +176,7 @@ struct MapToolsSheetContent: View {
 struct PerpendicularBisectorToolView: View {
     @ObservedObject var viewModel: MapToolsViewModel
     @Binding var mapCenter: CLLocationCoordinate2D
+    let contextItem: MKMapItem?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -127,25 +185,33 @@ struct PerpendicularBisectorToolView: View {
                     Text("Point A")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
-                    Text(viewModel.bisectorTool.pointA.map { "Lat: \($0.latitude, specifier: "%.5f"), Lon: \($0.longitude, specifier: "%.5f")" } ?? "Not set")
-                        .font(.caption2)
-                        .foregroundColor(.white)
+                    if let item = contextItem {
+                        Text(item.name ?? "Selected Location")
+                            .font(.caption2)
+                            .foregroundColor(.white)
+                    } else {
+                        Text(viewModel.bisectorTool.pointA.map { "Lat: \($0.latitude, specifier: "%.5f"), Lon: \($0.longitude, specifier: "%.5f")" } ?? "Not set")
+                            .font(.caption2)
+                            .foregroundColor(.white)
+                    }
                 }
                 Spacer()
-                Button {
-                    viewModel.setBisectorPointA(mapCenter)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "target")
-                        Text("Set A from Crosshair")
+                if contextItem == nil {
+                    Button {
+                        viewModel.setBisectorPointA(mapCenter)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "target")
+                            Text("Set A from Crosshair")
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(Color.white.opacity(0.12))
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
                     }
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    .background(Color.white.opacity(0.12))
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
             
             HStack {
@@ -412,6 +478,7 @@ struct MunicipalitiesSectionView: View {
 struct RadiusSectionView: View {
     @ObservedObject var viewModel: MapToolsViewModel
     @Binding var mapCenter: CLLocationCoordinate2D
+    let contextItem: MKMapItem?
     @FocusState private var isCustomRadiusFocused: Bool
     
     private var firstRowIndices: [Int] {
@@ -569,15 +636,24 @@ struct RadiusSectionView: View {
                         Text("Center:")
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.7))
-                        Text("Lat: \(mapCenter.latitude, specifier: "%.5f")")
-                            .font(.caption2)
-                            .foregroundColor(.white)
-                        Text("Lon: \(mapCenter.longitude, specifier: "%.5f")")
-                            .font(.caption2)
-                            .foregroundColor(.white)
+                        if let item = contextItem {
+                            Text(item.name ?? "Selected Location")
+                                .font(.caption2)
+                                .foregroundColor(.white)
+                        } else {
+                            Text("Lat: \(mapCenter.latitude, specifier: "%.5f")")
+                                .font(.caption2)
+                                .foregroundColor(.white)
+                            Text("Lon: \(mapCenter.longitude, specifier: "%.5f")")
+                                .font(.caption2)
+                                .foregroundColor(.white)
+                        }
                     }
                     Spacer()
-                    Button(action: { viewModel.addCircle(at: mapCenter) }) {
+                    Button(action: { 
+                        let center = contextItem?.location.coordinate ?? mapCenter
+                        viewModel.addCircle(at: center) 
+                    }) {
                         HStack(spacing: 8) {
                             Image(systemName: "plus.circle.fill")
                             Text("Add Circle")
@@ -654,6 +730,7 @@ struct RadiusSectionView: View {
 struct MeasureToolView: View {
     @ObservedObject var viewModel: MapToolsViewModel
     @Binding var mapCenter: CLLocationCoordinate2D
+    let contextItem: MKMapItem?
     
     private func formatDistance(_ meters: CLLocationDistance) -> String {
         let miles = meters / 1609.34
@@ -688,26 +765,34 @@ struct MeasureToolView: View {
                     Text("Measure Point")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
-                    Text(viewModel.measureTool.pointA.map { "Lat: \($0.latitude, specifier: "%.5f"), Lon: \($0.longitude, specifier: "%.5f")" } ?? "Not set")
-                        .font(.caption2)
-                        .foregroundColor(.white)
+                    if let item = contextItem {
+                        Text(item.name ?? "Selected Location")
+                            .font(.caption2)
+                            .foregroundColor(.white)
+                    } else {
+                        Text(viewModel.measureTool.pointA.map { "Lat: \($0.latitude, specifier: "%.5f"), Lon: \($0.longitude, specifier: "%.5f")" } ?? "Not set")
+                            .font(.caption2)
+                            .foregroundColor(.white)
+                    }
                 }
                 Spacer()
-                Button {
-                    viewModel.setMeasurePointA(mapCenter)
-                    viewModel.updateMeasureLive(toCrosshair: mapCenter)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "mappin.circle")
-                        Text("Set Measure Point")
+                if contextItem == nil {
+                    Button {
+                        viewModel.setMeasurePointA(mapCenter)
+                        viewModel.updateMeasureLive(toCrosshair: mapCenter)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "mappin.circle")
+                            Text("Set Measure Point")
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(Color.white.opacity(0.12))
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
                     }
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    .background(Color.white.opacity(0.12))
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
             
             // Keep color picker

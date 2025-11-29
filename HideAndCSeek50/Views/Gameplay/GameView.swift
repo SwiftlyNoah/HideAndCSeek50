@@ -257,7 +257,7 @@ struct GameView: View {
                 }
             }
 
-            Button(action: { mapToolsViewModel.mapToolsBottomSheetPosition = .relative(0.48) }) {
+            Button(action: { mapToolsViewModel.mapToolsBottomSheetPosition = .relative(0.5) }) {
                 ZStack {
                     Circle().fill(Color.green.opacity(0.8)).frame(width: 56, height: 56)
                     Image(systemName: "map.fill").font(.title2).foregroundColor(.white)
@@ -319,24 +319,27 @@ struct GameView: View {
             let userLocation: CLLocation?
             @ObservedObject var mapToolsVM: MapToolsViewModel
             func body(content: Content) -> some View {
-                content.bottomSheet(bottomSheetPosition: $vm.transportSelectionBottomSheetPosition, switchablePositions: [.dynamic]) {
-                    if let destination = vm.selectedDestination {
-                        TransportSelectionSheetContent(
-                            destination: destination,
-                            userLocation: userLocation,
-                            onTransportSelected: { vm.selectTransportAndShowDirections($0) },
-                            onDismiss: { vm.transportSelectionBottomSheetPosition = .hidden },
-                            onUseAsCircleCenter: { radiusMeters, colorIndex, shadeOutside in
-                                mapToolsVM.addCircle(
-                                    at: destination.location.coordinate,
-                                    radiusMeters: radiusMeters,
-                                    colorIndex: colorIndex,
-                                    shadeOutside: shadeOutside
-                                )
-                            },
-                            mapToolsViewModel: mapToolsVM
-                        )
-                    }
+                content.bottomSheet(
+                    bottomSheetPosition: $vm.transportSelectionBottomSheetPosition,
+                    switchablePositions: [.dynamic, .hidden]
+                ) {
+                    SearchResultDetailSheetContent(
+                        destination: vm.selectedDestination ?? MKMapItem(),
+                        userLocation: userLocation,
+                        onTransportSelected: { transportType in
+                            vm.selectTransportAndShowDirections(transportType)
+                        },
+                        onDismiss: {
+                            vm.transportSelectionBottomSheetPosition = .hidden
+                        },
+                        onOpenMapTools: {
+                            if let dest = vm.selectedDestination {
+                                vm.openMapToolsForItem(dest)
+                                mapToolsVM.mapToolsBottomSheetPosition = .relative(0.5)
+                            }
+                        },
+                        mapToolsViewModel: mapToolsVM
+                    )
                 }
             }
         }
@@ -375,7 +378,10 @@ struct GameView: View {
             @ObservedObject var searchVM: MapSearchViewModel
             @Binding var crosshair: CLLocationCoordinate2D
             func body(content: Content) -> some View {
-                content.bottomSheet(bottomSheetPosition: $vm.mapToolsBottomSheetPosition, switchablePositions: [.relative(0.48), .relativeTop(0.975)]) {
+                content.bottomSheet(
+                    bottomSheetPosition: $vm.mapToolsBottomSheetPosition,
+                    switchablePositions: [.relative(0.5), .relativeTop(0.975)]
+                ) {
                     MapToolsSheetContent(
                         viewModel: vm,
                         mapCenter: Binding(
@@ -384,7 +390,11 @@ struct GameView: View {
                                 searchVM.region.center = newCoord
                             }
                         ),
-                        onDismiss: { vm.mapToolsBottomSheetPosition = .hidden }
+                        onDismiss: {
+                            vm.mapToolsBottomSheetPosition = .hidden
+                            searchVM.clearSearch()
+                        },
+                        contextItem: searchVM.contextItemForMapTools
                     )
                 }
             }

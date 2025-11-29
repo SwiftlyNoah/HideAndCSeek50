@@ -28,6 +28,7 @@ class MapSearchViewModel: ObservableObject {
     @Published var directionsBottomSheetPosition: BottomSheetPosition = .hidden
     @Published var selectedDestination: MKMapItem?
     @Published var selectedTransportType: TransportType = .automobile
+    @Published var contextItemForMapTools: MKMapItem? // Track item for map tools context
     
     // Directions Var's
     @Published var route: MKRoute?
@@ -162,6 +163,7 @@ class MapSearchViewModel: ObservableObject {
         transportSelectionBottomSheetPosition = .hidden
         directionsBottomSheetPosition = .hidden
         selectedDestination = nil
+        contextItemForMapTools = nil
         hasSearched = false
         query = ""
         results = []
@@ -189,6 +191,26 @@ class MapSearchViewModel: ObservableObject {
         selectedDestination = destination
         searchResultsBottomSheetPosition = .hidden
         transportSelectionBottomSheetPosition = .dynamic
+    }
+    
+    func openMapToolsForItem(_ item: MKMapItem) {
+        // Clear all search results except the selected item, close all sheets
+        searchResultsBottomSheetPosition = .hidden
+        transportSelectionBottomSheetPosition = .hidden
+        directionsBottomSheetPosition = .hidden
+        selectedDestination = nil
+        contextItemForMapTools = nil
+        hasSearched = false
+        query = ""
+        results = []
+        errorMessage = nil
+        route = nil
+        directionsError = nil
+        isCalculatingDirections = false
+        
+        results = [item]
+        selectedLandmark = item
+        contextItemForMapTools = item
     }
     
     func showDirections() {

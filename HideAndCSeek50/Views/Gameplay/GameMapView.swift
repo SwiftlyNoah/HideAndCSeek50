@@ -663,23 +663,6 @@ class SearchResultAnnotation: NSObject, MKAnnotation {
     }
 }
 
-class CircleAnnotation: NSObject, MKAnnotation {
-    let circleID: UUID
-    let coordinate: CLLocationCoordinate2D
-    let colorIndex: Int
-
-    var title: String? {
-        return "Circle Center"
-    }
-
-    init(circleID: UUID, coordinate: CLLocationCoordinate2D, colorIndex: Int) {
-        self.circleID = circleID
-        self.coordinate = coordinate
-        self.colorIndex = colorIndex
-        super.init()
-    }
-}
-
 extension GameMapView {
     static func makeInverseCirclePolygon(center: CLLocationCoordinate2D, radiusMeters: CLLocationDistance) -> MKPolygon {
         // Outer polygon covering a wide area around the center

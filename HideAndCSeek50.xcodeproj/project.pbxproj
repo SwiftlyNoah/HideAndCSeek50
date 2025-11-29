@@ -137,7 +137,6 @@
 				14E268EB2EC9641A00FBCF90 /* Views */,
 				14990F052ED988A600DFD3E5 /* ViewModels */,
 				14E268F12EC964D400FBCF90 /* Models */,
-				DA0A67912EDA4DF900F5A00D /* MapToolItems */,
 				14990EF12ED95A1D00DFD3E5 /* Extensions */,
 				140B02A42EC8791E0005EE81 /* HideAndCSeek50App.swift */,
 				14E268EA2EC963ED00FBCF90 /* Resources */,
@@ -240,6 +239,7 @@
 				14E268ED2EC9647900FBCF90 /* Stats+History.swift */,
 				142066B52ECBDE200084F53C /* CityRegions.swift */,
 				14990EEF2ED94E0700DFD3E5 /* TransportType.swift */,
+				DA0A67912EDA4DF900F5A00D /* MapToolItems */,
 			);
 			path = Models;
 			sourceTree = "<group>";

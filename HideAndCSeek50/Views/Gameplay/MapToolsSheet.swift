@@ -24,7 +24,12 @@ struct MapToolsSheetContent: View {
                 
                 Spacer()
                 
-                Button(action: onDismiss) {
+                Button(action: {
+                    // Clear transient overlays when closing the sheet
+                    viewModel.clearMeasure()
+                    viewModel.clearBisector()
+                    onDismiss()
+                }) {
                     Image(systemName: "xmark")
                         .foregroundStyle(.white.opacity(0.7))
                         .padding(8)
@@ -93,6 +98,18 @@ struct MapToolsSheetContent: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
+            }
+        }
+        .onChange(of: viewModel.measureExpanded) { oldValue, newValue in
+            // When the measure tool is collapsed, clear transient overlays
+            if newValue == false {
+                viewModel.clearMeasure()
+            }
+        }
+        .onChange(of: viewModel.bisectorExpanded) { oldValue, newValue in
+            // When the bisector tool is collapsed, clear its transient points/overlays
+            if newValue == false {
+                viewModel.clearBisector()
             }
         }
     }
@@ -399,11 +416,11 @@ struct RadiusSectionView: View {
     
     private var firstRowIndices: [Int] {
         let count = viewModel.milesOptions.count
-        return Array(0..<(count / 2 + count % 2))
+        return Array(0..<(count / 2))
     }
     private var secondRowIndices: [Int] {
         let count = viewModel.milesOptions.count
-        return Array((count / 2 + count % 2)..<count)
+        return Array((count / 2)..<count)
     }
     
     var body: some View {
@@ -450,6 +467,28 @@ struct RadiusSectionView: View {
                 // Preset radius chips in two rows (replaces segmented Picker)
                 VStack(spacing: 8) {
                     HStack(spacing: 8) {
+                        Button {
+                            viewModel.useCustomRadius = true
+                        } label: {
+                            Text("Custom")
+                                .font(.caption)
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 10)
+                                .background(
+                                    viewModel.useCustomRadius
+                                    ? MapToolsViewModel.colorOptions[viewModel.radiusColorIndex].opacity(0.30)
+                                    : Color.white.opacity(0.12)
+                                )
+                                .foregroundColor(.white)
+                                .clipShape(Capsule())
+                                .overlay(
+                                    Capsule().stroke(Color.white.opacity(
+                                        viewModel.useCustomRadius ? 0.8 : 0.2
+                                    ), lineWidth: 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        
                         ForEach(firstRowIndices, id: \.self) { idx in
                             Button {
                                 viewModel.radiusMilesIndex = idx
@@ -503,30 +542,26 @@ struct RadiusSectionView: View {
                     }
                 }
 
-                // Custom radius input
-                HStack(spacing: 12) {
-                    Toggle(isOn: $viewModel.useCustomRadius) {
-                        Text("Use custom radius")
-                            .foregroundColor(.white)
+                // Removed the entire Toggle for "Use custom radius" and its surrounding HStack
+                
+                // Custom radius input shown only if useCustomRadius is true
+                if viewModel.useCustomRadius {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Custom Radius (mi)")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.7))
+                            TextField("e.g. 0.75", value: $viewModel.customRadiusMiles, format: .number)
+                                .keyboardType(.decimalPad)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 120)
+                                .focused($isCustomRadiusFocused)
+                                .onChange(of: viewModel.customRadiusMiles) { _, newVal in
+                                    if newVal < 0 { viewModel.customRadiusMiles = 0 }
+                                }
+                        }
+                        Spacer()
                     }
-                    .toggleStyle(SwitchToggleStyle(tint: .blue))
-                }
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Custom Radius (mi)")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
-                        TextField("e.g. 0.75", value: $viewModel.customRadiusMiles, format: .number)
-                            .keyboardType(.decimalPad)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 120)
-                            .focused($isCustomRadiusFocused)
-                            .onChange(of: viewModel.customRadiusMiles) { _, newVal in
-                                if newVal < 0 { viewModel.customRadiusMiles = 0 }
-                            }
-                    }
-                    Spacer()
                 }
                 
                 HStack {
@@ -778,3 +813,4 @@ struct MeasureToolView: View {
         }
     }
 }
+

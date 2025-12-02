@@ -718,7 +718,28 @@ class DatabaseManager: ObservableObject {
         seekingElapsed: TimeInterval? = nil
     ) async throws {
         let ref = DatabaseReference.game(gameId).child("info")
-        
+
+        // Read current state to prevent regressions
+        let currentStateSnap = try await ref.child("state").getData()
+        let currentStateRaw = currentStateSnap.value as? String
+        let currentState = currentStateRaw.flatMap(GameState.init(rawValue:)) ?? .waiting
+
+        // Do not allow moving backwards (e.g., seeking -> preSeeking)
+        switch state {
+        case .preSeeking:
+            // Only allow if we are actually coming from hiding or paused hiding
+            guard currentState == .hiding || currentState == .hidingPaused || currentState == .preSeeking else {
+                return
+            }
+        case .seeking:
+            // Only allow from preSeeking or paused seeking
+            guard currentState == .preSeeking || currentState == .seekingPaused || currentState == .seeking else {
+                return
+            }
+        default:
+            break
+        }
+
         var updates: [String: Any] = [
             "state": state.rawValue
         ]

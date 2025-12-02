@@ -893,10 +893,13 @@ extension GameView {
     
     // MARK: - Timer Management
     private func startTimerUpdater() {
-        timerUpdater = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+        // Keep UI timer ticking during interactions
+        let timer = Timer(timeInterval: 1.0, repeats: true) { _ in
             localCurrentTime = Date()
             checkForAutoTransitions()
         }
+        RunLoop.main.add(timer, forMode: .common)
+        timerUpdater = timer
     }
     
     private func stopTimerUpdater() {
@@ -905,8 +908,10 @@ extension GameView {
     }
     
     private func checkForAutoTransitions() {
-        guard let game = currentGame else { return }
-        
+        // Only the host should drive automatic state transitions
+        guard let game = currentGame,
+              game.info.hostUID == currentUser?.uid else { return }
+
         // Auto-transition from hiding to preSeeking when hiding time is complete
         if game.info.state == .hiding {
             let totalHidingTime = TimeInterval(game.info.settings.hidingTime * 60)

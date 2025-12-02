@@ -586,15 +586,22 @@ struct QuestionAnswerView: View {
     
     private var yesNoButtons: some View {
         HStack(spacing: 12) {
-            answerButton(title: "Yes", icon: "checkmark.circle.fill")
-            answerButton(title: "No", icon: "xmark.circle.fill")
+            // Yes = green, No = red for stronger contrast on white
+            answerButton(
+                title: "Yes",
+                icon: "checkmark.circle.fill",
+            )
+            answerButton(
+                title: "No",
+                icon: "xmark.circle.fill",
+            )
         }
     }
     
     private var closerFurtherButtons: some View {
         HStack(spacing: 12) {
-            answerButton(title: "Closer", icon: "arrow.down.circle.fill")
-            answerButton(title: "Further", icon: "arrow.up.circle.fill")
+            answerButton(title: "Hotter", icon: "arrow.down.circle.fill")
+            answerButton(title: "Colder", icon: "arrow.up.circle.fill")
         }
     }
     
@@ -632,7 +639,12 @@ struct QuestionAnswerView: View {
         .disabled(isSubmitting)
     }
     
-    private func answerButton(title: String, icon: String) -> some View {
+    private func answerButton(
+        title: String,
+        icon: String,
+        background: Color = .white,
+        foreground: Color = .blue
+    ) -> some View {
         Button {
             selectedAnswer = title
             submitAnswer()
@@ -644,10 +656,12 @@ struct QuestionAnswerView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(Color.white)
-            .foregroundColor(.blue)
+            .background(background)
+            .foregroundColor(foreground)
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
+        // Avoid default control tint briefly flashing system blue
+        .buttonStyle(.plain)
         .disabled(isSubmitting)
     }
     

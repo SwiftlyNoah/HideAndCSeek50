@@ -297,7 +297,11 @@ struct GameQuestionView: View {
         isLoading = true
         
         do {
-            let fullQuestion = selectedCategory.writeQuestion(arg: selectedQuestion)
+            // Compose question with reward
+            let baseQuestion = selectedCategory.writeQuestion(arg: selectedQuestion)
+            let rewardText = categoryReward(for: selectedCategory)
+            let fullQuestion = "\(baseQuestion) — Reward: \(rewardText)"
+            
             let questionId = UUID().uuidString
             
             // Create message with question type and questionData
@@ -482,11 +486,11 @@ enum QuestionCategory: String, CaseIterable, Codable {
     
     var iconName: String {
         switch self {
-        case .matching: return "square.2.stack"
+        case .matching: return "checkmark.circle"
         case .measuring: return "ruler"
         case .thermometer: return "thermometer"
         case .radar: return "dot.radiowaves.right"
-        case .tentacles: return "hare"
+        case .tentacles: return "ant"
         case .photos: return "camera.fill"
         }
     }
@@ -517,5 +521,23 @@ enum QuestionCategory: String, CaseIterable, Codable {
         case .photos:
             return "Send a photo of \(arg) within 10 minutes."
         }
+    }
+}
+
+// Additional Category Reward Text for Messages
+private func categoryReward(for category: QuestionCategory) -> String {
+    switch category {
+    case .matching:
+        return "Draw 3, Keep 1"
+    case .measuring:
+        return "Draw 3, Keep 1"
+    case .thermometer:
+        return "Draw 2, Keep 1"
+    case .radar:
+        return "Draw 2, Keep 1"
+    case .tentacles:
+        return "Draw 4, Keep 2"
+    case .photos:
+        return "Draw 1, Keep 1"
     }
 }

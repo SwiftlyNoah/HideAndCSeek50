@@ -316,6 +316,7 @@ struct LobbyView: View {
             // Hiders Team
             teamCard(
                 title: "Hiders",
+                team: .hiders,
                 players: lobby.players.values.filter { $0.team == .hiders }.sorted { $0.joinedAt < $1.joinedAt },
                 maxPlayers: lobby.maxHiders,
                 color: .blue,
@@ -325,6 +326,7 @@ struct LobbyView: View {
             // Seekers Team
             teamCard(
                 title: "Seekers",
+                team: .seekers,
                 players: lobby.players.values.filter { $0.team == .seekers }.sorted { $0.joinedAt < $1.joinedAt },
                 maxPlayers: lobby.maxSeekers,
                 color: .red,
@@ -333,7 +335,7 @@ struct LobbyView: View {
         }
     }
     
-    private func teamCard(title: String, players: [LobbyPlayer], maxPlayers: Int, color: Color, lobby: Lobby) -> some View {
+    private func teamCard(title: String, team: Team, players: [LobbyPlayer], maxPlayers: Int, color: Color, lobby: Lobby) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text(title)
@@ -361,6 +363,22 @@ struct LobbyView: View {
                 ForEach(players, id: \.uid) { player in
                     playerRow(player: player, lobby: lobby)
                 }
+            }
+            if let currentUID = currentUser?.uid,
+               let me = lobby.players[currentUID],
+               me.team != team {
+                let isTargetFull = players.count >= maxPlayers
+                Button(action: {
+                    Task { await moveToTeam(team) }
+                }) {
+                    HStack {
+                        Text("Switch to \(team.displayName)")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glass)
+                .controlSize(.small)
+                .disabled(isTargetFull)
             }
         }
         .padding(20)

@@ -26,10 +26,9 @@ Stores complete user profiles, game statistics, and preferences:
 - **Privacy Preferences**: Location sharing and notification settings
 
 **Statistics Tracked:**
-- Total games played/won
-- Hider-specific: Average hiding time, best hiding time, times found
-- Seeker-specific: Average find time, best find time, total hiders found
-- Role-based win rates calculated automatically
+- Total games played
+- Hider-specific: Average hiding time, best hiding time
+- Seeker-specific: Average find time, best find time
 
 ### 2. Games Collection (`/games/{gameID}`)
 
@@ -177,10 +176,9 @@ Performance optimization for game discovery:
 4. Live score tracking and leaderboards
 
 ### Game Completion
-1. Automatic winner determination
-2. Statistics updates for all players
-3. Achievement unlocking
-4. Game history recording
-5. Cleanup of temporary data
+1. Statistics updates for all players
+2. Achievement unlocking
+3. Game history recording
+4. Cleanup of temporary data
 
 This database schema provides a robust foundation for the Hide and CSeek50 app, supporting all planned features while maintaining excellent performance and scalability for future growth.

@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Lobby: Codable {
+struct Lobby: Codable, Equatable {
     let code: String
     let hostUID: String
     var gameId: String?
@@ -21,6 +21,7 @@ struct Lobby: Codable {
     let expiresAt: Date
     var isActive: Bool = true
     var players: [String: LobbyPlayer] = [:]
+    var bannedUsers: [String] = [] // List of banned user IDs
     
     var totalPlayers: Int {
         return players.count
@@ -42,19 +43,31 @@ struct Lobby: Codable {
         return isActive && totalPlayers < maxPlayers
     }
     
+    func canUserJoin(uid: String) -> Bool {
+        return canJoin && !bannedUsers.contains(uid)
+    }
+    
     var canStart: Bool {
         return hidersCount > 0 && seekersCount > 0 && players.values.allSatisfy { $0.isReady }
+    }
+    
+    static func == (lhs: Lobby, rhs: Lobby) -> Bool {
+        return lhs.code == rhs.code
     }
 }
 
 
-struct LobbyPlayer: Codable {
+struct LobbyPlayer: Codable, Equatable {
     let uid: String
     let displayName: String
     var team: Team
     var isReady: Bool = false
     let joinedAt: Date
     var isOnline: Bool = true
+    
+    static func == (lhs: LobbyPlayer, rhs: LobbyPlayer) -> Bool {
+        return lhs.uid == rhs.uid
+    }
 }
 
 struct ActiveGame: Codable {
@@ -114,7 +127,8 @@ extension Lobby {
             "city": city.rawValue,
             "createdAt": createdAt.toFirebaseTimestamp(),
             "expiresAt": expiresAt.toFirebaseTimestamp(),
-            "isActive": isActive
+            "isActive": isActive,
+            "bannedUsers": bannedUsers
         ]
         
         if let gameId = gameId {
@@ -149,6 +163,7 @@ extension Lobby {
         let cityRaw = dictionary["city"] as? String ?? "boston"
         let city = GameCity(rawValue: cityRaw) ?? .boston
         let isActive = dictionary["isActive"] as? Bool ?? true
+        let bannedUsers = dictionary["bannedUsers"] as? [String] ?? []
         
         let createdAt = Date.fromFirebaseTimestamp(createdAtTimestamp)
         let expiresAt = Date.fromFirebaseTimestamp(expiresAtTimestamp)
@@ -175,7 +190,8 @@ extension Lobby {
             createdAt: createdAt,
             expiresAt: expiresAt,
             isActive: isActive,
-            players: players
+            players: players,
+            bannedUsers: bannedUsers
         )
     }
 }

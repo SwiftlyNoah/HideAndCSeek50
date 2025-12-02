@@ -66,7 +66,16 @@ struct GameView: View {
     
     var body: some View {
         NavigationStack {
-            mainContent
+            if gameState == .completed, let game = currentGame {
+                GameEndView(
+                    game: game,
+                    lobbyCode: lobbyCode,
+                    onReturnToLobby: handleReturnToLobby
+                )
+                .transition(.opacity)
+            } else {
+                mainContent
+            }
         }
     }
 
@@ -878,7 +887,7 @@ extension GameView {
     
     private func endGame() {
         Task {
-            try? await databaseManager.endGame(gameId: gameId, winner: .seekers)
+            try? await databaseManager.endGame(gameId: gameId)
         }
     }
     
@@ -907,6 +916,18 @@ extension GameView {
                 }
             }
         }
+    }
+    
+    private func handleReturnToLobby() {
+        // Clear game persistence now that user is leaving the end screen
+        databaseManager.clearGamePersistence()
+        
+        // Stop listening to game updates
+        databaseManager.stopListeningToGame(gameId: gameId)
+        
+        // Navigate back to lobby
+        dismiss()
+        onReturnToMain?()
     }
 }
 

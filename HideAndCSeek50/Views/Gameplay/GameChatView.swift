@@ -29,8 +29,13 @@ struct GameChatView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(chatViewModel.messages) { message in
+                            // Render events differently
+                            if message.type == .event {
+                                EventMessageView(message: message)
+                                    .padding(.horizontal)
+                            }
                             // Show answer UI for unanswered questions if user is a hider
-                            if message.type == .question,
+                            else if message.type == .question,
                                let questionData = message.questionData,
                                !questionData.isAnswered,
                                currentPlayerTeam == .hiders {
@@ -205,10 +210,7 @@ struct MessageBubble: View {
                 case .question:
                     questionMessageView
                     
-                case .answer:
-                    answerMessageView
-                    
-                case .text:
+                default:
                     textMessageView
                 }
                 
@@ -292,21 +294,6 @@ struct MessageBubble: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
     
-    private var answerMessageView: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.white)
-                Text(message.content)
-                    .fontWeight(.medium)
-            }
-        }
-        .padding(12)
-        .background(Color.blue)
-        .foregroundColor(.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-    
     private func photoMessageView(photoURL: String) -> some View {
         Button {
             showFullImage = true
@@ -343,9 +330,34 @@ struct MessageBubble: View {
     }
 }
 
+// MARK: - Event Message View
+struct EventMessageView: View {
+    let message: GameMessage
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(message.content)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            
+            Text(message.timestamp.formatted(date: .abbreviated, time: .shortened))
+                .font(.caption)
+                .foregroundColor(.secondary.opacity(0.7))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+}
+
+
 struct FullScreenImageView: View {
     let imageURL: String
     @Environment(\.dismiss) private var dismiss
+    @State private var scale: CGFloat = 1.0
+    @State private var lastScale: CGFloat = 1.0
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
     
     var body: some View {
         NavigationStack {
@@ -360,6 +372,52 @@ struct FullScreenImageView: View {
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fit)
+                            .scaleEffect(scale)
+                            .offset(offset)
+                            .gesture(
+                                MagnificationGesture()
+                                    .onChanged { value in
+                                        let delta = value / lastScale
+                                        lastScale = value
+                                        scale = min(max(scale * delta, 1.0), 5.0)
+                                    }
+                                    .onEnded { _ in
+                                        lastScale = 1.0
+                                        if scale < 1.0 {
+                                            withAnimation {
+                                                scale = 1.0
+                                                offset = .zero
+                                            }
+                                        }
+                                    }
+                            )
+                            .simultaneousGesture(
+                                DragGesture()
+                                    .onChanged { value in
+                                        if scale > 1.0 {
+                                            offset = CGSize(
+                                                width: lastOffset.width + value.translation.width,
+                                                height: lastOffset.height + value.translation.height
+                                            )
+                                        }
+                                    }
+                                    .onEnded { _ in
+                                        lastOffset = offset
+                                    }
+                            )
+                            .onTapGesture(count: 2) {
+                                withAnimation(.spring(response: 0.3)) {
+                                    if scale > 1.0 {
+                                        // Reset zoom
+                                        scale = 1.0
+                                        offset = .zero
+                                        lastOffset = .zero
+                                    } else {
+                                        // Zoom to 2x
+                                        scale = 2.0
+                                    }
+                                }
+                            }
                     case .failure:
                         VStack {
                             Image(systemName: "photo.fill")

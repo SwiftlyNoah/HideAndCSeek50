@@ -314,7 +314,6 @@ struct GameQuestionView: View {
                     questionText: fullQuestion,
                     questionType: selectedCategory.questionType,
                     isAnswered: false,
-                    correctAnswer: nil,
                     playerAnswer: nil
                 ),
                 team: .seekers

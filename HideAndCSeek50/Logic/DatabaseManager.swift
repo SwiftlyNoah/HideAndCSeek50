@@ -150,6 +150,33 @@ class DatabaseManager: ObservableObject {
         return try UserStats.fromDictionary(data)
     }
     
+    // MARK: - Game History Management
+    func saveGameHistory(uid: String, entry: GameHistoryEntry) async throws {
+        let historyRef = DatabaseReference.user(uid).child("gameHistory").child(entry.gameId)
+        try await historyRef.setValue(try entry.toDictionary())
+    }
+    
+    func getGameHistory(uid: String, limit: Int = 10) async throws -> [GameHistoryEntry] {
+        let historyRef = DatabaseReference.user(uid).child("gameHistory")
+        let snapshot = try await historyRef.queryOrdered(byChild: "datePlayed")
+            .queryLimited(toLast: UInt(limit))
+            .getData()
+        
+        guard let data = snapshot.value as? [String: [String: Any]] else {
+            return []
+        }
+        
+        var history: [GameHistoryEntry] = []
+        for (_, entryData) in data {
+            if let entry = try? GameHistoryEntry.fromDictionary(entryData) {
+                history.append(entry)
+            }
+        }
+        
+        // Sort by date (most recent first)
+        return history.sorted { $0.datePlayed > $1.datePlayed }
+    }
+    
     // MARK: - Lobby Management
     
     func createLobby(hostUID: String, hostName: String, gameName: String, isPublic: Bool = true, maxHiders: Int = 2, maxSeekers: Int = 2, hidingTime: Int = 30, city: GameCity = .boston) async throws -> String {
@@ -205,7 +232,7 @@ class DatabaseManager: ObservableObject {
         
         guard let lobbyData = extractLobbyData(from: snapshot, code: code),
               var lobby = try? Lobby.fromDictionary(lobbyData),
-              lobby.canJoin else {
+              lobby.canUserJoin(uid: playerUID) else {
             throw DatabaseError.lobbyNotFound
         }
         
@@ -278,6 +305,32 @@ class DatabaseManager: ObservableObject {
         try await lobbyRef.updateChildValues(updates)
     }
     
+    func removePlayerFromLobby(code: String, playerUID: String) async throws {
+        let lobbyRef = DatabaseReference.lobby(code)
+        try await lobbyRef.child("players/\(playerUID)").removeValue()
+    }
+    
+    func banPlayerFromLobby(code: String, playerUID: String) async throws {
+        let lobbyRef = DatabaseReference.lobby(code)
+        let snapshot = try await lobbyRef.getData()
+        
+        guard let lobbyData = extractLobbyData(from: snapshot, code: code),
+              var lobby = try? Lobby.fromDictionary(lobbyData) else {
+            throw DatabaseError.lobbyNotFound
+        }
+        
+        // Add to banned list if not already there
+        if !lobby.bannedUsers.contains(playerUID) {
+            lobby.bannedUsers.append(playerUID)
+        }
+        
+        // Remove from players
+        lobby.players.removeValue(forKey: playerUID)
+        
+        // Update lobby
+        try await lobbyRef.setValue(try lobby.toDictionary())
+    }
+    
     func startGameFromLobby(lobbyCode: String) async throws -> String {
         guard let lobby = currentLobby,
               lobby.code == lobbyCode,
@@ -340,6 +393,25 @@ class DatabaseManager: ObservableObject {
     func sendMessage(gameId: String, message: GameMessage) async throws {
         let messageRef = DatabaseReference.game(gameId).child("messages").child(message.id)
         try await messageRef.setValue(try message.toDictionary())
+    }
+    
+    // MARK: - Event Messages
+    
+    /// Sends an event as a message in the game chat
+    private func sendEventMessage(gameId: String, type: EventType, details: String) async throws {
+        let message = GameMessage(
+            id: UUID().uuidString,
+            senderUID: "system",
+            senderName: "System",
+            content: details,
+            type: .event,
+            timestamp: Date(),
+            attachments: nil,
+            questionData: nil,
+            team: .hiders, // Events are visible to both teams
+            eventType: type
+        )
+        try await sendMessage(gameId: gameId, message: message)
     }
     
     func observeGame(gameId: String, completion: @escaping (Game?) -> Void) {
@@ -458,11 +530,10 @@ class DatabaseManager: ObservableObject {
         try await gameRef.child("info/currentPlayers").setValue(newCount)
         
         // Log join event
-        try await logGameEvent(
+        try await sendEventMessage(
             gameId: gameId,
             type: .playerJoined,
-            playerUID: playerUID,
-            details: "\(displayName) joined as \(team.displayName)"
+            details: "\(displayName) joined as \(team.playerName)"
         )
     }
     
@@ -488,11 +559,10 @@ class DatabaseManager: ObservableObject {
         clearGamePersistence()
         
         // Log leave event
-        try await logGameEvent(
+        try await sendEventMessage(
             gameId: gameId,
             type: .playerLeft,
-            playerUID: playerUID,
-            details: "Player left the game"
+            details: "A player left the game"
         )
     }
     
@@ -508,11 +578,10 @@ class DatabaseManager: ObservableObject {
         try await gameRef.updateChildValues(updates)
         
         // Log start event
-        try await logGameEvent(
+        try await sendEventMessage(
             gameId: gameId,
             type: .gameStarted,
-            playerUID: nil,
-            details: "Game started"
+            details: "Game has started"
         )
     }
     
@@ -610,37 +679,32 @@ class DatabaseManager: ObservableObject {
         }
     }
     
-    func endGame(gameId: String, winner: Team?) async throws {
+    func endGame(gameId: String) async throws {
         let gameRef = DatabaseReference.game(gameId)
         let now = Date()
         
-        var updates: [String: Any] = [
+        let updates: [String: Any] = [
             "info/state": GameState.completed.rawValue,
             "info/endedAt": now.toFirebaseTimestamp()
         ]
         
-        if let winner = winner {
-            updates["info/winner"] = winner.rawValue
-        }
-        
         try await gameRef.updateChildValues(updates)
         
-        // Remove from active games
+        // Update player stats BEFORE removing the game
+        try await updateGameStatistics(gameId: gameId)
+        
+        // Log end event
+        try await sendEventMessage(
+            gameId: gameId,
+            type: .gameEnded,
+            details: "Game has ended"
+        )
+        
+        // Remove from active games (but keep the full game data for history)
         try await DatabaseReference.activeGames().child(gameId).removeValue()
         
         // Clear game persistence since the game is over
         clearGamePersistence()
-        
-        // Update player stats
-        try await updateGameStatistics(gameId: gameId)
-        
-        // Log end event
-        try await logGameEvent(
-            gameId: gameId,
-            type: .gameEnded,
-            playerUID: nil,
-            details: winner != nil ? "\(winner!.displayName) won!" : "Game ended"
-        )
     }
     
     // MARK: - Game State Management
@@ -651,8 +715,7 @@ class DatabaseManager: ObservableObject {
         hidingStartedAt: Date? = nil,
         hidingElapsed: TimeInterval? = nil,
         seekingStartedAt: Date? = nil,
-        seekingElapsed: TimeInterval? = nil,
-        winner: Team? = nil
+        seekingElapsed: TimeInterval? = nil
     ) async throws {
         let ref = DatabaseReference.game(gameId).child("info")
         
@@ -676,10 +739,6 @@ class DatabaseManager: ObservableObject {
             updates["seekingElapsed"] = seekingElapsed
         }
         
-        if let winner = winner {
-            updates["winner"] = winner.rawValue
-        }
-        
         // Auto-transition: hiding timer complete -> preSeeking
         if state == .hiding, let hidingElapsed = hidingElapsed {
             // Check if hiding time is complete
@@ -697,6 +756,34 @@ class DatabaseManager: ObservableObject {
         // Clear game persistence if the game is ended
         if state == .completed || state == .cancelled {
             clearGamePersistence()
+        }
+        
+        // Log state change events
+        if state == .hiding {
+            try await sendEventMessage(
+                gameId: gameId,
+                type: .hidingStarted,
+                details: "Hiding phase has started"
+            )
+        } else if state == .seeking {
+            try await sendEventMessage(
+                gameId: gameId,
+                type: .seekingStarted,
+                details: "Seeking phase has started"
+            )
+        } else if state == .hidingPaused || state == .seekingPaused {
+            try await sendEventMessage(
+                gameId: gameId,
+                type: .gamePaused,
+                details: "Game has been paused"
+            )
+        } else if (state == .hiding && hidingStartedAt != nil) || (state == .seeking && seekingStartedAt != nil) {
+            // Resuming from pause
+            try await sendEventMessage(
+                gameId: gameId,
+                type: .gameResumed,
+                details: "Game has been resumed"
+            )
         }
     }
     
@@ -742,7 +829,8 @@ class DatabaseManager: ObservableObject {
             timestamp: questionMessage.timestamp,
             attachments: questionMessage.attachments,
             questionData: questionData,
-            team: questionMessage.team
+            team: questionMessage.team,
+            eventType: nil
         )
         
         // Update in database
@@ -786,7 +874,8 @@ class DatabaseManager: ObservableObject {
             timestamp: questionMessage.timestamp,
             attachments: attachments,
             questionData: questionData,
-            team: questionMessage.team
+            team: questionMessage.team,
+            eventType: nil
         )
         
         // Update in database
@@ -940,24 +1029,16 @@ class DatabaseManager: ObservableObject {
         return String((0..<6).map { _ in chars.randomElement()! })
     }
     
-    private func logGameEvent(gameId: String, type: EventType, playerUID: String?, details: String) async throws {
-        // Create GameEvent with a dictionary since it uses custom Codable
-        let eventData: [String: Any] = [
-            "type": type.rawValue,
-            "timestamp": Date().toFirebaseTimestamp(),
-            "playerUID": playerUID as Any,
-            "details": details
-        ]
-        
-        let eventRef = DatabaseReference.game(gameId).child("events").childByAutoId()
-        try await eventRef.setValue(eventData)
-    }
-    
     private func updateGameStatistics(gameId: String) async throws {
         // Get final game state
         let snapshot = try await DatabaseReference.game(gameId).getData()
         guard let gameData = snapshot.value as? [String: Any],
               let game = try? Game.fromDictionary(gameData) else { return }
+        
+        let gameDuration = game.info.elapsedTime
+        let hidingTime = game.info.currentHidingTime
+        let seekingTime = game.info.currentSeekingTime
+        let playerCount = game.totalPlayers
         
         // Update stats for all players
         for (uid, _) in game.teams.hiders {
@@ -965,23 +1046,37 @@ class DatabaseManager: ObservableObject {
             stats.totalGamesPlayed += 1
             stats.hiderStats.gamesPlayed += 1
             
-            if game.info.winner == .hiders {
-                stats.totalGamesWon += 1
-                stats.hiderStats.gamesWon += 1
+            // Update hider-specific stats based on hiding time
+            stats.hiderStats.averageHidingTime =
+            (stats.hiderStats.averageHidingTime * Double(stats.hiderStats.gamesPlayed - 1) + hidingTime) /
+            Double(stats.hiderStats.gamesPlayed)
+            
+            if hidingTime > stats.hiderStats.bestHidingTime {
+                stats.hiderStats.bestHidingTime = hidingTime
             }
             
-            // Update other hider-specific stats
-            if let duration = game.info.endedAt?.timeIntervalSince(game.info.startedAt ?? Date()) {
-                stats.hiderStats.averageHidingTime =
-                (stats.hiderStats.averageHidingTime * Double(stats.hiderStats.gamesPlayed - 1) + duration) /
-                Double(stats.hiderStats.gamesPlayed)
-                
-                if duration > stats.hiderStats.bestHidingTime {
-                    stats.hiderStats.bestHidingTime = duration
-                }
+            // Check for master hider achievement (hidden for over 30 minutes)
+            if hidingTime >= 1800 { // 30 minutes in seconds
+                stats.achievements.masterHider = true
             }
             
             try await updateUserStats(uid: uid, stats: stats)
+            
+            // Save game history entry for this player
+            let historyEntry = GameHistoryEntry(
+                id: gameId,
+                gameId: gameId,
+                gameName: game.info.name,
+                team: .hiders,
+                hidingTime: hidingTime,
+                seekingTime: seekingTime,
+                duration: gameDuration,
+                datePlayed: game.info.endedAt ?? Date(),
+                city: game.info.settings.city,
+                playerCount: playerCount,
+                wasHost: game.info.hostUID == uid
+            )
+            try await saveGameHistory(uid: uid, entry: historyEntry)
         }
         
         // Similar logic for seekers
@@ -990,12 +1085,44 @@ class DatabaseManager: ObservableObject {
             stats.totalGamesPlayed += 1
             stats.seekerStats.gamesPlayed += 1
             
-            if game.info.winner == .seekers {
-                stats.totalGamesWon += 1
-                stats.seekerStats.gamesWon += 1
+            // Update seeker-specific stats based on seeking time
+            if seekingTime > 0 {
+                stats.seekerStats.averageFindTime =
+                (stats.seekerStats.averageFindTime * Double(stats.seekerStats.gamesPlayed - 1) + seekingTime) /
+                Double(stats.seekerStats.gamesPlayed)
+                
+                if seekingTime < stats.seekerStats.bestFindTime || stats.seekerStats.bestFindTime == 0 {
+                    stats.seekerStats.bestFindTime = seekingTime
+                }
+                
+                // Check for quick seeker achievement (found hider in under 5 minutes)
+                if seekingTime <= 300 { // 5 minutes in seconds
+                    stats.achievements.quickSeeker = true
+                }
+            }
+            
+            // Check for veteran achievement (100+ games)
+            if stats.totalGamesPlayed >= 100 {
+                stats.achievements.veteran = true
             }
                         
             try await updateUserStats(uid: uid, stats: stats)
+            
+            // Save game history entry for this player
+            let historyEntry = GameHistoryEntry(
+                id: gameId,
+                gameId: gameId,
+                gameName: game.info.name,
+                team: .seekers,
+                hidingTime: hidingTime,
+                seekingTime: seekingTime,
+                duration: gameDuration,
+                datePlayed: game.info.endedAt ?? Date(),
+                city: game.info.settings.city,
+                playerCount: playerCount,
+                wasHost: game.info.hostUID == uid
+            )
+            try await saveGameHistory(uid: uid, entry: historyEntry)
         }
     }
 }

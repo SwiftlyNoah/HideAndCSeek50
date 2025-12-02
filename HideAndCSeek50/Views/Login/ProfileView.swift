@@ -245,41 +245,138 @@ struct ProfileView: View {
                     title: "Games Played",
                     value: "\(stats.totalGamesPlayed)",
                     icon: "gamecontroller.fill",
-                    color: .blue
+                    color: .pink
                 )
                 
                 statCard(
-                    title: "Win Rate",
-                    value: "\(Int(stats.winRate * 100))%",
-                    icon: "trophy.fill",
-                    color: .yellow
-                )
-                
-                statCard(
-                    title: "Total Wins",
-                    value: "\(stats.totalGamesWon)",
-                    icon: "star.fill",
-                    color: .green
-                )
-            }
-            
-            // Role-specific Stats
-            VStack(spacing: 12) {
-                roleStatRow(
                     title: "As Hider",
-                    gamesPlayed: stats.hiderStats.gamesPlayed,
-                    winRate: stats.hiderStats.hiderWinRate,
+                    value: "\(stats.hiderStats.gamesPlayed)",
                     icon: "eye.slash.fill",
                     color: .blue
                 )
                 
-                roleStatRow(
+                statCard(
                     title: "As Seeker",
-                    gamesPlayed: stats.seekerStats.gamesPlayed,
-                    winRate: stats.seekerStats.seekerWinRate,
+                    value: "\(stats.seekerStats.gamesPlayed)",
                     icon: "eye.fill",
                     color: .red
                 )
+            }
+            
+            // Hider Stats
+            if stats.hiderStats.gamesPlayed > 0 {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "eye.slash.fill")
+                            .foregroundColor(.blue)
+                        Text("Hider Stats")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    
+                    Divider()
+                    
+                    detailStatRow(
+                        label: "Best Hiding Time",
+                        value: formatTime(stats.hiderStats.bestHidingTime),
+                        icon: "trophy.fill",
+                        color: .yellow
+                    )
+                    
+                    detailStatRow(
+                        label: "Average Hiding Time",
+                        value: formatTime(stats.hiderStats.averageHidingTime),
+                        icon: "clock.fill",
+                        color: .blue
+                    )
+                }
+                .padding(12)
+                .background(.blue.opacity(0.1))
+                .cornerRadius(12)
+            }
+            
+            // Seeker Stats
+            if stats.seekerStats.gamesPlayed > 0 {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "eye.fill")
+                            .foregroundColor(.red)
+                        Text("Seeker Stats")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    
+                    Divider()
+                    
+                    detailStatRow(
+                        label: "Best Find Time",
+                        value: formatTime(stats.seekerStats.bestFindTime),
+                        icon: "trophy.fill",
+                        color: .yellow
+                    )
+                    
+                    detailStatRow(
+                        label: "Average Find Time",
+                        value: formatTime(stats.seekerStats.averageFindTime),
+                        icon: "clock.fill",
+                        color: .red
+                    )
+                }
+                .padding(12)
+                .background(.red.opacity(0.1))
+                .cornerRadius(12)
+            }
+            
+            // Achievements
+            if hasAnyAchievement(stats.achievements) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "rosette")
+                            .foregroundColor(.yellow)
+                        Text("Achievements")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    
+                    Divider()
+                    
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 12) {
+                        if stats.achievements.quickSeeker {
+                            achievementBadge(
+                                title: "Quick Seeker",
+                                icon: "bolt.fill",
+                                color: .orange
+                            )
+                        }
+                        
+                        if stats.achievements.masterHider {
+                            achievementBadge(
+                                title: "Master Hider",
+                                icon: "star.fill",
+                                color: .purple
+                            )
+                        }
+                        
+                        if stats.achievements.teamPlayer {
+                            achievementBadge(
+                                title: "Team Player",
+                                icon: "person.3.fill",
+                                color: .blue
+                            )
+                        }
+                        
+                        if stats.achievements.veteran {
+                            achievementBadge(
+                                title: "Veteran",
+                                icon: "medal.fill",
+                                color: .yellow
+                            )
+                        }
+                    }
+                }
+                .padding(12)
+                .background(.yellow.opacity(0.1))
+                .cornerRadius(12)
             }
         }
         .padding(20)
@@ -309,33 +406,63 @@ struct ProfileView: View {
         .glassEffect(.regular.tint(color.opacity(0.1)), in: .rect(cornerRadius: 12))
     }
     
-    private func roleStatRow(title: String, gamesPlayed: Int, winRate: Double, icon: String, color: Color) -> some View {
+    private func detailStatRow(label: String, value: String, icon: String, color: Color) -> some View {
         HStack {
             Image(systemName: icon)
-                .font(.title3)
+                .font(.caption)
                 .foregroundColor(color)
-                .frame(width: 24)
+                .frame(width: 20)
             
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                Text("\(gamesPlayed) games played")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
             
             Spacer()
             
-            Text("\(Int(winRate * 100))% win rate")
-                .font(.subheadline)
+            Text(value)
+                .font(.caption)
                 .fontWeight(.semibold)
-                .foregroundColor(color)
         }
-        .padding(12)
-        .background(color.opacity(0.1))
+    }
+    
+    private func achievementBadge(title: String, icon: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(color)
+            
+            Text(title)
+                .font(.caption2)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(8)
+        .background(color.opacity(0.2))
         .cornerRadius(8)
+    }
+    
+    private func hasAnyAchievement(_ achievements: Achievements) -> Bool {
+        achievements.quickSeeker || achievements.masterHider || 
+        achievements.teamPlayer || achievements.veteran
+    }
+    
+    private func formatTime(_ timeInterval: TimeInterval) -> String {
+        if timeInterval == 0 {
+            return "N/A"
+        }
+        
+        let hours = Int(timeInterval) / 3600
+        let minutes = Int(timeInterval) / 60 % 60
+        let seconds = Int(timeInterval) % 60
+        
+        if hours > 0 {
+            return String(format: "%dh %dm %ds", hours, minutes, seconds)
+        } else if minutes > 0 {
+            return String(format: "%dm %ds", minutes, seconds)
+        } else {
+            return String(format: "%ds", seconds)
+        }
     }
     
     // MARK: - Account Management Section

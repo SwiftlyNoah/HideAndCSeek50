@@ -21,6 +21,9 @@ struct LobbyView: View {
     @State private var navigateToGame = false
     @State private var errorMessage: String?
     @State private var isGameStarting = false
+    @State private var showingRemovedAlert = false
+    @State private var showingBannedAlert = false
+    @State private var wasInLobby = false
     
     private var currentUser: User? {
         authManager.currentUser
@@ -117,6 +120,14 @@ struct LobbyView: View {
             .onDisappear {
                 stopListening()
             }
+            .onChange(of: lobby) { oldLobby, newLobby in
+                // Set wasInLobby flag when lobby first loads and we're in it
+                if !wasInLobby, let currentUID = currentUser?.uid, let newLobby = newLobby {
+                    if newLobby.players[currentUID] != nil {
+                        wasInLobby = true
+                    }
+                }
+            }
             .onChange(of: lobby?.gameId) { _, newGameId in
                 // Monitor for game start - when gameId is set and lobby becomes inactive
                 handleGameStart()
@@ -126,6 +137,14 @@ struct LobbyView: View {
                 if isActive == false {
                     handleGameStart()
                 }
+            }
+            .onChange(of: lobby?.players) { oldPlayers, newPlayers in
+                // Check if current user was removed or banned
+                checkIfRemovedOrBanned(oldPlayers: oldPlayers, newPlayers: newPlayers)
+            }
+            .onChange(of: lobby?.bannedUsers) { _, bannedUsers in
+                // Check if current user was banned
+                checkIfBanned(bannedUsers: bannedUsers)
             }
             .fullScreenCover(isPresented: $navigateToGame) {
                 Group {
@@ -144,11 +163,11 @@ struct LobbyView: View {
                         )
                     }
                     else {
-                        Color.red
+                        Color.clear
                     }
                 }
             }
-        .sheet(isPresented: $showingSettings) {
+            .sheet(isPresented: $showingSettings) {
                 if let lobby = lobby {
                     LobbySettingsView(lobby: lobby, lobbyCode: lobbyCode)
                 }
@@ -170,6 +189,20 @@ struct LobbyView: View {
                     Text(errorMessage)
                 }
             }
+            .alert("Removed from Lobby", isPresented: $showingRemovedAlert) {
+                Button("OK") {
+                    dismiss()
+                }
+            } message: {
+                Text("You have been removed from the lobby by the host.")
+            }
+            .alert("Banned from Lobby", isPresented: $showingBannedAlert) {
+                Button("OK") {
+                    dismiss()
+                }
+            } message: {
+                Text("You have been banned from this lobby by the host.")
+            }
         }
     }
     
@@ -189,14 +222,14 @@ struct LobbyView: View {
                     .padding(.horizontal, 24)
                     .padding(.vertical, 16)
                     .glassEffect(.regular.tint(.blue.opacity(0.1)), in: .rect(cornerRadius: 16))
-                    .onTapGesture {
-                        UIPasteboard.general.string = lobbyCode
-                        // TODO: Add haptic feedback
-                    }
                 
                 Text("Tap to copy")
                     .font(.caption)
                     .foregroundColor(.secondary)
+            }
+            .onTapGesture {
+                UIPasteboard.general.string = lobbyCode
+                // TODO: Add haptic feedback
             }
             
             // Game name and info
@@ -233,16 +266,9 @@ struct LobbyView: View {
     
     private func lobbySettingsSection(lobby: Lobby) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Lobby Settings")
-                .font(.headline)
-            
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Max Hiders: \(lobby.maxHiders)")
-                        .font(.subheadline)
-                    Text("Max Seekers: \(lobby.maxSeekers)")
-                        .font(.subheadline)
-                }
+                Text("Lobby Settings")
+                    .font(.headline)
                 
                 Spacer()
                 
@@ -252,6 +278,31 @@ struct LobbyView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "mappin.circle.fill")
+                        .foregroundColor(.blue)
+                        .frame(width: 24)
+                    Text("City:")
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(lobby.city.displayName)
+                        .fontWeight(.medium)
+                }
+                
+                HStack {
+                    Image(systemName: "clock.fill")
+                        .foregroundColor(.orange)
+                        .frame(width: 24)
+                    Text("Hiding Time:")
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("\(lobby.hidingTime) minutes")
+                        .fontWeight(.medium)
+                }
+            }
+            .font(.subheadline)
         }
         .padding()
         .background(Color(UIColor.secondarySystemBackground))
@@ -311,21 +362,6 @@ struct LobbyView: View {
                     playerRow(player: player, lobby: lobby)
                 }
             }
-            
-            // Join team button for current user if not in this team
-            if let currentUID = currentUser?.uid,
-               let currentPlayer = lobby.players[currentUID],
-               currentPlayer.team != (title == "Hiders" ? .hiders : .seekers),
-               players.count < maxPlayers {
-                
-                Button("Switch to \(title)") {
-                    Task {
-                        await moveToTeam(title == "Hiders" ? .hiders : .seekers)
-                    }
-                }
-                .buttonStyle(.glass)
-                .controlSize(.small)
-            }
         }
         .padding(20)
         .glassEffect(.regular.tint(color.opacity(0.1)), in: .rect(cornerRadius: 16))
@@ -375,19 +411,56 @@ struct LobbyView: View {
                 }
             }
             
-            // Host controls
-            if isHost && player.uid != currentUser?.uid {
+            // Menu for host (all players) or for current player (only themselves)
+            if isHost || player.uid == currentUser?.uid {
                 Menu {
-                    Button("Move to Hiders") {
-                        Task { await movePlayerToTeam(player.uid, team: .hiders) }
-                    }
-                    Button("Move to Seekers") {
-                        Task { await movePlayerToTeam(player.uid, team: .seekers) }
+                    if isHost && player.uid != currentUser?.uid {
+                        // Host options for other players
+                        Button {
+                            Task {
+                                let targetTeam: Team = player.team == .hiders ? .seekers : .hiders
+                                await movePlayerToTeam(player.uid, team: targetTeam)
+                            }
+                        } label: {
+                            Label(
+                                player.team == .hiders ? "Move to Seekers" : "Move to Hiders",
+                                systemImage: "arrow.left.arrow.right"
+                            )
+                        }
+                        
+                        Divider()
+                        
+                        Button(role: .destructive) {
+                            Task { await removePlayer(player.uid) }
+                        } label: {
+                            Label("Remove from Lobby", systemImage: "person.crop.circle.badge.minus")
+                        }
+                        
+                        Button(role: .destructive) {
+                            Task { await banPlayer(player.uid) }
+                        } label: {
+                            Label("Ban from Lobby", systemImage: "hand.raised.slash.fill")
+                        }
+                    } else {
+                        // Current player's own menu
+                        Button {
+                            Task {
+                                let targetTeam: Team = player.team == .hiders ? .seekers : .hiders
+                                await moveToTeam(targetTeam)
+                            }
+                        } label: {
+                            Label(
+                                player.team == .hiders ? "Move to Seekers" : "Move to Hiders",
+                                systemImage: "arrow.left.arrow.right"
+                            )
+                        }
                     }
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
                 }
             }
         }
@@ -529,6 +602,64 @@ struct LobbyView: View {
             await MainActor.run {
                 errorMessage = error.localizedDescription
                 isLoading = false
+            }
+        }
+    }
+    
+    private func removePlayer(_ playerUID: String) async {
+        do {
+            try await databaseManager.removePlayerFromLobby(code: lobbyCode, playerUID: playerUID)
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+    
+    private func banPlayer(_ playerUID: String) async {
+        do {
+            try await databaseManager.banPlayerFromLobby(code: lobbyCode, playerUID: playerUID)
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+    
+    // MARK: - Removal/Ban Detection
+    
+    private func checkIfRemovedOrBanned(oldPlayers: [String: LobbyPlayer]?, newPlayers: [String: LobbyPlayer]?) {
+        guard let currentUID = currentUser?.uid else { return }
+        
+        // Only check if we were previously in the lobby
+        guard wasInLobby else { return }
+        
+        // Check if we were in the old list but not in the new list
+        let wasInOldList = oldPlayers?[currentUID] != nil
+        let isInNewList = newPlayers?[currentUID] != nil
+        
+        if wasInOldList && !isInNewList {
+            // We were removed - check if banned
+            if let bannedUsers = lobby?.bannedUsers, bannedUsers.contains(currentUID) {
+                showingBannedAlert = true
+            } else {
+                showingRemovedAlert = true
+            }
+            wasInLobby = false // Reset flag
+        }
+    }
+    
+    private func checkIfBanned(bannedUsers: [String]?) {
+        guard let currentUID = currentUser?.uid,
+              let bannedUsers = bannedUsers,
+              wasInLobby else { return }
+        
+        // If current user is in the banned list
+        if bannedUsers.contains(currentUID) {
+            // Check if they're still in the players list (they shouldn't be, but just in case)
+            if lobby?.players[currentUID] == nil {
+                showingBannedAlert = true
+                wasInLobby = false // Reset flag
             }
         }
     }

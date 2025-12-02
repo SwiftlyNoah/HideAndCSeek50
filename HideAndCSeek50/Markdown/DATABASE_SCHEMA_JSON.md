@@ -18,8 +18,7 @@ hideandcseek50/
 │   └── {gameID}/
 │       ├── info/
 │       ├── teams/
-│       ├── messages/
-│       └── events/
+│       └── messages/
 │
 ├── lobbies/
 │   └── {lobbyCode}/
@@ -47,40 +46,33 @@ users: {
 
     "stats": {
       "totalGamesPlayed": 0,
-      "totalGamesWon": 0,
 
       "hiderStats": {
         "gamesPlayed": 0,
-        "gamesWon": 0,
         "averageHidingTime": 0,
-        "bestHidingTime": 0,
-        "timesFound": 0,
-        "averageHideScore": 0
+        "bestHidingTime": 0
       },
 
       "seekerStats": {
         "gamesPlayed": 0,
-        "gamesWon": 0,
         "averageFindTime": 0,
-        "bestFindTime": 0,
-        "totalHidersFound": 0,
-        "averageSeekScore": 0
+        "bestFindTime": 0
       },
 
       "achievements": {
-        "quickSeeker": false,
-        "masterHider": false,
-        "teamPlayer": false,
-        "veteran": false
+        "quickSeeker": false,      // Found hider in under 5 minutes
+        "masterHider": false,      // Hidden for over 30 minutes
+        "teamPlayer": false,       // Won 10 team games
+        "veteran": false           // Played 100+ games
       }
     },
 
     "gameHistory": {
       "gameID1": {
         "gameId": "string",
-        "role": "hider|seeker",
-        "result": "won|lost",
-        "score": 0,
+        "team": "hider|seeker",
+        "hidingTime": 0,
+        "seekingTime": 0,
         "duration": 0,
         "datePlayed": "timestamp"
       }
@@ -89,7 +81,6 @@ users: {
     "preferences": {
       "allowLocationSharing": true,
       "receiveNotifications": true,
-      "defaultRole": "hider|seeker|any"
     }
   }
 }
@@ -114,8 +105,6 @@ games: {
       "startedAt": "timestamp|null",
       "endedAt": "timestamp|null",
       "duration": 0,
-      "winner": "hiders|seekers|null",
-
       "settings": {
         "hidingTime": 30,
         "city": "boston|newYork",
@@ -176,7 +165,7 @@ games: {
     "senderUID": "string",
     "senderName": "string",
     "content": "string",
-    "type": "text|photo|voice|system|question|answer",
+    "type": "text|photo|question|event",
     "timestamp": "timestamp",
     "team": "hiders|seekers|all",
 
@@ -189,10 +178,12 @@ games: {
     "questionData": {
       "questionId": "string",
       "questionText": "string",
+      "questionType": "yesNo|closerFurther|hotterColder|photo|text",
       "isAnswered": true,
-      "correctAnswer": "string",
       "playerAnswer": "string"
     },
+
+    "eventType": "gameStarted|playerJoined|playerLeft|hiderFound|questionAsked|questionAnswered|gameEnded|gamePaused|gameResumed|hidingStarted|seekingStarted",
 
     "reactions": {
       "userUID": "emoji"
@@ -206,22 +197,8 @@ games: {
 - When a question is answered, the original message's `questionData.isAnswered` is updated to `true` and `questionData.playerAnswer` is set
 - A separate message with `type: "answer"` is also sent to the chat
 - All question/answer interactions are visible in the messages collection
-
----
-
-## Events
-
-```jsonc
-"events": {
-  "eventID1": {
-    "type": "gameStarted|playerJoined|playerLeft|hiderFound|questionAsked|questionAnswered|gameEnded",
-    "timestamp": "timestamp",
-    "playerUID": "string",
-    "details": "string",
-    "data": {}
-  }
-}
-```
+- **Game events** (like game started, player joined, hiding started, seeking started, etc.) are also stored as messages with `type: "event"` and include an `eventType` field
+- Event messages have `senderUID: "system"` and `senderName: "System"` and are displayed centered in the chat with timestamp
 
 ---
 
@@ -329,19 +306,11 @@ invitations: {
           }
         },
 
-        // Messages - game participants can send messages
+        // Messages - game participants can send messages, system can also write event messages
         "messages": {
           "$messageId": {
-            ".write": "auth != null && newData.child('senderUID').val() == auth.uid && (root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists())",
+            ".write": "auth != null && (newData.child('senderUID').val() == auth.uid || newData.child('senderUID').val() == 'system') && (root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists() || root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid)",
             ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists())"
-          }
-        },
-
-        // Events - read-only for participants, write access for system/host
-        "events": {
-          ".read": "auth != null && (root.child('games/' + $gameId + '/teams/hiders/' + auth.uid).exists() || root.child('games/' + $gameId + '/teams/seekers/' + auth.uid).exists())",
-          "$eventId": {
-            ".write": "auth != null && root.child('games/' + $gameId + '/info/hostUID').val() == auth.uid"
           }
         }
       }
@@ -400,10 +369,10 @@ invitations: {
     "users": {
       "$uid": {
         "gameHistory": {
-          ".indexOn": ["datePlayed", "result", "role"]
+          ".indexOn": ["datePlayed", "team"]
         },
         "stats": {
-          ".indexOn": ["totalGamesPlayed", "totalGamesWon"]
+          ".indexOn": ["totalGamesPlayed"]
         }
       }
     }

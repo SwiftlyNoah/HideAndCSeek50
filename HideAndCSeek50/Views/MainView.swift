@@ -38,6 +38,9 @@ struct MainView: View {
     @State private var showingRejoinGame = false
     @State private var isCheckingForRejoin = true
     
+    @State private var recentGames: [GameHistoryEntry] = []
+    @State private var isLoadingHistory = false
+    
     private var displayName: String {
         if let displayName = user?.displayName, !displayName.isEmpty {
             return displayName
@@ -71,6 +74,11 @@ struct MainView: View {
                         // Main Action Buttons
                         actionButtons
                         
+                        // Recent Games Section
+                        if !recentGames.isEmpty {
+                            recentGamesSection
+                        }
+                        
                         Spacer(minLength: 100)
                     }
                     .padding(.horizontal, 20)
@@ -100,6 +108,7 @@ struct MainView: View {
                 if isCheckingForRejoin {
                     checkForRejoinableGame()
                 }
+                loadRecentGames()
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -296,6 +305,33 @@ struct MainView: View {
         }
     }
     
+    // MARK: - Recent Games Section
+    
+    private var recentGamesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Recent Games", systemImage: "clock.arrow.circlepath")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                if isLoadingHistory {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                }
+            }
+            .padding(.horizontal, 4)
+            
+            VStack(spacing: 8) {
+                ForEach(recentGames.prefix(5)) { game in
+                    GameHistoryCard(entry: game)
+                }
+            }
+        }
+        .padding(.top, 8)
+    }
+    
     // MARK: - Profile Button
     
     private var profileButton: some View {
@@ -349,6 +385,27 @@ struct MainView: View {
             }
         }
     }
+    
+    private func loadRecentGames() {
+        guard let uid = user?.uid else { return }
+        
+        isLoadingHistory = true
+        
+        Task {
+            do {
+                let history = try await databaseManager.getGameHistory(uid: uid, limit: 5)
+                await MainActor.run {
+                    recentGames = history
+                    isLoadingHistory = false
+                }
+            } catch {
+                print("Error loading game history: \(error.localizedDescription)")
+                await MainActor.run {
+                    isLoadingHistory = false
+                }
+            }
+        }
+    }
 }
 
 struct LobbyDestination: Identifiable {
@@ -361,6 +418,105 @@ struct RejoinGameDestination: Identifiable {
     let gameData: (game: Game, lobbyCode: String, playerTeam: Team)
     
     var id: String { gameData.game.info.gameId }
+}
+
+// MARK: - Game History Card
+
+struct GameHistoryCard: View {
+    let entry: GameHistoryEntry
+    
+    private var timeAgo: String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: entry.datePlayed, relativeTo: Date())
+    }
+    
+    private var formattedDuration: String {
+        let minutes = Int(entry.duration) / 60
+        let seconds = Int(entry.duration) % 60
+        if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
+        } else {
+            return "\(seconds)s"
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Team icon
+            ZStack {
+                Circle()
+                    .fill(entry.team.swiftUIColor.opacity(0.2))
+                    .frame(width: 44, height: 44)
+                
+                Image(systemName: entry.team.iconName)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(entry.team.swiftUIColor)
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(entry.gameName)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+                    
+                    if entry.wasHost {
+                        Image(systemName: "crown.fill")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                    }
+                }
+                
+                HStack(spacing: 8) {
+                    Label(entry.city.displayName, systemImage: "map.fill")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text("•")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Label("\(entry.playerCount) players", systemImage: "person.2.fill")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                HStack(spacing: 8) {
+                    Text(entry.team.displayName)
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundColor(entry.team.swiftUIColor)
+                    
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    
+                    Text(formattedDuration)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(timeAgo)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.secondary.opacity(0.5))
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        )
+    }
 }
 
 #Preview {

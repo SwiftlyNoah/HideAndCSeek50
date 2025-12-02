@@ -81,6 +81,7 @@ class ChatViewModel: ObservableObject {
             attachments: nil,
             questionData: nil,
             team: currentPlayerTeam,
+            eventType: nil
         )
         
         do {
@@ -183,7 +184,8 @@ class ChatViewModel: ObservableObject {
                     duration: nil
                 ),
                 questionData: nil,
-                team: currentPlayerTeam
+                team: currentPlayerTeam,
+                eventType: nil
             )
             
             // Send message to database

@@ -44,6 +44,7 @@
 		14990F002ED984F200DFD3E5 /* GameModels+Dictionary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990EFF2ED984F200DFD3E5 /* GameModels+Dictionary.swift */; };
 		14990F022ED9878100DFD3E5 /* MapToolsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990F012ED9878100DFD3E5 /* MapToolsViewModel.swift */; };
 		14990F072ED988FF00DFD3E5 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990F062ED988FC00DFD3E5 /* ChatViewModel.swift */; };
+		14A2BAD72EDEAC6700E4B3C2 /* GameEndView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14A2BAD62EDEAC6700E4B3C2 /* GameEndView.swift */; };
 		14CD28792EDADC8400EEB66F /* storage.rules in Resources */ = {isa = PBXBuildFile; fileRef = 14CD28782EDADC8400EEB66F /* storage.rules */; };
 		14E268EE2EC9648000FBCF90 /* Stats+History.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E268ED2EC9647900FBCF90 /* Stats+History.swift */; };
 		14E268F02EC9649700FBCF90 /* Lobby.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E268EF2EC9649300FBCF90 /* Lobby.swift */; };
@@ -101,6 +102,10 @@
 		14990EFF2ED984F200DFD3E5 /* GameModels+Dictionary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GameModels+Dictionary.swift"; sourceTree = "<group>"; };
 		14990F012ED9878100DFD3E5 /* MapToolsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapToolsViewModel.swift; sourceTree = "<group>"; };
 		14990F062ED988FC00DFD3E5 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		14A2BAD22EDE9EA400E4B3C2 /* EVENT_MESSAGE_EXAMPLES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = EVENT_MESSAGE_EXAMPLES.md; sourceTree = "<group>"; };
+		14A2BAD42EDEA08000E4B3C2 /* STATS_STRUCTURE_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = STATS_STRUCTURE_GUIDE.md; sourceTree = "<group>"; };
+		14A2BAD52EDEA6CF00E4B3C2 /* firebase-database-rules.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "firebase-database-rules.json"; sourceTree = "<group>"; };
+		14A2BAD62EDEAC6700E4B3C2 /* GameEndView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameEndView.swift; sourceTree = "<group>"; };
 		14CD28782EDADC8400EEB66F /* storage.rules */ = {isa = PBXFileReference; lastKnownFileType = text; path = storage.rules; sourceTree = "<group>"; };
 		14E268ED2EC9647900FBCF90 /* Stats+History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Stats+History.swift"; sourceTree = "<group>"; };
 		14E268EF2EC9649300FBCF90 /* Lobby.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lobby.swift; sourceTree = "<group>"; };
@@ -135,6 +140,9 @@
 				140B02962EC8791E0005EE81 /* AUTHENTICATION.md */,
 				140B02972EC8791E0005EE81 /* DATABASE_SCHEMA_JSON.md */,
 				140B02982EC8791E0005EE81 /* DATABASE_SCHEMA_OVERWIEW.md */,
+				14A2BAD22EDE9EA400E4B3C2 /* EVENT_MESSAGE_EXAMPLES.md */,
+				14A2BAD42EDEA08000E4B3C2 /* STATS_STRUCTURE_GUIDE.md */,
+				14A2BAD52EDEA6CF00E4B3C2 /* firebase-database-rules.json */,
 			);
 			path = Markdown;
 			sourceTree = "<group>";
@@ -238,6 +246,7 @@
 				142066B92ECBDFF50084F53C /* LocationManager.swift */,
 				140B029B2EC8791E0005EE81 /* AuthenticationManager.swift */,
 				140B029E2EC8791E0005EE81 /* DatabaseManager.swift */,
+				14A2BAD62EDEAC6700E4B3C2 /* GameEndView.swift */,
 			);
 			path = Logic;
 			sourceTree = "<group>";
@@ -373,6 +382,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				14A2BAD72EDEAC6700E4B3C2 /* GameEndView.swift in Sources */,
 				140B02AD2EC8791E0005EE81 /* AuthenticationManager.swift in Sources */,
 				140B02AF2EC8791E0005EE81 /* CreateLobbyView.swift in Sources */,
 				140B02B02EC8791E0005EE81 /* DatabaseManager.swift in Sources */,

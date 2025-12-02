@@ -16,7 +16,6 @@ struct Game: Codable {
     let info: GameInfo
     var teams: GameTeams
     var messages: [String: GameMessage] = [:]
-    var events: [String: GameEvent] = [:]
 }
 
 struct GameInfo: Codable {
@@ -31,10 +30,8 @@ struct GameInfo: Codable {
     var startedAt: Date?
     var endedAt: Date?
     var duration: TimeInterval = 0
-    var winner: Team?
     let settings: GameSettings
     
-    // Simplified timer fields - just track when each phase started and elapsed time
     var hidingStartedAt: Date?
     var hidingElapsed: TimeInterval = 0
     var seekingStartedAt: Date?
@@ -70,17 +67,7 @@ struct GameMessage: Codable, Identifiable {
     let attachments: MessageAttachments?
     let questionData: QuestionData?
     let team: Team
-}
-
-struct GameQuestion: Codable {
-    let id: String
-    let type: QuestionType
-    let question: String
-    let askedBy: String               // Seeker UID
-    let askedAt: Date
-    var answeredBy: String?           // Hider UID
-    var answeredAt: Date?
-    var answer: String?
+    var eventType: EventType? = nil
 }
 
 struct GameSettings: Codable {
@@ -112,7 +99,6 @@ struct QuestionData: Codable {
     let questionText: String
     let questionType: QuestionType
     var isAnswered: Bool = false
-    let correctAnswer: String?
     var playerAnswer: String?
 }
 
@@ -122,48 +108,7 @@ struct MapArea: Codable {
     let radius: Double
 }
 
-struct GameEvent: Codable {
-    let type: EventType
-    let timestamp: Date
-    let playerUID: String?
-    let details: String
-    let data: [String: Any]?
-    
-    enum CodingKeys: String, CodingKey {
-        case type, timestamp, playerUID, details
-    }
-    
-    // Add memberwise initializer
-    init(type: EventType, timestamp: Date, playerUID: String?, details: String, data: [String: Any]?) {
-        self.type = type
-        self.timestamp = timestamp
-        self.playerUID = playerUID
-        self.details = details
-        self.data = data
-    }
-        
-    // Custom encoding/decoding for data field
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        type = try container.decode(EventType.self, forKey: .type)
-        timestamp = try container.decode(Date.self, forKey: .timestamp)
-        playerUID = try container.decodeIfPresent(String.self, forKey: .playerUID)
-        details = try container.decode(String.self, forKey: .details)
-        data = nil // Handle separately if needed
-    }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(type, forKey: .type)
-        try container.encode(timestamp, forKey: .timestamp)
-        try container.encodeIfPresent(playerUID, forKey: .playerUID)
-        try container.encode(details, forKey: .details)
-    }
-}
-
-
 // MARK: - Enums
-
 enum GameState: String, Codable {
     case waiting = "waiting"
     case starting = "starting"
@@ -271,7 +216,7 @@ enum MessageType: String, Codable {
     case text = "text"
     case photo = "photo"
     case question = "question"
-    case answer = "answer"
+    case event = "event"
 }
 
 enum QuestionType: String, Codable {
@@ -280,16 +225,6 @@ enum QuestionType: String, Codable {
     case hotterColder = "hotterColder" // Hotter/Colder questions
     case photo = "photo"               // Photo questions
     case text = "text"                 // Open text questions
-    
-    var displayName: String {
-        switch self {
-        case .yesNo: return "Yes/No"
-        case .closerFurther: return "Closer/Further"
-        case .hotterColder: return "Hotter/Colder"
-        case .photo: return "Photo"
-        case .text: return "Text"
-        }
-    }
 }
 
 enum EventType: String, Codable {
@@ -302,6 +237,24 @@ enum EventType: String, Codable {
     case gameEnded = "gameEnded"
     case gamePaused = "gamePaused"
     case gameResumed = "gameResumed"
+    case hidingStarted = "hidingStarted"
+    case seekingStarted = "seekingStarted"
+    
+    var displayName: String {
+        switch self {
+        case .gameStarted: return "Game Started"
+        case .playerJoined: return "Player Joined"
+        case .playerLeft: return "Player Left"
+        case .hiderFound: return "Hider Found"
+        case .questionAsked: return "Question Asked"
+        case .questionAnswered: return "Question Answered"
+        case .gameEnded: return "Game Ended"
+        case .gamePaused: return "Game Paused"
+        case .gameResumed: return "Game Resumed"
+        case .hidingStarted: return "Hiding Started"
+        case .seekingStarted: return "Seeking Started"
+        }
+    }
 }
 
 extension Game {

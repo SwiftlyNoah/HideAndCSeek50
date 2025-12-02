@@ -27,15 +27,6 @@ extension Game {
             dict["messages"] = messagesDict
         }
         
-        // Add events if they exist
-        if !events.isEmpty {
-            var eventsDict: [String: Any] = [:]
-            for (key, event) in events {
-                eventsDict[key] = try event.toDictionary()
-            }
-            dict["events"] = eventsDict
-        }
-        
         return dict
     }
     
@@ -62,19 +53,10 @@ extension Game {
             }
         }
         
-        // Parse events
-        var events: [String: GameEvent] = [:]
-        if let eventsDict = dictionary["events"] as? [String: [String: Any]] {
-            for (key, eventDict) in eventsDict {
-                events[key] = try GameEvent.fromDictionary(eventDict)
-            }
-        }
-        
         return Game(
             info: info,
             teams: teams,
-            messages: messages,
-            events: events
+            messages: messages
         )
     }
 }
@@ -109,7 +91,6 @@ extension GameInfo {
         
         dict["startedAt"] = startedAt?.toFirebaseTimestamp() ?? NSNull()
         dict["endedAt"] = endedAt?.toFirebaseTimestamp() ?? NSNull()
-        dict["winner"] = winner?.rawValue ?? NSNull()
         
         if let hidingStartedAt = hidingStartedAt {
             dict["hidingStartedAt"] = hidingStartedAt.toFirebaseTimestamp()
@@ -146,9 +127,6 @@ extension GameInfo {
         // Primitive numeric
         let duration = dictionary["duration"] as? TimeInterval ?? 0
         
-        // Optional winner
-        let winner: Team? = (dictionary["winner"] as? String).flatMap(Team.init(rawValue:))
-        
         // Settings (delegate)
         let settings = try GameSettings.fromDictionary(settingsDict)
         
@@ -171,7 +149,6 @@ extension GameInfo {
             startedAt: startedAt,
             endedAt: endedAt,
             duration: duration,
-            winner: winner,
             settings: settings
         )
         
@@ -313,9 +290,12 @@ extension GameMessage {
                 "questionText": questionData.questionText,
                 "questionType": questionData.questionType.rawValue,
                 "isAnswered": questionData.isAnswered,
-                "correctAnswer": questionData.correctAnswer as Any,
                 "playerAnswer": questionData.playerAnswer as Any
             ]
+        }
+        
+        if let eventType = eventType {
+            dict["eventType"] = eventType.rawValue
         }
         
         return dict
@@ -356,10 +336,11 @@ extension GameMessage {
                 questionText: questionText,
                 questionType: questionType,
                 isAnswered: questionDict["isAnswered"] as? Bool ?? false,
-                correctAnswer: questionDict["correctAnswer"] as? String,
                 playerAnswer: questionDict["playerAnswer"] as? String
             )
         }
+        
+        let eventType: EventType? = (dict["eventType"] as? String).flatMap(EventType.init(rawValue:))
         
         return GameMessage(
             id: id,
@@ -370,91 +351,8 @@ extension GameMessage {
             timestamp: timestamp,
             attachments: attachments,
             questionData: questionData,
-            team: team
-        )
-    }
-}
-
-extension GameQuestion {
-    func toDictionary() throws -> [String: Any] {
-        var dict: [String: Any] = [
-            "id": id,
-            "type": type.rawValue,
-            "question": question,
-            "askedBy": askedBy,
-            "askedAt": askedAt.toFirebaseTimestamp()
-        ]
-        
-        if let answeredBy = answeredBy {
-            dict["answeredBy"] = answeredBy
-        }
-        
-        if let answeredAt = answeredAt {
-            dict["answeredAt"] = answeredAt.toFirebaseTimestamp()
-        }
-        
-        if let answer = answer {
-            dict["answer"] = answer
-        }
-        
-        return dict
-    }
-    
-    static func fromDictionary(_ dictionary: [String: Any]) throws -> GameQuestion {
-        guard let id = dictionary["id"] as? String,
-              let typeRaw = dictionary["type"] as? String,
-              let type = QuestionType(rawValue: typeRaw),
-              let question = dictionary["question"] as? String,
-              let askedBy = dictionary["askedBy"] as? String,
-              let askedAtInt = dictionary["askedAt"] as? Int64 else {
-            throw DatabaseError.invalidData
-        }
-        
-        let askedAt = Date.fromFirebaseTimestamp(askedAtInt)
-        let answeredBy = dictionary["answeredBy"] as? String
-        let answeredAt: Date? = (dictionary["answeredAt"] as? Int64).map(Date.fromFirebaseTimestamp)
-        let answer = dictionary["answer"] as? String
-        
-        return GameQuestion(
-            id: id,
-            type: type,
-            question: question,
-            askedBy: askedBy,
-            askedAt: askedAt,
-            answeredBy: answeredBy,
-            answeredAt: answeredAt,
-            answer: answer
-        )
-    }
-}
-
-extension GameEvent {
-    func toDictionary() throws -> [String: Any] {
-        return [
-            "type": type.rawValue,
-            "timestamp": timestamp.toFirebaseTimestamp(),
-            "playerUID": playerUID as Any,
-            "details": details
-        ]
-    }
-    
-    static func fromDictionary(_ dictionary: [String: Any]) throws -> GameEvent {
-        guard let typeRaw = dictionary["type"] as? String,
-              let type = EventType(rawValue: typeRaw),
-              let timestampInt = dictionary["timestamp"] as? Int64,
-              let details = dictionary["details"] as? String else {
-            throw DatabaseError.invalidData
-        }
-        
-        let timestamp = Date.fromFirebaseTimestamp(timestampInt)
-        let playerUID = dictionary["playerUID"] as? String
-        
-        return GameEvent(
-            type: type,
-            timestamp: timestamp,
-            playerUID: playerUID,
-            details: details,
-            data: nil
+            team: team,
+            eventType: eventType
         )
     }
 }

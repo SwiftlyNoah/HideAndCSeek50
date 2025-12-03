@@ -18,10 +18,7 @@ class MapSearchViewModel: ObservableObject {
     @Published var isSearching = false
     @Published var errorMessage: String?
     @Published var selectedLandmark: MKMapItem?
-    @Published var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 42.3601, longitude: -71.0589),
-        span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
-    )
+    @Published var region: MKCoordinateRegion
     
     @Published var searchResultsBottomSheetPosition: BottomSheetPosition = .hidden
     @Published var transportSelectionBottomSheetPosition: BottomSheetPosition = .hidden
@@ -34,6 +31,12 @@ class MapSearchViewModel: ObservableObject {
     @Published var route: MKRoute?
     @Published var directionsError: String?
     @Published var isCalculatingDirections = false
+    
+    // MARK: - Initialization
+    
+    init(city: GameCity) {
+        self.region = city.region
+    }
 
     enum DepartureType {
         case leaveNow

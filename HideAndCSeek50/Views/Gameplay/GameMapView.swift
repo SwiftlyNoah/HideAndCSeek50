@@ -25,6 +25,7 @@ struct GameMapView: UIViewRepresentable {
     
     // Map tools settings
     let showTrainLines: Bool
+    let trainLineOverlays: [MKPolyline] // City-specific train lines
     let mapToolsViewModel: MapToolsViewModel
     let refreshToken: Bool
     
@@ -77,7 +78,7 @@ struct GameMapView: UIViewRepresentable {
         // Conditionally add MBTA linework if enabled
         if showTrainLines {
             // Add thin white halos first for contrast, then colored lines on top
-            let mbtaLines = MassachusettsRegions.mbtaLineOverlays
+            let mbtaLines = trainLineOverlays
             var haloOverlays: [MKPolyline] = []
             for line in mbtaLines {
                 var coords = Array(repeating: kCLLocationCoordinate2DInvalid, count: Int(line.pointCount))
@@ -282,7 +283,7 @@ struct GameMapView: UIViewRepresentable {
         
         if showTrainLines && currentMBTAOverlays.isEmpty {
             // Add train lines
-            let mbtaLines = MassachusettsRegions.mbtaLineOverlays
+            let mbtaLines = trainLineOverlays
             var haloOverlays: [MKPolyline] = []
             for line in mbtaLines {
                 var coords = Array(repeating: kCLLocationCoordinate2DInvalid, count: Int(line.pointCount))

@@ -23,8 +23,8 @@ struct GameView: View {
     @StateObject private var locationManager = LocationManager.shared
     @StateObject private var databaseManager = DatabaseManager.shared
     @StateObject private var chatViewModel = ChatViewModel()
-    @StateObject private var mapSearchViewModel = MapSearchViewModel()
-    @StateObject private var mapToolsViewModel = MapToolsViewModel()
+    @StateObject private var mapSearchViewModel: MapSearchViewModel
+    @StateObject private var mapToolsViewModel: MapToolsViewModel
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authManager: AuthenticationManager
     
@@ -46,6 +46,19 @@ struct GameView: View {
     @State private var timerUpdater: Timer?
     @State private var localCurrentTime = Date()
     
+    // MARK: - Initialization
+    
+    init(gameId: String, lobbyCode: String, playerTeam: Team, city: GameCity, onReturnToMain: (() -> Void)? = nil) {
+        self.gameId = gameId
+        self.lobbyCode = lobbyCode
+        self.playerTeam = playerTeam
+        self.onReturnToMain = onReturnToMain
+        
+        // Initialize view models with city data
+        _mapSearchViewModel = StateObject(wrappedValue: MapSearchViewModel(city: city))
+        _mapToolsViewModel = StateObject(wrappedValue: MapToolsViewModel(city: city))
+    }
+    
     private var currentUser: User? {
         authManager.currentUser
     }
@@ -57,12 +70,6 @@ struct GameView: View {
     private var gameState: GameState {
         currentGame?.info.state ?? .waiting
     }
-    
-    private var gameCity: GameCity {
-        currentGame?.info.settings.city ?? .boston
-    }
-    
-    private let hidableRegions = MassachusettsRegions.hidableAreas
     
     var body: some View {
         NavigationStack {
@@ -118,11 +125,12 @@ struct GameView: View {
             game: currentGame,
             currentUserUID: currentUser?.uid ?? "",
             currentUserTeam: playerTeam,
-            hidableRegions: hidableRegions,
+            hidableRegions: mapToolsViewModel.hidableRegions,
             circleItems: mapToolsViewModel.circleItems,
             selectedRegions: mapToolsViewModel.visibleRegions,
             regionColors: mapToolsViewModel.regionColors,
             showTrainLines: mapToolsViewModel.showTrainLines,
+            trainLineOverlays: mapToolsViewModel.cityTrainLines,
             mapToolsViewModel: mapToolsViewModel,
             refreshToken: mapToolsViewModel.refreshToken,
             searchResults: mapSearchViewModel.results,
@@ -136,7 +144,6 @@ struct GameView: View {
         .ignoresSafeArea(.all)
         .onAppear {
             localCurrentTime = Date()
-            setupMapRegion()
             requestLocationPermission()
             startLocationUpdates()
             observeGameUpdates()
@@ -420,7 +427,7 @@ struct GameView: View {
             let playerTeam: Team
             let chatVM: ChatViewModel // inject explicitly
             func body(content: Content) -> some View {
-                content.sheet(isPresented: $showingChat) {
+                content.fullScreenCover(isPresented: $showingChat) {
                     NavigationStack {
                         GameChatView(
                             gameId: gameId,
@@ -436,7 +443,6 @@ struct GameView: View {
                             }
                         }
                     }
-                    .presentationDetents([.medium, .large])
                 }
             }
         }
@@ -492,26 +498,6 @@ struct GameView: View {
                 }
             )
         }
-    }
-    
-    private func setupMapRegion() {
-        // Fallback: city-based region (unchanged)
-        let newRegion: MKCoordinateRegion
-        switch gameCity {
-        case .boston:
-            newRegion = MKCoordinateRegion(
-                center: CLLocationCoordinate2D(latitude: 42.3601, longitude: -71.0589),
-                latitudinalMeters: 10000,
-                longitudinalMeters: 10000
-            )
-        case .newYork:
-            newRegion = MKCoordinateRegion(
-                center: CLLocationCoordinate2D(latitude: 40.7128, longitude: -74.0060),
-                latitudinalMeters: 15000,
-                longitudinalMeters: 15000
-            )
-        }
-        mapSearchViewModel.region = newRegion
     }
     
     private func requestLocationPermission() {

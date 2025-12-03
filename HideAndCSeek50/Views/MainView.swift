@@ -172,6 +172,7 @@ struct MainView: View {
                 gameId: destination.gameData.game.info.gameId,
                 lobbyCode: destination.gameData.lobbyCode,
                 playerTeam: destination.gameData.playerTeam,
+                city: destination.gameData.game.info.settings.city,
                 onReturnToMain: {
                     rejoinGameData = nil
                 }

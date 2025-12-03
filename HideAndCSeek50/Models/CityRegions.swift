@@ -351,4 +351,125 @@ struct MassachusettsRegions {
     }
 }
 
+struct NewYorkRegions {
+    // Load named regions (NYC boroughs)
+    static let regionsByName: [String: MKPolygon] = loadRegionsWithNames(named: "boroughs")
+    
+    // Use the named regions as the hidable areas
+    static let hidableAreas: [MKPolygon] = Array(regionsByName.values)
+    
+    static let allRegionNames: [String] = loadRegionNames(named: "boroughs")
+    
+    // TODO: Add NYC subway lines when available
+    static let subwayLineOverlays: [MKPolyline] = []
+    
+    static func loadRegionsWithNames(named name: String) -> [String: MKPolygon] {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "json") else { return [:] }
+        do {
+            let data = try Data(contentsOf: url)
+            let obj = try JSONSerialization.jsonObject(with: data, options: [])
+            guard let dict = obj as? [String: Any],
+                  let features = dict["features"] as? [[String: Any]] else { return [:] }
+
+            func asDouble(_ any: Any) -> Double? {
+                if let d = any as? Double { return d }
+                if let n = any as? NSNumber { return n.doubleValue }
+                if let s = any as? String, let d = Double(s) { return d }
+                return nil
+            }
+
+            var regionsByName: [String: MKPolygon] = [:]
+            for feature in features {
+                guard let properties = feature["properties"] as? [String: Any],
+                      let regionName = properties["BoroName"] as? String else { continue }
+                guard let geometry = feature["geometry"] as? [String: Any],
+                      let type = geometry["type"] as? String,
+                      let coordsAny = geometry["coordinates"] as? [Any] else { continue }
+
+                if type == "Polygon" {
+                    // Get the first ring (exterior boundary)
+                    if let firstRing = coordsAny.first as? [Any] {
+                        var ringCoords: [CLLocationCoordinate2D] = []
+                        for coordAny in firstRing {
+                            guard let pair = coordAny as? [Any], pair.count >= 2,
+                                  let lon = asDouble(pair[0]), let lat = asDouble(pair[1]) else { continue }
+                            ringCoords.append(CLLocationCoordinate2D(latitude: lat, longitude: lon))
+                        }
+                        if ringCoords.count > 0 {
+                            let polygon = ringCoords.withUnsafeBufferPointer { ptr -> MKPolygon in
+                                let basePolygon = MKPolygon(coordinates: ptr.baseAddress!, count: ringCoords.count)
+                                basePolygon.title = regionName
+                                return basePolygon
+                            }
+                            regionsByName[regionName] = polygon
+                        }
+                    }
+                } else if type == "MultiPolygon" {
+                    // For MultiPolygon, find the largest polygon (by coordinate count) to use as the main region
+                    var largestRing: [CLLocationCoordinate2D] = []
+                    
+                    for polyAny in coordsAny {
+                        guard let poly = polyAny as? [Any],
+                              let firstRing = poly.first as? [Any] else { continue }
+                        
+                        var ringCoords: [CLLocationCoordinate2D] = []
+                        for coordAny in firstRing {
+                            guard let pair = coordAny as? [Any], pair.count >= 2,
+                                  let lon = asDouble(pair[0]), let lat = asDouble(pair[1]) else { continue }
+                            ringCoords.append(CLLocationCoordinate2D(latitude: lat, longitude: lon))
+                        }
+                        
+                        // Keep track of the largest ring
+                        if ringCoords.count > largestRing.count {
+                            largestRing = ringCoords
+                        }
+                    }
+                    
+                    if largestRing.count > 0 {
+                        let polygon = largestRing.withUnsafeBufferPointer { ptr -> MKPolygon in
+                            let basePolygon = MKPolygon(coordinates: ptr.baseAddress!, count: largestRing.count)
+                            basePolygon.title = regionName
+                            return basePolygon
+                        }
+                        regionsByName[regionName] = polygon
+                    }
+                }
+            }
+
+            #if DEBUG
+            print("[CityRegions] Loaded \(regionsByName.count) NYC boroughs from \(name).json")
+            #endif
+            return regionsByName
+        } catch {
+    #if DEBUG
+            print("[CityRegions] Error loading NYC boroughs from GeoJSON (\(name)): \(error)")
+    #endif
+            return [:]
+        }
+    }
+    
+    static func loadRegionNames(named name: String) -> [String] {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "json") else { return [] }
+        do {
+            let data = try Data(contentsOf: url)
+            let obj = try JSONSerialization.jsonObject(with: data, options: [])
+            guard let dict = obj as? [String: Any],
+                  let features = dict["features"] as? [[String: Any]] else { return [] }
+
+            var names: [String] = []
+            for feature in features {
+                guard let properties = feature["properties"] as? [String: Any],
+                      let regionName = properties["BoroName"] as? String else { continue }
+                names.append(regionName)
+            }
+
+            return names.sorted()
+        } catch {
+            return []
+        }
+    }
+}
+
+
+
 

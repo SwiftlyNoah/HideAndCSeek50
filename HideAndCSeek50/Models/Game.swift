@@ -238,8 +238,7 @@ enum GameCity: String, Codable, CaseIterable {
         case .boston:
             return MassachusettsRegions.hidableAreas
         case .newYork:
-            // TODO: Add New York regions when available
-            return []
+            return NewYorkRegions.hidableAreas
         case .custom:
             // No predefined hideable areas for custom cities
             return []
@@ -251,8 +250,7 @@ enum GameCity: String, Codable, CaseIterable {
         case .boston:
             return MassachusettsRegions.regionsByName
         case .newYork:
-            // TODO: Add New York regions when available
-            return [:]
+            return NewYorkRegions.regionsByName
         case .custom:
             return [:]
         }
@@ -263,8 +261,7 @@ enum GameCity: String, Codable, CaseIterable {
         case .boston:
             return MassachusettsRegions.allRegionNames
         case .newYork:
-            // TODO: Add New York region names when available
-            return []
+            return NewYorkRegions.allRegionNames
         case .custom:
             return []
         }
@@ -275,8 +272,7 @@ enum GameCity: String, Codable, CaseIterable {
         case .boston:
             return MassachusettsRegions.mbtaLineOverlays
         case .newYork:
-            // TODO: Add NYC subway lines when available
-            return []
+            return NewYorkRegions.subwayLineOverlays
         case .custom:
             return []
         }

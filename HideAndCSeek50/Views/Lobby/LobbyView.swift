@@ -156,6 +156,7 @@ struct LobbyView: View {
                             gameId: gameId,
                             lobbyCode: lobbyCode,
                             playerTeam: currentPlayer.team,
+                            city: lobby.city,
                             onReturnToMain: {
                                 // Dismiss the lobby view to return to main
                                 dismiss()

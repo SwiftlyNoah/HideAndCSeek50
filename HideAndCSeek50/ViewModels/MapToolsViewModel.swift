@@ -52,7 +52,19 @@ class MapToolsViewModel: ObservableObject {
     ]
     
     let milesOptions: [Double] = [0.25, 0.5, 1, 3, 5, 10, 25, 50, 100]
-    let allRegionNames = MassachusettsRegions.allRegionNames
+    let allRegionNames: [String]
+    let regionsByName: [String: MKPolygon]
+    let hidableRegions: [MKPolygon]
+    let cityTrainLines: [MKPolyline]
+    
+    // MARK: - Initialization
+    
+    init(city: GameCity) {
+        self.allRegionNames = city.allRegionNames
+        self.regionsByName = city.regionsByName
+        self.hidableRegions = city.hidableAreas
+        self.cityTrainLines = city.trainLines
+    }
     
     // Computed properties for green and red regions
     var greenRegions: Set<String> {

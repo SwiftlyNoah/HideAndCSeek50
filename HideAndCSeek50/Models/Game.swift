@@ -191,11 +191,13 @@ enum Team: String, Codable {
 enum GameCity: String, Codable, CaseIterable {
     case boston = "boston"
     case newYork = "newYork"
+    case custom = "custom"
     
     var displayName: String {
         switch self {
         case .boston: return "Boston"
         case .newYork: return "New York"
+        case .custom: return "Custom"
         }
     }
     
@@ -203,6 +205,80 @@ enum GameCity: String, Codable, CaseIterable {
         switch self {
         case .boston: return "BOS"
         case .newYork: return "NYC"
+        case .custom: return "CUS"
+        }
+    }
+    
+    var region: MKCoordinateRegion {
+        switch self {
+        case .boston:
+            return MKCoordinateRegion(
+                center: CLLocationCoordinate2D(latitude: 42.3601, longitude: -71.0589),
+                latitudinalMeters: 10000,
+                longitudinalMeters: 10000
+            )
+        case .newYork:
+            return MKCoordinateRegion(
+                center: CLLocationCoordinate2D(latitude: 40.7128, longitude: -74.0060),
+                latitudinalMeters: 15000,
+                longitudinalMeters: 15000
+            )
+        case .custom:
+            // Default region for custom - can be overridden
+            return MKCoordinateRegion(
+                center: CLLocationCoordinate2D(latitude: 42.3601, longitude: -71.0589),
+                latitudinalMeters: 10000,
+                longitudinalMeters: 10000
+            )
+        }
+    }
+    
+    var hidableAreas: [MKPolygon] {
+        switch self {
+        case .boston:
+            return MassachusettsRegions.hidableAreas
+        case .newYork:
+            // TODO: Add New York regions when available
+            return []
+        case .custom:
+            // No predefined hideable areas for custom cities
+            return []
+        }
+    }
+    
+    var regionsByName: [String: MKPolygon] {
+        switch self {
+        case .boston:
+            return MassachusettsRegions.regionsByName
+        case .newYork:
+            // TODO: Add New York regions when available
+            return [:]
+        case .custom:
+            return [:]
+        }
+    }
+    
+    var allRegionNames: [String] {
+        switch self {
+        case .boston:
+            return MassachusettsRegions.allRegionNames
+        case .newYork:
+            // TODO: Add New York region names when available
+            return []
+        case .custom:
+            return []
+        }
+    }
+    
+    var trainLines: [MKPolyline] {
+        switch self {
+        case .boston:
+            return MassachusettsRegions.mbtaLineOverlays
+        case .newYork:
+            // TODO: Add NYC subway lines when available
+            return []
+        case .custom:
+            return []
         }
     }
 }

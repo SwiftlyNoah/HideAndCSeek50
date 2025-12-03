@@ -420,7 +420,7 @@ struct GameView: View {
             let playerTeam: Team
             let chatVM: ChatViewModel // inject explicitly
             func body(content: Content) -> some View {
-                content.sheet(isPresented: $showingChat) {
+                content.fullScreenCover(isPresented: $showingChat) {
                     NavigationStack {
                         GameChatView(
                             gameId: gameId,
@@ -436,7 +436,6 @@ struct GameView: View {
                             }
                         }
                     }
-                    .presentationDetents([.medium, .large])
                 }
             }
         }

@@ -57,11 +57,11 @@ struct GameChatView: View {
                     .padding()
                 }
                 .onChange(of: chatViewModel.messages.count) { _, _ in
-                    if let lastMessage = chatViewModel.messages.last {
-                        withAnimation {
-                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                        }
-                    }
+                    scrollToBottom(proxy: proxy)
+                }
+                .onAppear {
+                    // Scroll to bottom when view first appears
+                    scrollToBottom(proxy: proxy, animated: false)
                 }
             }
             
@@ -141,6 +141,18 @@ struct GameChatView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Camera is not available on this device or permission has been denied.")
+        }
+    }
+    
+    private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool = true) {
+        guard let lastMessage = chatViewModel.messages.last else { return }
+        
+        if animated {
+            withAnimation {
+                proxy.scrollTo(lastMessage.id, anchor: .bottom)
+            }
+        } else {
+            proxy.scrollTo(lastMessage.id, anchor: .bottom)
         }
     }
     
@@ -656,8 +668,8 @@ struct QuestionAnswerView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(background)
             .foregroundColor(foreground)
+            .background(background)
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
         // Avoid default control tint briefly flashing system blue

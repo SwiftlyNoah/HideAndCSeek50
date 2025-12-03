@@ -124,6 +124,9 @@ struct GameMapView: UIViewRepresentable {
         
         // Add measurement point annotations (A) if set
         syncMeasurePointAnnotations(mapView)
+        
+        // Add polygon vertex annotations for current polygon being drawn
+        syncPolygonVertexAnnotations(mapView)
 
         // Update circle overlays: remove existing user circles and add current ones
         let overlaysToRemove = mapView.overlays.compactMap { overlay -> MKOverlay? in
@@ -233,6 +236,22 @@ struct GameMapView: UIViewRepresentable {
         if let live = mapToolsViewModel.measureTool.polyline {
             mapView.addOverlay(live)
         }
+        
+        // Sync custom polygon overlays
+        let oldPolygonOverlays = mapView.overlays.compactMap { overlay -> MKOverlay? in
+            if let p = overlay as? MKPolygon, let t = p.title as String? {
+                if t.hasPrefix("polygon:") { return p }
+            }
+            return nil
+        }
+        if !oldPolygonOverlays.isEmpty {
+            mapView.removeOverlays(oldPolygonOverlays)
+        }
+        
+        // Add saved custom polygons
+        for item in mapToolsViewModel.polygonItems {
+            mapView.addOverlay(item.polygon)
+        }
     }
     
     func makeCoordinator() -> Coordinator {
@@ -256,7 +275,7 @@ struct GameMapView: UIViewRepresentable {
             if let polyline = overlay as? MKPolyline,
                let title = polyline.title as String? {
                 // Check if it's an MBTA line (has route_id) or halo
-                return title.contains("Red") || title.contains("Blue") || title.contains("Orange") || title.contains("Green") || polyline.subtitle == "halo"
+                return title.contains("Red") || title.contains("Blue") || title.contains("Orange") || title.contains("Green") || title.contains("Mattapan") || polyline.subtitle == "halo"
             }
             return false
         }
@@ -405,6 +424,21 @@ struct GameMapView: UIViewRepresentable {
         }
     }
     
+    private func syncPolygonVertexAnnotations(_ mapView: MKMapView) {
+        // Remove any existing polygon vertex annotations
+        let old = mapView.annotations.compactMap { ann -> MKAnnotation? in
+            if let pv = ann as? PolygonVertexAnnotation { return pv }
+            return nil
+        }
+        if !old.isEmpty { mapView.removeAnnotations(old) }
+        
+        // Add annotations for each vertex in the current polygon tool
+        for (index, vertex) in mapToolsViewModel.polygonTool.vertices.enumerated() {
+            let ann = PolygonVertexAnnotation(vertexIndex: index, coordinate: vertex)
+            mapView.addAnnotation(ann)
+        }
+    }
+    
     class Coordinator: NSObject, MKMapViewDelegate {
         let parent: GameMapView
         var userIsInteracting = false
@@ -482,6 +516,25 @@ struct GameMapView: UIViewRepresentable {
                         renderer.strokeColor = UIColor.systemBlue
                     }
                     renderer.lineWidth = 2.0
+                    return renderer
+                }
+                
+                // Custom polygon tool overlays
+                if let title = polygon.title as String?, title.hasPrefix("polygon:") {
+                    let renderer = MKPolygonRenderer(polygon: polygon)
+                    // Parse color index from title: "polygon:UUID:colorIndex"
+                    let components = title.components(separatedBy: ":")
+                    if components.count >= 3, let colorIndex = Int(components[2]),
+                       !MapToolsViewModel.colorOptionsUIKit.isEmpty {
+                        let safeIdx = min(max(colorIndex, 0), MapToolsViewModel.colorOptionsUIKit.count - 1)
+                        let color = MapToolsViewModel.colorOptionsUIKit[safeIdx]
+                        renderer.fillColor = color.withAlphaComponent(0.25)
+                        renderer.strokeColor = color
+                    } else {
+                        renderer.fillColor = UIColor.systemGreen.withAlphaComponent(0.25)
+                        renderer.strokeColor = UIColor.systemGreen
+                    }
+                    renderer.lineWidth = 2.5
                     return renderer
                 }
 
@@ -604,6 +657,24 @@ struct GameMapView: UIViewRepresentable {
                 }
                 return view
             }
+            
+            // Polygon vertex markers
+            if let pv = annotation as? PolygonVertexAnnotation {
+                let identifier = "PolygonVertex"
+                var view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+                if view == nil {
+                    view = MKMarkerAnnotationView(annotation: pv, reuseIdentifier: identifier)
+                    view?.canShowCallout = false
+                } else {
+                    view?.annotation = pv
+                }
+                // Get color from viewmodel
+                let colorIndex = parent.mapToolsViewModel.polygonColorIndex
+                let safeIdx = min(max(colorIndex, 0), MapToolsViewModel.colorOptionsUIKit.count - 1)
+                view?.markerTintColor = MapToolsViewModel.colorOptionsUIKit[safeIdx]
+                view?.glyphText = "\(pv.vertexIndex + 1)"
+                return view
+            }
             return nil
         }
         
@@ -612,6 +683,8 @@ struct GameMapView: UIViewRepresentable {
             switch routeID {
             case let id where id.contains("Red"):
                 return UIColor.systemRed
+            case let id where id.contains("Mattapan"):
+                return UIColor.systemRed  // Mattapan Trolley uses MBTA red
             case let id where id.contains("Blue"):
                 return UIColor.systemBlue
             case let id where id.contains("Orange"):
@@ -722,6 +795,17 @@ final class BisectorPointAnnotation: NSObject, MKAnnotation {
     }
     init(kind: Kind, coordinate: CLLocationCoordinate2D) {
         self.kind = kind
+        self.coordinate = coordinate
+        super.init()
+    }
+}
+
+final class PolygonVertexAnnotation: NSObject, MKAnnotation {
+    let vertexIndex: Int
+    dynamic var coordinate: CLLocationCoordinate2D
+    var title: String? { "Vertex \(vertexIndex + 1)" }
+    init(vertexIndex: Int, coordinate: CLLocationCoordinate2D) {
+        self.vertexIndex = vertexIndex
         self.coordinate = coordinate
         super.init()
     }

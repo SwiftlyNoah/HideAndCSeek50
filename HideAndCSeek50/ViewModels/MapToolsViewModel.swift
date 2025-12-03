@@ -43,6 +43,12 @@ class MapToolsViewModel: ObservableObject {
     @Published var measureExpanded: Bool = false
     @Published var measureColorIndex: Int = 5
     @Published var measureItems: [DistanceOverlayItem] = []
+    
+    // Polygon variables
+    @Published var polygonTool = PolygonToolItem()
+    @Published var polygonExpanded: Bool = false
+    @Published var polygonColorIndex: Int = 3 // Default to green
+    @Published var polygonItems: [PolygonOverlayItem] = []
 
     // Color options - static so it can be shared between views
     static let colorOptions: [Color] = [.red, .orange, .yellow, .green, .teal, .blue, .purple]
@@ -561,6 +567,57 @@ class MapToolsViewModel: ObservableObject {
             .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
         measureTool.distanceMeters = d
     }
+    
+    // MARK: - Polygon Tool
+    
+    func addPolygonVertex(_ coord: CLLocationCoordinate2D) {
+        polygonTool.vertices.append(coord)
+        refreshToken.toggle()
+    }
+    
+    func removePolygonVertex(at index: Int) {
+        guard index >= 0 && index < polygonTool.vertices.count else { return }
+        polygonTool.vertices.remove(at: index)
+        refreshToken.toggle()
+    }
+    
+    func closeAndAddPolygon() {
+        guard polygonTool.vertices.count >= 3 else { return }
+        
+        let id = UUID()
+        let vertices = polygonTool.vertices
+        let polygon = vertices.withUnsafeBufferPointer {
+            MKPolygon(coordinates: $0.baseAddress!, count: vertices.count)
+        }
+        polygon.title = "polygon:\(id.uuidString):\(polygonColorIndex)"
+        
+        let item = PolygonOverlayItem(
+            id: id,
+            vertices: vertices,
+            colorIndex: polygonColorIndex,
+            polygon: polygon
+        )
+        
+        withAnimation(.easeInOut(duration: 0.18)) {
+            polygonItems.append(item)
+        }
+        
+        // Clear current vertices
+        polygonTool.vertices.removeAll()
+        refreshToken.toggle()
+    }
+    
+    func removePolygon(id: UUID) {
+        withAnimation(.easeInOut(duration: 0.16)) {
+            polygonItems.removeAll { $0.id == id }
+        }
+        refreshToken.toggle()
+    }
+    
+    func clearPolygonTool() {
+        polygonTool.vertices.removeAll()
+        refreshToken.toggle()
+    }
 }
 
 final class BisectorToolItem: ObservableObject {
@@ -578,4 +635,8 @@ final class MeasureToolItem: ObservableObject {
     @Published var pointB: CLLocationCoordinate2D?
     @Published var polyline: MKPolyline?
     @Published var distanceMeters: Double?
+}
+
+final class PolygonToolItem: ObservableObject {
+    @Published var vertices: [CLLocationCoordinate2D] = []
 }

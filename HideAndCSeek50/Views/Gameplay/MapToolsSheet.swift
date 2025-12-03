@@ -122,6 +122,28 @@ struct MapToolsSheetContent: View {
                         .padding(.vertical, 4)
                     }
                     .accentColor(.clear)
+                    
+                    // Custom Polygon Tool (NEW)
+                    DisclosureGroup(isExpanded: $viewModel.polygonExpanded) {
+                        PolygonToolView(
+                            viewModel: viewModel,
+                            mapCenter: $mapCenter,
+                            contextItem: contextItem
+                        )
+                        .padding(16)
+                        .background(Color.primary.opacity(0.1))
+                        .cornerRadius(12)
+                    } label: {
+                        HStack {
+                            Image(systemName: "pentagon.fill")
+                                .foregroundColor(.primary.opacity(0.8))
+                            Text("Custom Polygon")
+                                .foregroundColor(.primary)
+                            Spacer()
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .accentColor(.clear)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
@@ -132,12 +154,14 @@ struct MapToolsSheetContent: View {
             if newValue == true {
                 viewModel.measureExpanded = false
                 viewModel.bisectorExpanded = false
+                viewModel.polygonExpanded = false
             }
         }
         .onChange(of: viewModel.measureExpanded) { oldValue, newValue in
             if newValue == true {
                 // Ensure only one disclosure group is open at a time
                 viewModel.bisectorExpanded = false
+                viewModel.polygonExpanded = false
                 
                 // Set default point when opening if context item exists
                 if let item = contextItem, viewModel.measureTool.pointA == nil {
@@ -153,6 +177,7 @@ struct MapToolsSheetContent: View {
         .onChange(of: viewModel.bisectorExpanded) { oldValue, newValue in
             if newValue == true {
                 viewModel.measureExpanded = false
+                viewModel.polygonExpanded = false
                 
                 // Set default point when opening if context item exists
                 if let item = contextItem, viewModel.bisectorTool.pointA == nil {
@@ -164,10 +189,21 @@ struct MapToolsSheetContent: View {
                 viewModel.clearBisector()
             }
         }
+        .onChange(of: viewModel.polygonExpanded) { oldValue, newValue in
+            if newValue == true {
+                viewModel.measureExpanded = false
+                viewModel.bisectorExpanded = false
+                viewModel.municipalitiesExpanded = false
+            } else {
+                // Clear vertices when collapsed
+                viewModel.clearPolygonTool()
+            }
+        }
         .onChange(of: viewModel.municipalitiesExpanded) { oldValue, newValue in
             if newValue == true {
                 viewModel.measureExpanded = false
                 viewModel.bisectorExpanded = false
+                viewModel.polygonExpanded = false
             }
         }
     }
@@ -896,6 +932,165 @@ struct MeasureToolView: View {
         .onChange(of: mapCenter.longitude, initial: false) { oldLon, newLon in
             let newCenter = CLLocationCoordinate2D(latitude: mapCenter.latitude, longitude: newLon)
             viewModel.updateMeasureLive(toCrosshair: newCenter)
+        }
+    }
+}
+
+// MARK: - Polygon Tool
+struct PolygonToolView: View {
+    @ObservedObject var viewModel: MapToolsViewModel
+    @Binding var mapCenter: CLLocationCoordinate2D
+    let contextItem: MKMapItem?
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Instruction text
+            Text("Tap 'Add Vertex' to place points at the crosshair. Need at least 3 vertices to close.")
+                .font(.caption)
+                .foregroundColor(.primary.opacity(0.7))
+            
+            // Current vertices list
+            if !viewModel.polygonTool.vertices.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Vertices (\(viewModel.polygonTool.vertices.count))")
+                        .font(.caption)
+                        .foregroundColor(.primary.opacity(0.7))
+                    
+                    ForEach(Array(viewModel.polygonTool.vertices.enumerated()), id: \.offset) { index, vertex in
+                        HStack(spacing: 10) {
+                            Text("\(index + 1).")
+                                .font(.caption2)
+                                .foregroundColor(.primary.opacity(0.6))
+                                .frame(width: 20, alignment: .leading)
+                            Text("Lat: \(vertex.latitude, specifier: "%.5f"), Lon: \(vertex.longitude, specifier: "%.5f")")
+                                .font(.caption2)
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
+                            Spacer()
+                            Button(role: .destructive) {
+                                viewModel.removePolygonVertex(at: index)
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+            
+            // Color picker
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Polygon Color:")
+                    .font(.caption)
+                    .foregroundColor(.primary.opacity(0.7))
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(Array(MapToolsViewModel.colorOptions.enumerated()), id: \.offset) { index, color in
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    viewModel.polygonColorIndex = index
+                                }
+                            }) {
+                                Circle()
+                                    .fill(color)
+                                    .frame(width: 28, height: 28)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.black, lineWidth: viewModel.polygonColorIndex == index ? 3 : 0)
+                                    )
+                                    .scaleEffect(viewModel.polygonColorIndex == index ? 1.1 : 1.0)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(4)
+                    }
+                }
+            }
+            
+            // Action buttons
+            HStack(spacing: 12) {
+                Button {
+                    let coord = contextItem?.location.coordinate ?? mapCenter
+                    viewModel.addPolygonVertex(coord)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle")
+                        Text("Add Vertex")
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(Color.primary.opacity(0.12))
+                    .foregroundColor(.primary)
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                
+                Button {
+                    viewModel.closeAndAddPolygon()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Close Polygon")
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(MapToolsViewModel.colorOptions[viewModel.polygonColorIndex].opacity(0.35))
+                    .foregroundColor(.primary)
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.polygonTool.vertices.count < 3)
+                .opacity(viewModel.polygonTool.vertices.count < 3 ? 0.5 : 1.0)
+                
+                Button(role: .destructive) {
+                    viewModel.clearPolygonTool()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "trash")
+                        Text("Clear")
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(Color.red.opacity(0.15))
+                    .foregroundColor(.red)
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+            
+            // Saved polygons list
+            if !viewModel.polygonItems.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Saved Polygons")
+                        .font(.caption)
+                        .foregroundColor(.primary.opacity(0.7))
+                    ForEach(viewModel.polygonItems) { item in
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(MapToolsViewModel.colorOptions[min(item.colorIndex, MapToolsViewModel.colorOptions.count - 1)])
+                                .frame(width: 10, height: 10)
+                            Text("\(item.vertices.count) vertices")
+                                .font(.caption2)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Button(role: .destructive) {
+                                viewModel.removePolygon(id: item.id)
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+                .padding(.top, 8)
+            }
         }
     }
 }

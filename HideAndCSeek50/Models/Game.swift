@@ -100,6 +100,7 @@ struct QuestionData: Codable {
     let questionType: QuestionType
     var isAnswered: Bool = false
     var playerAnswer: String?
+    var questionCategory: QuestionCategory? = nil
 }
 
 struct MapArea: Codable {

@@ -146,11 +146,13 @@ struct GameQuestionView: View {
             Text("Select Question Category")
                 .font(.headline)
                 .fontWeight(.semibold)
-            
+
             if showingCategorySelector {
                 // Show all categories
                 VStack(spacing: 8) {
                     ForEach(QuestionCategory.allCases, id: \.self) { category in
+                        let isDisabled = restrictedCategories.contains(category)
+
                         Button(action: {
                             selectedCategory = category
                             selectedQuestion = nil
@@ -161,23 +163,31 @@ struct GameQuestionView: View {
                                     HStack {
                                         Image(systemName: category.iconName)
                                             .font(.headline)
-                                        
                                         Text(category.displayName)
                                             .font(.headline)
                                             .fontWeight(.semibold)
+                                        if isDisabled {
+                                            Text("Just asked")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Color.secondary.opacity(0.15))
+                                                .cornerRadius(6)
+                                        }
                                     }
-                                    
                                     Text(category.description)
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
-                                
                                 Spacer()
                             }
                             .padding(16)
                             .background(Color(.systemGray6))
                             .cornerRadius(12)
+                            .opacity(isDisabled ? 0.5 : 1.0)
                         }
+                        .disabled(isDisabled)
                         .foregroundColor(.primary)
                     }
                 }
@@ -293,18 +303,25 @@ struct GameQuestionView: View {
             showingError = true
             return
         }
-        
+
+        // Safety check: prevent sending if restricted (race protection)
+        if restrictedCategories.contains(selectedCategory) {
+            errorMessage = "You can't ask two questions in a row from the same category."
+            showingError = true
+            return
+        }
+
         isLoading = true
-        
+
         do {
             // Compose question with reward
             let baseQuestion = selectedCategory.writeQuestion(arg: selectedQuestion)
             let rewardText = categoryReward(for: selectedCategory)
             let fullQuestion = "\(baseQuestion) — Reward: \(rewardText)"
-            
+
             let questionId = UUID().uuidString
-            
-            // Create message with question type and questionData
+
+            // Include questionCategory so we can enforce the rule on the next turn
             let message = GameMessage(
                 id: UUID().uuidString,
                 senderUID: currentUID,
@@ -318,11 +335,12 @@ struct GameQuestionView: View {
                     questionText: fullQuestion,
                     questionType: selectedCategory.questionType,
                     isAnswered: false,
-                    playerAnswer: nil
+                    playerAnswer: nil,
+                    questionCategory: selectedCategory // NEW
                 ),
                 team: .seekers
             )
-            
+
             try await databaseManager.sendMessage(gameId: gameId, message: message)
             
             await MainActor.run {
@@ -338,6 +356,28 @@ struct GameQuestionView: View {
             }
         }
     }
+    
+    private var lastQuestionMessage: GameMessage? {
+        databaseManager.currentGame?
+            .messages
+            .values
+            .filter { $0.type == .question }
+            .sorted(by: { $0.timestamp > $1.timestamp })
+            .first
+    }
+    
+    // Categories disabled for the next question
+    private var restrictedCategories: Set<QuestionCategory> {
+        // Prefer explicit category, fallback to all categories sharing the same QuestionType
+        if let lastCat = lastQuestionMessage?.questionData?.questionCategory {
+            return [lastCat]
+        }
+        if let lastType = lastQuestionMessage?.questionData?.questionType {
+            return Set(QuestionCategory.allCases.filter { $0.questionType == lastType })
+        }
+        return []
+    }
+
     // MARK: - Helpers
     
     private func questionsForCategory(_ category: QuestionCategory) -> [String]? {

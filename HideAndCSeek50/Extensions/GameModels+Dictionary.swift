@@ -275,29 +275,35 @@ extension GameMessage {
             "timestamp": timestamp.toFirebaseTimestamp(),
             "team": team.rawValue
         ]
-        
+
         if let attachments = attachments {
-            dict["attachments"] = [
-                "photoURL": attachments.photoURL as Any,
-                "audioURL": attachments.audioURL as Any,
-                "duration": attachments.duration as Any
-            ]
+            var att: [String: Any] = [:]
+            if let photoURL = attachments.photoURL { att["photoURL"] = photoURL }
+            if let audioURL = attachments.audioURL { att["audioURL"] = audioURL }
+            if let duration = attachments.duration { att["duration"] = duration }
+            dict["attachments"] = att
         }
-        
-        if let questionData = questionData {
-            dict["questionData"] = [
-                "questionId": questionData.questionId,
-                "questionText": questionData.questionText,
-                "questionType": questionData.questionType.rawValue,
-                "isAnswered": questionData.isAnswered,
-                "playerAnswer": questionData.playerAnswer as Any
+
+        if let q = questionData {
+            var qd: [String: Any] = [
+                "questionId": q.questionId,
+                "questionText": q.questionText,
+                "questionType": q.questionType.rawValue,
+                "isAnswered": q.isAnswered
             ]
+            if let ans = q.playerAnswer {
+                qd["playerAnswer"] = ans
+            }
+            if let cat = q.questionCategory {
+                qd["questionCategory"] = cat.rawValue
+            }
+            dict["questionData"] = qd
         }
-        
+
         if let eventType = eventType {
             dict["eventType"] = eventType.rawValue
         }
-        
+
         return dict
     }
     
@@ -331,12 +337,16 @@ extension GameMessage {
            let questionText = questionDict["questionText"] as? String,
            let questionTypeRaw = questionDict["questionType"] as? String,
            let questionType = QuestionType(rawValue: questionTypeRaw) {
+            let categoryRaw = questionDict["questionCategory"] as? String
+            let questionCategory = categoryRaw.flatMap { QuestionCategory(rawValue: $0) }
+
             questionData = QuestionData(
                 questionId: questionId,
                 questionText: questionText,
                 questionType: questionType,
                 isAnswered: questionDict["isAnswered"] as? Bool ?? false,
-                playerAnswer: questionDict["playerAnswer"] as? String
+                playerAnswer: questionDict["playerAnswer"] as? String,
+                questionCategory: questionCategory
             )
         }
         

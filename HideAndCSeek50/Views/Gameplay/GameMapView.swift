@@ -241,7 +241,7 @@ struct GameMapView: UIViewRepresentable {
         // Sync custom polygon overlays
         let oldPolygonOverlays = mapView.overlays.compactMap { overlay -> MKOverlay? in
             if let p = overlay as? MKPolygon, let t = p.title as String? {
-                if t.hasPrefix("polygon:") { return p }
+                if t.hasPrefix("polygon:") || t.hasPrefix("userPolygonOutside:") { return p }
             }
             return nil
         }
@@ -251,7 +251,15 @@ struct GameMapView: UIViewRepresentable {
         
         // Add saved custom polygons
         for item in mapToolsViewModel.polygonItems {
-            mapView.addOverlay(item.polygon)
+            if item.shadeOutside {
+                let inversePolygon = GameMapView.makeInversePolygon(
+                    vertices: item.vertices
+                )
+                inversePolygon.title = "userPolygonOutside:\(item.id.uuidString):\(item.colorIndex)"
+                mapView.addOverlay(inversePolygon)
+            } else {
+                mapView.addOverlay(item.polygon)
+            }
         }
     }
     
@@ -521,9 +529,9 @@ struct GameMapView: UIViewRepresentable {
                 }
                 
                 // Custom polygon tool overlays
-                if let title = polygon.title as String?, title.hasPrefix("polygon:") {
+                if let title = polygon.title as String?, title.hasPrefix("polygon:") || title.hasPrefix("userPolygonOutside:") {
                     let renderer = MKPolygonRenderer(polygon: polygon)
-                    // Parse color index from title: "polygon:UUID:colorIndex"
+                    // Parse color index from title: "polygon:UUID:colorIndex" or "userPolygonOutside:UUID:colorIndex"
                     let components = title.components(separatedBy: ":")
                     if components.count >= 3, let colorIndex = Int(components[2]),
                        !MapToolsViewModel.colorOptionsUIKit.isEmpty {
@@ -767,6 +775,29 @@ extension GameMapView {
         }
 
         let hole = holeCoords.withUnsafeBufferPointer { MKPolygon(coordinates: $0.baseAddress!, count: holeCoords.count) }
+        let inverse = MKPolygon(coordinates: outerCoords, count: outerCoords.count, interiorPolygons: [hole])
+        return inverse
+    }
+    
+    static func makeInversePolygon(vertices: [CLLocationCoordinate2D]) -> MKPolygon {
+        // Calculate center of polygon to determine outer bounds
+        let avgLat = vertices.map { $0.latitude }.reduce(0, +) / Double(vertices.count)
+        let avgLon = vertices.map { $0.longitude }.reduce(0, +) / Double(vertices.count)
+        
+        // Outer polygon covering a wide area around the polygon center
+        let deltaLat: CLLocationDegrees = 10.0
+        let deltaLon: CLLocationDegrees = 10.0
+        let outerCoords = [
+            CLLocationCoordinate2D(latitude: avgLat - deltaLat, longitude: avgLon - deltaLon),
+            CLLocationCoordinate2D(latitude: avgLat - deltaLat, longitude: avgLon + deltaLon),
+            CLLocationCoordinate2D(latitude: avgLat + deltaLat, longitude: avgLon + deltaLon),
+            CLLocationCoordinate2D(latitude: avgLat + deltaLat, longitude: avgLon - deltaLon)
+        ]
+        
+        // Create interior polygon (hole) from vertices
+        let hole = vertices.withUnsafeBufferPointer { 
+            MKPolygon(coordinates: $0.baseAddress!, count: vertices.count)
+        }
         let inverse = MKPolygon(coordinates: outerCoords, count: outerCoords.count, interiorPolygons: [hole])
         return inverse
     }

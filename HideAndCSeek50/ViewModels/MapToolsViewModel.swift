@@ -48,6 +48,7 @@ class MapToolsViewModel: ObservableObject {
     @Published var polygonTool = PolygonToolItem()
     @Published var polygonExpanded: Bool = false
     @Published var polygonColorIndex: Int = 3 // Default to green
+    @Published var shadeOutsidePolygon: Bool = false
     @Published var polygonItems: [PolygonOverlayItem] = []
 
     // Color options - static so it can be shared between views
@@ -607,6 +608,7 @@ class MapToolsViewModel: ObservableObject {
             id: id,
             vertices: vertices,
             colorIndex: polygonColorIndex,
+            shadeOutside: shadeOutsidePolygon,
             polygon: polygon
         )
         

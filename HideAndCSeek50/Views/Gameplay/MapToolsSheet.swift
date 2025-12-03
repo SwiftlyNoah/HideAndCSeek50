@@ -1011,6 +1011,12 @@ struct PolygonToolView: View {
                 }
             }
             
+            // Shade outside toggle
+            Toggle("Shade Outside Polygon", isOn: $viewModel.shadeOutsidePolygon)
+                .font(.caption)
+                .foregroundColor(.primary)
+                .toggleStyle(.switch)
+            
             // Action buttons
             HStack(spacing: 12) {
                 Button {

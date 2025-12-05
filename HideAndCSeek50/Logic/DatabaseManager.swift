@@ -1124,6 +1124,126 @@ class DatabaseManager: ObservableObject {
             try await saveGameHistory(uid: uid, entry: historyEntry)
         }
     }
+
+    // MARK: - Map Tools Management
+
+    func saveMapTools(gameId: String, playerUID: String, mapToolsData: MapToolsData) async throws {
+        let mapToolsRef = DatabaseReference.game(gameId).child("mapTools").child(playerUID)
+        try await mapToolsRef.setValue(try mapToolsData.toDictionary())
+    }
+
+    func loadMapTools(gameId: String, playerUID: String) async throws -> MapToolsData? {
+        let mapToolsRef = DatabaseReference.game(gameId).child("mapTools").child(playerUID)
+        print(mapToolsRef)
+        let snapshot = try await mapToolsRef.getData()
+
+        guard snapshot.exists() else {
+            return nil
+        }
+        
+        print("a")
+        // Firebase sometimes returns the entire game object instead of just the child
+        // Check if we got the entire game or just the player's mapTools
+        var playerMapToolsDict: [String: Any]?
+        
+        if let snapshotDict = snapshot.value as? [String: Any] {
+            // Check if this is the entire game object (has "info", "teams", etc.)
+            if snapshotDict["mapTools"] != nil {
+                // We got the entire game, extract this player's mapTools
+                if let allMapTools = snapshotDict["mapTools"] as? [String: Any] {
+                    playerMapToolsDict = allMapTools[playerUID] as? [String: Any]
+                }
+            } else if snapshotDict[playerUID] != nil {
+                // We got the mapTools node, extract this player's data
+                playerMapToolsDict = snapshotDict[playerUID] as? [String: Any]
+            } else {
+                // We got just the player's mapTools directly
+                playerMapToolsDict = snapshotDict
+            }
+        }
+        
+        guard let dict = playerMapToolsDict else {
+            return nil
+        }
+        print(dict)
+
+        return try MapToolsData.fromDictionary(dict)
+    }
+
+    func getAllTeammateMapTools(gameId: String, playerTeam: Team) async throws -> [(uid: String, info: SavedMapToolsInfo)] {
+        guard let game = currentGame else {
+            throw DatabaseError.gameNotFound
+        }
+
+        // Get all teammates from the same team
+        let teammates: [String: Player]
+        switch playerTeam {
+        case .hiders:
+            teammates = game.teams.hiders
+        case .seekers:
+            teammates = game.teams.seekers
+        }
+
+        var mapToolsInfoList: [(uid: String, info: SavedMapToolsInfo)] = []
+
+        // Fetch map tools info for each teammate
+        let mapToolsRef = DatabaseReference.game(gameId).child("mapTools")
+        let snapshot = try await mapToolsRef.getData()
+        
+        guard snapshot.exists() else {
+            return [] // No map tools saved yet
+        }
+        
+        // Firebase sometimes returns the entire game object instead of just the child
+        // Check if we got the entire game or just mapTools
+        var allMapToolsDict: [String: Any]?
+        
+        if let snapshotDict = snapshot.value as? [String: Any] {
+            // Check if this is the entire game object (has "info", "teams", etc.)
+            if snapshotDict["mapTools"] != nil {
+                // We got the entire game, extract mapTools
+                allMapToolsDict = snapshotDict["mapTools"] as? [String: Any]
+            } else {
+                // We got just the mapTools node
+                allMapToolsDict = snapshotDict
+            }
+        }
+        
+        guard let mapToolsDict = allMapToolsDict else {
+            return [] // No map tools data found
+        }
+        
+        for (uid, _) in teammates {
+            // Check if this teammate has saved map tools
+            if let playerMapTools = mapToolsDict[uid] as? [String: Any],
+               let savedBy = playerMapTools["savedBy"] as? String,
+               let savedByName = playerMapTools["savedByName"] as? String {
+                
+                // Handle savedAt as either String or TimeInterval
+                let savedAtTimestamp: TimeInterval
+                if let timestampString = playerMapTools["savedAt"] as? String,
+                   let timestamp = Double(timestampString) {
+                    savedAtTimestamp = timestamp
+                } else if let timestamp = playerMapTools["savedAt"] as? TimeInterval {
+                    savedAtTimestamp = timestamp
+                } else {
+                    continue // Skip if we can't parse the timestamp
+                }
+
+                let info = SavedMapToolsInfo(
+                    savedBy: savedBy,
+                    savedByName: savedByName,
+                    savedAt: Date(timeIntervalSince1970: savedAtTimestamp)
+                )
+                mapToolsInfoList.append((uid: uid, info: info))
+            }
+        }
+
+        // Sort by most recent first
+        mapToolsInfoList.sort { $0.info.savedAt > $1.info.savedAt }
+
+        return mapToolsInfoList
+    }
 }
 
 

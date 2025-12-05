@@ -128,6 +128,9 @@ struct GameMapView: UIViewRepresentable {
         
         // Add polygon vertex annotations for current polygon being drawn
         syncPolygonVertexAnnotations(mapView)
+        
+        // Add point marker annotations
+        syncPointAnnotations(mapView)
 
         // Update circle overlays: remove existing user circles and add current ones
         let overlaysToRemove = mapView.overlays.compactMap { overlay -> MKOverlay? in
@@ -448,6 +451,21 @@ struct GameMapView: UIViewRepresentable {
         }
     }
     
+    private func syncPointAnnotations(_ mapView: MKMapView) {
+        // Remove any existing point annotations
+        let old = mapView.annotations.compactMap { ann -> MKAnnotation? in
+            if let pa = ann as? PointAnnotation { return pa }
+            return nil
+        }
+        if !old.isEmpty { mapView.removeAnnotations(old) }
+        
+        // Add annotations for each point item
+        for item in mapToolsViewModel.pointItems {
+            let ann = PointAnnotation(item: item)
+            mapView.addAnnotation(ann)
+        }
+    }
+    
     class Coordinator: NSObject, MKMapViewDelegate {
         let parent: GameMapView
         var userIsInteracting = false
@@ -684,6 +702,31 @@ struct GameMapView: UIViewRepresentable {
                 view?.glyphText = "\(pv.vertexIndex + 1)"
                 return view
             }
+            
+            // Point markers
+            if let pa = annotation as? PointAnnotation {
+                let identifier = "PointMarker"
+                var view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+                if view == nil {
+                    view = MKMarkerAnnotationView(annotation: pa, reuseIdentifier: identifier)
+                    view?.canShowCallout = false
+                } else {
+                    view?.annotation = pa
+                }
+                // Get color from the point item
+                let colorIndex = pa.colorIndex
+                let safeColorIdx = min(max(colorIndex, 0), MapToolsViewModel.colorOptionsUIKit.count - 1)
+                view?.markerTintColor = MapToolsViewModel.colorOptionsUIKit[safeColorIdx]
+                
+                // Get symbol from the point item
+                let symbolIndex = pa.symbolIndex
+                let safeSymbolIdx = min(max(symbolIndex, 0), MapToolsViewModel.symbolOptions.count - 1)
+                let symbolName = MapToolsViewModel.symbolOptions[safeSymbolIdx]
+                view?.glyphImage = UIImage(systemName: symbolName)
+                
+                return view
+            }
+            
             return nil
         }
         

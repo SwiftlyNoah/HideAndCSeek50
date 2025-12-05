@@ -50,12 +50,30 @@ class MapToolsViewModel: ObservableObject {
     @Published var polygonColorIndex: Int = 3 // Default to green
     @Published var shadeOutsidePolygon: Bool = false
     @Published var polygonItems: [PolygonOverlayItem] = []
+    
+    // Point variables
+    @Published var pointExpanded: Bool = false
+    @Published var pointColorIndex: Int = 0 // Default to red
+    @Published var pointSymbolIndex: Int = 0 // Default to first symbol
+    @Published var pointItems: [PointOverlayItem] = []
 
     // Color options - static so it can be shared between views
     static let colorOptions: [Color] = [.red, .orange, .yellow, .green, .teal, .blue, .purple]
     static let colorOptionsUIKit: [UIColor] = [
         .systemRed, .systemOrange, .systemYellow, .systemGreen,
             .systemTeal, .systemBlue, .systemPurple
+    ]
+    
+    // Symbol options for points
+    static let symbolOptions: [String] = [
+        "mappin.circle.fill",
+        "star.fill",
+        "flag.fill",
+        "exclamationmark.triangle.fill",
+        "checkmark.circle.fill",
+        "xmark.circle.fill",
+        "questionmark.circle.fill",
+        "heart.fill"
     ]
     
     let milesOptions: [Double] = [0.25, 0.5, 1, 3, 5, 10, 25, 50, 100]
@@ -631,6 +649,99 @@ class MapToolsViewModel: ObservableObject {
     func clearPolygonTool() {
         polygonTool.vertices.removeAll()
         refreshToken.toggle()
+    }
+    
+    // MARK: - Point Tool
+    
+    func addPoint(
+        at coordinate: CLLocationCoordinate2D,
+        colorIndex: Int? = nil,
+        symbolIndex: Int? = nil
+    ) {
+        let color = colorIndex ?? pointColorIndex
+        let symbol = symbolIndex ?? pointSymbolIndex
+        let item = PointOverlayItem(
+            coordinate: coordinate,
+            colorIndex: color,
+            symbolIndex: symbol
+        )
+        withAnimation(.easeInOut(duration: 0.16)) {
+            pointItems.append(item)
+        }
+        refreshToken.toggle()
+    }
+    
+    func removePoint(id: UUID) {
+        withAnimation(.easeInOut(duration: 0.16)) {
+            pointItems.removeAll { $0.id == id }
+        }
+        refreshToken.toggle()
+    }
+
+    // MARK: - Export/Sync Map Tools
+
+    func exportMapTools(gameId: String, playerUID: String, playerName: String) async throws {
+        let mapToolsData = MapToolsData(
+            savedAt: Date(),
+            savedBy: playerUID,
+            savedByName: playerName,
+            circles: circleItems,
+            bisectors: bisectorItems,
+            measurements: measureItems,
+            polygons: polygonItems,
+            points: pointItems,
+            selectedRegions: Array(selectedRegions),
+            regionColors: regionColors,
+            showTrainLines: showTrainLines
+        )
+
+        try await DatabaseManager.shared.saveMapTools(
+            gameId: gameId,
+            playerUID: playerUID,
+            mapToolsData: mapToolsData
+        )
+    }
+
+    func importMapTools(from data: MapToolsData) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            // Clear existing data
+            circleItems.removeAll()
+            bisectorItems.removeAll()
+            measureItems.removeAll()
+            polygonItems.removeAll()
+            pointItems.removeAll()
+            visibleRegions.removeAll()
+            regionColors.removeAll()
+
+            // Import new data
+            circleItems = data.circles
+            bisectorItems = data.bisectors
+            measureItems = data.measurements
+            polygonItems = data.polygons
+            pointItems = data.points
+            selectedRegions = Set(data.selectedRegions)
+            visibleRegions = Set(data.selectedRegions)
+            regionColors = data.regionColors
+            showTrainLines = data.showTrainLines
+
+            refreshToken.toggle()
+        }
+    }
+
+    func clearAllMapTools() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            circleItems.removeAll()
+            bisectorItems.removeAll()
+            measureItems.removeAll()
+            polygonItems.removeAll()
+            pointItems.removeAll()
+            visibleRegions.removeAll()
+            regionColors.removeAll()
+            clearBisector()
+            clearMeasure()
+            clearPolygonTool()
+            refreshToken.toggle()
+        }
     }
 }
 

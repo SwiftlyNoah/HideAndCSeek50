@@ -12,18 +12,32 @@ struct MapToolsSheetContent: View {
     @ObservedObject var viewModel: MapToolsViewModel
     @Binding var mapCenter: CLLocationCoordinate2D
     let onDismiss: () -> Void
-    
+
     // Optional: if provided, this is a location-specific context
     let contextItem: MKMapItem?
-    
-    init(viewModel: MapToolsViewModel, 
-         mapCenter: Binding<CLLocationCoordinate2D>, 
+
+    // Game context for export/sync
+    let gameId: String?
+    let playerTeam: Team?
+    let playerUID: String?
+    let playerName: String?
+
+    init(viewModel: MapToolsViewModel,
+         mapCenter: Binding<CLLocationCoordinate2D>,
          onDismiss: @escaping () -> Void,
-         contextItem: MKMapItem? = nil) {
+         contextItem: MKMapItem? = nil,
+         gameId: String? = nil,
+         playerTeam: Team? = nil,
+         playerUID: String? = nil,
+         playerName: String? = nil) {
         self.viewModel = viewModel
         self._mapCenter = mapCenter
         self.onDismiss = onDismiss
         self.contextItem = contextItem
+        self.gameId = gameId
+        self.playerTeam = playerTeam
+        self.playerUID = playerUID
+        self.playerName = playerName
     }
     
     var body: some View {
@@ -64,22 +78,22 @@ struct MapToolsSheetContent: View {
             // Content
             ScrollView {
                 VStack(spacing: 16) {
-                    // Train Lines Toggle (only show if no context item)
+                    // Train Lines Toggle
                     if contextItem == nil {
                         TrainLinesToggleView(viewModel: viewModel)
                     }
                 
-                    // Municipalities group (only show if no context item)
+                    // Municipalities group
                     if contextItem == nil {
                         MunicipalitiesSectionView(viewModel: viewModel)
                             .animation(.easeInOut(duration: 0.2), value: viewModel.municipalitiesExpanded)
                     }
                     
-                    // Radius group (extracted subview)
+                    // Radius group
                     RadiusSectionView(viewModel: viewModel, mapCenter: $mapCenter, contextItem: contextItem)
                         .animation(.easeInOut(duration: 0.2), value: viewModel.radiusExpanded)
                     
-                    // Measure Distance Tool (NEW)
+                    // Measure Distance Tool
                     DisclosureGroup(isExpanded: $viewModel.measureExpanded) {
                         MeasureToolView(
                             viewModel: viewModel,
@@ -101,7 +115,7 @@ struct MapToolsSheetContent: View {
                     }
                     .accentColor(.clear)
                     
-                    // Perpendicular Bisector Tool (extracted subview)
+                    // Perpendicular Bisector Tool
                     DisclosureGroup(isExpanded: $viewModel.bisectorExpanded) {
                         PerpendicularBisectorToolView(
                             viewModel: viewModel,
@@ -123,7 +137,7 @@ struct MapToolsSheetContent: View {
                     }
                     .accentColor(.clear)
                     
-                    // Custom Polygon Tool (NEW)
+                    // Custom Polygon Tool
                     DisclosureGroup(isExpanded: $viewModel.polygonExpanded) {
                         PolygonToolView(
                             viewModel: viewModel,
@@ -144,6 +158,40 @@ struct MapToolsSheetContent: View {
                         .padding(.vertical, 4)
                     }
                     .accentColor(.clear)
+                    
+                    // Point Tool
+                    DisclosureGroup(isExpanded: $viewModel.pointExpanded) {
+                        PointToolView(
+                            viewModel: viewModel,
+                            mapCenter: $mapCenter,
+                            contextItem: contextItem
+                        )
+                        .padding(16)
+                        .background(Color.primary.opacity(0.1))
+                        .cornerRadius(12)
+                    } label: {
+                        HStack {
+                            Image(systemName: "mappin.circle.fill")
+                                .foregroundColor(.primary.opacity(0.8))
+                            Text("Point Marker")
+                                .foregroundColor(.primary)
+                            Spacer()
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .accentColor(.clear)
+
+                    // Export/Sync Section (only show if no context item and game context is available)
+                    if contextItem == nil, let gameId = gameId, let playerTeam = playerTeam,
+                       let playerUID = playerUID {
+                        ExportSyncSectionView(
+                            viewModel: viewModel,
+                            gameId: gameId,
+                            playerTeam: playerTeam,
+                            playerUID: playerUID,
+                            playerName: playerName ?? "Guest"
+                        )
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
@@ -1097,6 +1145,258 @@ struct PolygonToolView: View {
                 }
                 .padding(.top, 8)
             }
+        }
+    }
+}
+
+// MARK: - Export/Sync Section
+
+struct ExportSyncSectionView: View {
+    @ObservedObject var viewModel: MapToolsViewModel
+    let gameId: String
+    let playerTeam: Team
+    let playerUID: String
+    let playerName: String
+
+    @State private var showingSyncSheet = false
+    @State private var isExporting = false
+    @State private var exportError: String?
+    @State private var exportSuccess = false
+
+    var body: some View {
+        VStack(spacing: 12) {
+            // Export Button
+            Button {
+                Task {
+                    await exportMapTools()
+                }
+            } label: {
+                HStack {
+                    if isExporting {
+                        ProgressView()
+                            .tint(.primary)
+                    } else {
+                        Image(systemName: "square.and.arrow.up")
+                            .foregroundColor(.primary.opacity(0.8))
+                    }
+                    Text("Export to Database")
+                        .foregroundColor(.primary)
+                    Spacer()
+                    if exportSuccess {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                    }
+                }
+                .padding(.vertical, 12)
+                .padding(.horizontal, 16)
+                .background(Color.blue.opacity(0.15))
+                .cornerRadius(10)
+            }
+            .buttonStyle(.plain)
+            .disabled(isExporting)
+
+            // Sync Button
+            Button {
+                showingSyncSheet = true
+            } label: {
+                HStack {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .foregroundColor(.primary.opacity(0.8))
+                    Text("Sync from Database")
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.primary.opacity(0.5))
+                }
+                .padding(.vertical, 12)
+                .padding(.horizontal, 16)
+                .background(Color.green.opacity(0.15))
+                .cornerRadius(10)
+            }
+            .buttonStyle(.plain)
+
+            if let error = exportError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .padding(.horizontal, 16)
+            }
+        }
+        .sheet(isPresented: $showingSyncSheet) {
+            SyncMapToolsSheet(
+                viewModel: viewModel,
+                gameId: gameId,
+                playerTeam: playerTeam,
+                playerUID: playerUID
+            )
+        }
+    }
+
+    private func exportMapTools() async {
+        isExporting = true
+        exportError = nil
+        exportSuccess = false
+
+        do {
+            try await viewModel.exportMapTools(
+                gameId: gameId,
+                playerUID: playerUID,
+                playerName: playerName
+            )
+            exportSuccess = true
+            // Reset success indicator after 2 seconds
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            exportSuccess = false
+        } catch {
+            exportError = "Failed to export: \(error.localizedDescription)"
+        }
+
+        isExporting = false
+    }
+}
+
+// MARK: - Sync Map Tools Sheet
+
+struct SyncMapToolsSheet: View {
+    @ObservedObject var viewModel: MapToolsViewModel
+    let gameId: String
+    let playerTeam: Team
+    let playerUID: String
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var teammateMapTools: [(uid: String, info: SavedMapToolsInfo)] = []
+    @State private var isLoading = true
+    @State private var loadError: String?
+    @State private var isImporting = false
+
+    var body: some View {
+        NavigationView {
+            VStack {
+                if isLoading {
+                    ProgressView("Loading teammate map tools...")
+                        .padding()
+                } else if let error = loadError {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.largeTitle)
+                            .foregroundColor(.orange)
+                        Text(error)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                        Button("Retry") {
+                            Task {
+                                await loadTeammateMapTools()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .padding()
+                } else if teammateMapTools.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "map")
+                            .font(.largeTitle)
+                            .foregroundColor(.secondary)
+                        Text("No teammate map tools found")
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                } else {
+                    List {
+                        ForEach(teammateMapTools, id: \.uid) { item in
+                            Button {
+                                Task {
+                                    await importMapTools(from: item.uid)
+                                }
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(item.info.savedByName)
+                                            .font(.headline)
+                                            .foregroundColor(.primary)
+                                        Text(timeAgoString(from: item.info.savedAt))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    if isImporting {
+                                        ProgressView()
+                                    } else {
+                                        Image(systemName: "arrow.down.circle")
+                                            .foregroundColor(.blue)
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                            }
+                            .disabled(isImporting)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Sync Map Tools")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+            .task {
+                await loadTeammateMapTools()
+            }
+        }
+    }
+
+    private func loadTeammateMapTools() async {
+        isLoading = true
+        loadError = nil
+
+        do {
+            teammateMapTools = try await DatabaseManager.shared.getAllTeammateMapTools(
+                gameId: gameId,
+                playerTeam: playerTeam
+            )
+        } catch {
+            loadError = "Failed to load: \(error.localizedDescription)"
+        }
+
+        isLoading = false
+    }
+
+    private func importMapTools(from uid: String) async {
+        isImporting = true
+
+        do {
+            if let mapToolsData = try await DatabaseManager.shared.loadMapTools(gameId: gameId, playerUID: uid) {
+                await MainActor.run {
+                    viewModel.importMapTools(from: mapToolsData)
+                    dismiss()
+                }
+            }
+        } catch {
+            loadError = "Failed to import: \(error.localizedDescription)"
+        }
+
+        isImporting = false
+    }
+
+    private func timeAgoString(from date: Date) -> String {
+        let now = Date()
+        let interval = now.timeIntervalSince(date)
+
+        if interval < 60 {
+            return "Just now"
+        } else if interval < 3600 {
+            let minutes = Int(interval / 60)
+            return "\(minutes) minute\(minutes == 1 ? "" : "s") ago"
+        } else if interval < 86400 {
+            let hours = Int(interval / 3600)
+            return "\(hours) hour\(hours == 1 ? "" : "s") ago"
+        } else {
+            let days = Int(interval / 86400)
+            return "\(days) day\(days == 1 ? "" : "s") ago"
         }
     }
 }

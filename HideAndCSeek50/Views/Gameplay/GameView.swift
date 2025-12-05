@@ -407,6 +407,9 @@ struct GameView: View {
             @ObservedObject var vm: MapToolsViewModel
             @ObservedObject var searchVM: MapSearchViewModel
             @Binding var crosshair: CLLocationCoordinate2D
+            let gameId: String
+            let playerTeam: Team
+            let currentUser: User?
             func body(content: Content) -> some View {
                 content.bottomSheet(
                     bottomSheetPosition: $vm.mapToolsBottomSheetPosition,
@@ -424,12 +427,16 @@ struct GameView: View {
                             vm.mapToolsBottomSheetPosition = .hidden
                             searchVM.clearSearch()
                         },
-                        contextItem: searchVM.contextItemForMapTools
+                        contextItem: searchVM.contextItemForMapTools,
+                        gameId: gameId,
+                        playerTeam: playerTeam,
+                        playerUID: currentUser?.uid,
+                        playerName: currentUser?.displayName
                     )
                 }
             }
         }
-        return Mod(vm: mapToolsViewModel, searchVM: mapSearchViewModel, crosshair: $crosshairCoordinate)
+        return Mod(vm: mapToolsViewModel, searchVM: mapSearchViewModel, crosshair: $crosshairCoordinate, gameId: gameId, playerTeam: playerTeam, currentUser: authManager.currentUser)
     }
 
     private func chatSheet() -> some ViewModifier {

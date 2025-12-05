@@ -8,8 +8,10 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseStorage
+internal import _LocationEssentials
 
 struct GameChatView: View {
+    @ObservedObject var mapToolsViewModel: MapToolsViewModel
     let gameId: String
     let currentUser: User?
     let currentPlayerTeam: Team
@@ -21,6 +23,8 @@ struct GameChatView: View {
     @State private var imageSourceType: UIImagePickerController.SourceType = .photoLibrary
     @State private var selectedImage: UIImage?
     @State private var showingCameraPermissionAlert = false
+    
+    // Optional: if provided, allows tapping location messages to add to map
     
     var body: some View {
         VStack(spacing: 0) {
@@ -49,7 +53,8 @@ struct GameChatView: View {
                             } else {
                                 MessageBubble(
                                     message: message,
-                                    isCurrentUser: message.senderUID == currentUser?.uid
+                                    isCurrentUser: message.senderUID == currentUser?.uid,
+                                    mapToolsViewModel: mapToolsViewModel
                                 )
                             }
                         }
@@ -92,6 +97,19 @@ struct GameChatView: View {
                         .frame(width: 40, height: 40)
                 }
                 .disabled(chatViewModel.isLoading)
+                
+                // Location button (only for seekers)
+                if currentPlayerTeam == .seekers {
+                    Button {
+                        sendLocationMessage()
+                    } label: {
+                        Image(systemName: "location.fill")
+                            .font(.title3)
+                            .foregroundColor(.blue)
+                            .frame(width: 40, height: 40)
+                    }
+                    .disabled(chatViewModel.isLoading)
+                }
                 
                 // Text field
                 TextField("Type a message...", text: $messageText, axis: .vertical)
@@ -190,11 +208,31 @@ struct GameChatView: View {
             )
         }
     }
+    
+    private func sendLocationMessage() {
+        guard let displayName = currentUser?.displayName ?? currentUser?.email,
+              let location = LocationManager.shared.location else {
+            return
+        }
+        
+        Task {
+            await chatViewModel.sendLocationMessage(
+                gameId: gameId,
+                latitude: location.coordinate.latitude,
+                longitude: location.coordinate.longitude,
+                locationName: nil,
+                currentUser: currentUser,
+                currentUserName: displayName,
+                currentPlayerTeam: currentPlayerTeam
+            )
+        }
+    }
 }
 
 struct MessageBubble: View {
     let message: GameMessage
     let isCurrentUser: Bool
+    var mapToolsViewModel: MapToolsViewModel? = nil
     
     @State private var showFullImage = false
     
@@ -222,6 +260,9 @@ struct MessageBubble: View {
                 case .question:
                     questionMessageView
                     
+                case .location:
+                    locationMessageView
+                    
                 default:
                     textMessageView
                 }
@@ -246,6 +287,56 @@ struct MessageBubble: View {
             .background(isCurrentUser ? Color.blue : Color.gray.opacity(0.2))
             .foregroundColor(isCurrentUser ? .white : .primary)
             .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+    
+    private var locationMessageView: some View {
+        Button {
+            if let locationData = message.attachments?.locationData,
+               let mapToolsVM = mapToolsViewModel {
+                mapToolsVM.setPendingChatLocation(
+                    latitude: locationData.latitude,
+                    longitude: locationData.longitude,
+                    senderName: message.senderName,
+                    messageId: message.id
+                )
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "location.fill")
+                        .foregroundColor(isCurrentUser ? .white : .blue)
+                    Text(message.content)
+                        .fontWeight(.medium)
+                }
+                
+                if let locationData = message.attachments?.locationData {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Lat: \(locationData.latitude, specifier: "%.5f")")
+                            .font(.caption)
+                        Text("Lon: \(locationData.longitude, specifier: "%.5f")")
+                            .font(.caption)
+                    }
+                    .foregroundColor(isCurrentUser ? .white.opacity(0.9) : .secondary)
+                }
+                
+                if mapToolsViewModel != nil && !isCurrentUser {
+                    HStack(spacing: 4) {
+                        Image(systemName: "hand.tap.fill")
+                            .font(.caption2)
+                        Text("Tap to add to map")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(isCurrentUser ? .white.opacity(0.7) : .blue.opacity(0.7))
+                    .padding(.top, 4)
+                }
+            }
+            .padding(10)
+            .background(isCurrentUser ? Color.blue : Color.gray.opacity(0.2))
+            .foregroundColor(isCurrentUser ? .white : .primary)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .disabled(mapToolsViewModel == nil)
     }
     
     private var questionMessageView: some View {
@@ -934,16 +1025,5 @@ struct QuestionTimerView: View {
         } else {
             return String(format: "%d seconds remaining", seconds)
         }
-    }
-}
-
-#Preview {
-    NavigationStack {
-        GameChatView(
-            gameId: "preview-game",
-            currentUser: nil,
-            currentPlayerTeam: .hiders
-        )
-        .environmentObject(ChatViewModel())
     }
 }

@@ -281,6 +281,9 @@ extension GameMessage {
             if let photoURL = attachments.photoURL { att["photoURL"] = photoURL }
             if let audioURL = attachments.audioURL { att["audioURL"] = audioURL }
             if let duration = attachments.duration { att["duration"] = duration }
+            if let locationData = attachments.locationData {
+                att["locationData"] = try locationData.toDictionary()
+            }
             dict["attachments"] = att
         }
 
@@ -324,10 +327,16 @@ extension GameMessage {
         
         var attachments: MessageAttachments?
         if let attachmentsDict = dict["attachments"] as? [String: Any] {
+            var locationData: LocationData?
+            if let locationDict = attachmentsDict["locationData"] as? [String: Any] {
+                locationData = try LocationData.fromDictionary(locationDict)
+            }
+            
             attachments = MessageAttachments(
                 photoURL: attachmentsDict["photoURL"] as? String,
                 audioURL: attachmentsDict["audioURL"] as? String,
-                duration: attachmentsDict["duration"] as? TimeInterval
+                duration: attachmentsDict["duration"] as? TimeInterval,
+                locationData: locationData
             )
         }
         
@@ -389,3 +398,33 @@ extension GameSettings {
         return settings
     }
 }
+extension LocationData {
+    func toDictionary() throws -> [String: Any] {
+        var dict: [String: Any] = [
+            "latitude": latitude,
+            "longitude": longitude
+        ]
+        
+        if let locationName = locationName {
+            dict["locationName"] = locationName
+        }
+        
+        return dict
+    }
+    
+    static func fromDictionary(_ dictionary: [String: Any]) throws -> LocationData {
+        guard let latitude = dictionary["latitude"] as? Double,
+              let longitude = dictionary["longitude"] as? Double else {
+            throw DatabaseError.invalidData
+        }
+        
+        let locationName = dictionary["locationName"] as? String
+        
+        return LocationData(
+            latitude: latitude,
+            longitude: longitude,
+            locationName: locationName
+        )
+    }
+}
+

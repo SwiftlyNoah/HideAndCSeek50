@@ -181,7 +181,8 @@ class ChatViewModel: ObservableObject {
                 attachments: MessageAttachments(
                     photoURL: downloadURL.absoluteString,
                     audioURL: nil,
-                    duration: nil
+                    duration: nil,
+                    locationData: nil
                 ),
                 questionData: nil,
                 team: currentPlayerTeam,
@@ -197,5 +198,54 @@ class ChatViewModel: ObservableObject {
         
         isLoading = false
         uploadProgress = 0.0
+    }
+    
+    // MARK: - Location Sending
+    
+    /// Sends a location message with coordinates
+    func sendLocationMessage(
+        gameId: String,
+        latitude: Double,
+        longitude: Double,
+        locationName: String?,
+        currentUser: User?,
+        currentUserName: String,
+        currentPlayerTeam: Team
+    ) async {
+        guard let currentUID = currentUser?.uid else {
+            return
+        }
+        
+        isLoading = true
+        
+        let message = GameMessage(
+            id: UUID().uuidString,
+            senderUID: currentUID,
+            senderName: currentUserName,
+            content: "📍 Shared location\(locationName.map { ": \($0)" } ?? "")",
+            type: .location,
+            timestamp: Date(),
+            attachments: MessageAttachments(
+                photoURL: nil,
+                audioURL: nil,
+                duration: nil,
+                locationData: LocationData(
+                    latitude: latitude,
+                    longitude: longitude,
+                    locationName: locationName
+                )
+            ),
+            questionData: nil,
+            team: currentPlayerTeam,
+            eventType: nil
+        )
+        
+        do {
+            try await databaseManager.sendMessage(gameId: gameId, message: message)
+        } catch {
+            // Handle error silently or show alert
+        }
+        
+        isLoading = false
     }
 }

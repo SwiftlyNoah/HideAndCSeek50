@@ -1149,6 +1149,7 @@ struct PolygonToolView: View {
     }
 }
 
+
 // MARK: - Export/Sync Section
 
 struct ExportSyncSectionView: View {

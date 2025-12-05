@@ -441,6 +441,7 @@ struct GameView: View {
 
     private func chatSheet() -> some ViewModifier {
         struct Mod: ViewModifier {
+            @ObservedObject var mapToolsViewModel: MapToolsViewModel
             @Binding var showingChat: Bool
             let gameId: String
             let currentUser: User?
@@ -450,9 +451,10 @@ struct GameView: View {
                 content.fullScreenCover(isPresented: $showingChat) {
                     NavigationStack {
                         GameChatView(
+                            mapToolsViewModel: mapToolsViewModel,
                             gameId: gameId,
                             currentUser: currentUser,
-                            currentPlayerTeam: playerTeam
+                            currentPlayerTeam: playerTeam,
                         )
                         .environmentObject(chatVM)
                         .navigationTitle("Game Chat")
@@ -467,6 +469,7 @@ struct GameView: View {
             }
         }
         return Mod(
+            mapToolsViewModel: mapToolsViewModel,
             showingChat: $showingChat,
             gameId: gameId,
             currentUser: currentUser,

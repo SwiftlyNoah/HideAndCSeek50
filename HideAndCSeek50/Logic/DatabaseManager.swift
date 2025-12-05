@@ -860,7 +860,8 @@ class DatabaseManager: ObservableObject {
         let attachments = MessageAttachments(
             photoURL: photoURL,
             audioURL: nil,
-            duration: nil
+            duration: nil,
+             locationData: nil
         )
         
         // Update the message with the answer and photo

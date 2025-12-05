@@ -56,6 +56,9 @@ class MapToolsViewModel: ObservableObject {
     @Published var pointColorIndex: Int = 0 // Default to red
     @Published var pointSymbolIndex: Int = 0 // Default to first symbol
     @Published var pointItems: [PointOverlayItem] = []
+    
+    // Pending location from chat
+    @Published var pendingChatLocation: PendingChatLocation? = nil
 
     // Color options - static so it can be shared between views
     static let colorOptions: [Color] = [.red, .orange, .yellow, .green, .teal, .blue, .purple]
@@ -677,6 +680,38 @@ class MapToolsViewModel: ObservableObject {
         }
         refreshToken.toggle()
     }
+    
+    // MARK: - Pending Chat Location
+    
+    /// Sets a pending location from chat that can be added to the map
+    func setPendingChatLocation(latitude: Double, longitude: Double, senderName: String, messageId: String) {
+        pendingChatLocation = PendingChatLocation(
+            coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+            senderName: senderName,
+            messageId: messageId
+        )
+        addPendingChatLocationAsPoint()
+    }
+    
+    /// Adds the pending chat location as a point to the map
+    func addPendingChatLocationAsPoint() {
+        guard let pending = pendingChatLocation else { return }
+        
+        // Add the point with default red color and mappin symbol
+        addPoint(
+            at: pending.coordinate,
+            colorIndex: 0, // Red
+            symbolIndex: 0  // mappin.circle.fill
+        )
+        
+        // Clear the pending location
+        pendingChatLocation = nil
+    }
+    
+    /// Clears the pending chat location without adding it
+    func clearPendingChatLocation() {
+        pendingChatLocation = nil
+    }
 
     // MARK: - Export/Sync Map Tools
 
@@ -760,6 +795,24 @@ final class MeasureToolItem: ObservableObject {
     @Published var pointB: CLLocationCoordinate2D?
     @Published var polyline: MKPolyline?
     @Published var distanceMeters: Double?
+}
+
+struct PendingChatLocation: Identifiable, Equatable {
+    let id: String // Message ID
+    let coordinate: CLLocationCoordinate2D
+    let senderName: String
+    let messageId: String
+    
+    init(coordinate: CLLocationCoordinate2D, senderName: String, messageId: String) {
+        self.id = messageId
+        self.coordinate = coordinate
+        self.senderName = senderName
+        self.messageId = messageId
+    }
+    
+    static func == (lhs: PendingChatLocation, rhs: PendingChatLocation) -> Bool {
+        return lhs.id == rhs.id
+    }
 }
 
 final class PolygonToolItem: ObservableObject {

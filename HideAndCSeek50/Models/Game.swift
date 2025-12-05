@@ -92,6 +92,13 @@ struct MessageAttachments: Codable {
     let photoURL: String?
     let audioURL: String?
     let duration: TimeInterval?
+    let locationData: LocationData?
+}
+
+struct LocationData: Codable {
+    let latitude: Double
+    let longitude: Double
+    let locationName: String?
 }
 
 struct QuestionData: Codable {
@@ -290,6 +297,7 @@ enum MessageType: String, Codable {
     case photo = "photo"
     case question = "question"
     case event = "event"
+    case location = "location"
 }
 
 enum QuestionType: String, Codable {

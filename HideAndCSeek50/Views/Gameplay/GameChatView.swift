@@ -258,7 +258,15 @@ struct MessageBubble: View {
                     Text(message.content)
                         .fontWeight(.medium)
                 }
-            }
+                
+                // Show timer for unanswered questions
+                if let questionData = message.questionData, !questionData.isAnswered {
+                    QuestionTimerView(
+                        questionTimestamp: message.timestamp,
+                        questionType: questionData.questionType
+                    )
+                }
+            } 
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.red)
@@ -472,16 +480,31 @@ struct QuestionAnswerView: View {
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var uploadProgress: Double = 0.0
+    @State private var timeRemaining: TimeInterval = 0
+    @State private var timer: Timer?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Question text (red background)
-            HStack {
-                Image(systemName: "questionmark.circle.fill")
-                    .foregroundColor(.white)
-                Text(message.content)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "questionmark.circle.fill")
+                        .foregroundColor(.white)
+                    Text(message.content)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                }
+                
+                // Timer display
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.fill")
+                        .font(.caption)
+                    Text(timeRemainingText)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .monospacedDigit()
+                }
+                .foregroundColor(timeRemaining < 60 ? .yellow : .white.opacity(0.9))
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -591,6 +614,48 @@ struct QuestionAnswerView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage)
+        }
+        .onAppear {
+            startTimer()
+        }
+        .onDisappear {
+            timer?.invalidate()
+        }
+    }
+    
+    // MARK: - Timer Methods
+    
+    private func startTimer() {
+        // Calculate initial time remaining
+        updateTimeRemaining()
+        
+        // Start updating every second
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            updateTimeRemaining()
+        }
+    }
+    
+    private func updateTimeRemaining() {
+        let elapsed = Date().timeIntervalSince(message.timestamp)
+        let timeLimit = questionTimeLimit
+        timeRemaining = max(0, timeLimit - elapsed)
+    }
+    
+    private var questionTimeLimit: TimeInterval {
+        // Photo questions: 10 minutes, all others: 5 minutes
+        return questionData.questionType == .photo ? 600 : 300
+    }
+    
+    private var timeRemainingText: String {
+        let minutes = Int(timeRemaining) / 60
+        let seconds = Int(timeRemaining) % 60
+        
+        if timeRemaining <= 0 {
+            return "Time's up!"
+        } else if minutes > 0 {
+            return String(format: "%d:%02d remaining", minutes, seconds)
+        } else {
+            return String(format: "%d seconds remaining", seconds)
         }
     }
     
@@ -815,6 +880,59 @@ struct QuestionAnswerView: View {
                     uploadProgress = 0.0
                 }
             }
+        }
+    }
+}
+
+// MARK: - Question Timer View
+struct QuestionTimerView: View {
+    let questionTimestamp: Date
+    let questionType: QuestionType
+    
+    @State private var timeRemaining: TimeInterval = 0
+    @State private var timer: Timer?
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "clock.fill")
+                .font(.caption)
+            Text(timeRemainingText)
+                .font(.caption)
+                .fontWeight(.medium)
+                .monospacedDigit()
+        }
+        .foregroundColor(timeRemaining < 60 ? .yellow : .white.opacity(0.9))
+        .onAppear {
+            startTimer()
+        }
+        .onDisappear {
+            timer?.invalidate()
+        }
+    }
+    
+    private func startTimer() {
+        updateTimeRemaining()
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            updateTimeRemaining()
+        }
+    }
+    
+    private func updateTimeRemaining() {
+        let elapsed = Date().timeIntervalSince(questionTimestamp)
+        let timeLimit = questionType == .photo ? 600.0 : 300.0 // 10 min for photo, 5 min for others
+        timeRemaining = max(0, timeLimit - elapsed)
+    }
+    
+    private var timeRemainingText: String {
+        let minutes = Int(timeRemaining) / 60
+        let seconds = Int(timeRemaining) % 60
+        
+        if timeRemaining <= 0 {
+            return "Time's up!"
+        } else if minutes > 0 {
+            return String(format: "%d:%02d remaining", minutes, seconds)
+        } else {
+            return String(format: "%d seconds remaining", seconds)
         }
     }
 }

@@ -13,6 +13,7 @@ struct MainView: View {
     let user: User?
     @EnvironmentObject private var authManager: AuthenticationManager
     @StateObject private var databaseManager = DatabaseManager.shared
+    @StateObject private var notificationManager = NotificationManager.shared
     @State private var showingSignOut = false
     @State private var showingCreateGame = false
     @State private var showingJoinGame = false
@@ -27,6 +28,7 @@ struct MainView: View {
     private var lobbyDestination: Binding<LobbyDestination?> {
         Binding(
             get: { activeLobbyCode.map(LobbyDestination.init) },
+          
             set: { activeLobbyCode = $0?.code }
         )
     }
@@ -109,6 +111,7 @@ struct MainView: View {
                     checkForRejoinableGame()
                 }
                 loadRecentGames()
+                requestNotificationPermission()
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -404,6 +407,17 @@ struct MainView: View {
                 await MainActor.run {
                     isLoadingHistory = false
                 }
+            }
+        }
+    }
+    
+    private func requestNotificationPermission() {
+        Task {
+            do {
+                try await notificationManager.requestPermission()
+                print("✅ Notification permission granted: \(notificationManager.isAuthorized)")
+            } catch {
+                print("❌ Error requesting notification permission: \(error.localizedDescription)")
             }
         }
     }

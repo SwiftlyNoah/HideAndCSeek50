@@ -23,6 +23,7 @@ struct GameView: View {
     @StateObject private var locationManager = LocationManager.shared
     @StateObject private var databaseManager = DatabaseManager.shared
     @StateObject private var chatViewModel = ChatViewModel()
+    @StateObject private var notificationManager = NotificationManager.shared
     @StateObject private var mapSearchViewModel: MapSearchViewModel
     @StateObject private var mapToolsViewModel: MapToolsViewModel
     @Environment(\.dismiss) private var dismiss
@@ -155,8 +156,20 @@ struct GameView: View {
                 lobbyCode: lobbyCode,
                 playerTeam: playerTeam
             )
+            
+            // Subscribe to notifications for this game
+            Task {
+                try? await notificationManager.subscribeToGame(gameId: gameId)
+            }
         }
-        .onDisappear { stopTimerUpdater() }
+        .onDisappear {
+            stopTimerUpdater()
+            
+            // Unsubscribe from game notifications when leaving
+            Task {
+                try? await notificationManager.unsubscribeFromGame(gameId: gameId)
+            }
+        }
         .onChange(of: locationManager.location) { _, location in
             updatePlayerLocation(location)
         }
@@ -571,10 +584,10 @@ struct GameView: View {
                 // GameMapView gets the updated game data
                 // Chat and other views can access game.messages
                 // Questions can be accessed via game.questions
-                
+
                 // Refresh local timer whenever we get database updates
                 localCurrentTime = Date()
-                
+
                 // Auto-transition from starting to preHiding for the host
                 if let game = game,
                    game.info.state == .starting,
@@ -634,35 +647,46 @@ extension GameView {
             .tint(.blue)
             
         case .hiding:
-            // Compact circular progress
-            HStack(spacing: 16) {
-                ZStack {
-                    Circle()
-                        .stroke(Color.white.opacity(0.3), lineWidth: 6)
-                        .frame(width: 24, height: 24)
-                    
-                    Circle()
-                        .trim(from: 0, to: hidingProgress)
-                        .stroke(Color.blue, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                        .frame(width: 24, height: 24)
-                        .rotationEffect(.degrees(-90))
+            // Check if hiding time is complete
+            if hidingTimeRemaining <= 0 {
+                Button("Start Seeking Timer") {
+                    startSeekingPhase()
                 }
-                
-                Text(formatTime(hidingTimeRemaining))
-                    .font(.system(.title3))
-                    .foregroundColor(.white)
+                .font(.headline)
+                .frame(height: 40)
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+            } else {
+                // Compact circular progress
+                HStack(spacing: 16) {
+                    ZStack {
+                        Circle()
+                            .stroke(Color.white.opacity(0.3), lineWidth: 6)
+                            .frame(width: 24, height: 24)
+
+                        Circle()
+                            .trim(from: 0, to: hidingProgress)
+                            .stroke(Color.blue, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                            .frame(width: 24, height: 24)
+                            .rotationEffect(.degrees(-90))
+                    }
+
+                    Text(formatTime(hidingTimeRemaining))
+                        .font(.system(.title3))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 12)
+                .frame(height: 40)
+                .background(Color.black.opacity(0.7))
+                .clipShape(Capsule())
             }
-            .padding(.horizontal, 12)
-            .frame(height: 40)
-            .background(Color.black.opacity(0.7))
-            .clipShape(Capsule())
             
         case .hidingPaused:
             HStack(spacing: 8) {
                 Image(systemName: "pause.fill")
                     .foregroundColor(.orange)
                     .font(.caption2)
-                
+
                 Text(formatTime(hidingTimeRemaining))
                     .font(.system(.title3))
                     .foregroundColor(.white)
@@ -671,7 +695,7 @@ extension GameView {
             .frame(height: 40)
             .background(Color.black.opacity(0.7))
             .clipShape(Capsule())
-            
+
             Button("Resume") {
                 resumeHidingPhase()
             }
@@ -679,7 +703,7 @@ extension GameView {
             .frame(height: 40)
             .buttonStyle(.borderedProminent)
             .tint(.blue)
-            
+
         case .preSeeking:
             Button("Start Seeking Timer") {
                 startSeekingPhase()
@@ -688,7 +712,7 @@ extension GameView {
             .frame(height: 40)
             .buttonStyle(.borderedProminent)
             .tint(.red)
-            
+
         case .seeking:
             Text("Seeking: " + formatTime(currentSeekingTime))
                 .font(.system(.title3))
@@ -882,31 +906,14 @@ extension GameView {
         // Keep UI timer ticking during interactions
         let timer = Timer(timeInterval: 1.0, repeats: true) { _ in
             localCurrentTime = Date()
-            checkForAutoTransitions()
         }
         RunLoop.main.add(timer, forMode: .common)
         timerUpdater = timer
     }
-    
+
     private func stopTimerUpdater() {
         timerUpdater?.invalidate()
         timerUpdater = nil
-    }
-    
-    private func checkForAutoTransitions() {
-        // Only the host should drive automatic state transitions
-        guard let game = currentGame,
-              game.info.hostUID == currentUser?.uid else { return }
-
-        // Auto-transition from hiding to preSeeking when hiding time is complete
-        if game.info.state == .hiding {
-            let totalHidingTime = TimeInterval(game.info.settings.hidingTime * 60)
-            if currentLocalHidingTime >= totalHidingTime {
-                Task {
-                    try? await databaseManager.updateGameState(gameId: gameId, state: .preSeeking)
-                }
-            }
-        }
     }
     
     private func handleReturnToLobby() {

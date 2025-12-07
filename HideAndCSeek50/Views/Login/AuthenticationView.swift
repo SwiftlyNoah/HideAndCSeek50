@@ -122,32 +122,6 @@ struct AuthenticationView: View {
                     .padding(.horizontal, 24)
                     
                     Spacer()
-                    
-                    // Terms and Privacy
-                    VStack(spacing: 8) {
-                        Text("By continuing, you agree to our")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
-                        
-                        HStack {
-                            Button("Terms of Service") {
-                                // Handle terms action
-                            }
-                            .font(.caption)
-                            .foregroundColor(.white)
-                            
-                            Text("and")
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
-                            
-                            Button("Privacy Policy") {
-                                // Handle privacy action
-                            }
-                            .font(.caption)
-                            .foregroundColor(.white)
-                        }
-                    }
-                    .padding(.bottom, 20)
                 }
                 
                 // Loading Overlay
@@ -180,7 +154,8 @@ struct AuthenticationView: View {
     
     private func configureAppleSignInRequest(_ request: ASAuthorizationAppleIDRequest) {
         request.requestedScopes = [.fullName, .email]
-        request.nonce = AuthenticationManager.shared.generateNonce()
+        let rawNonce = AuthenticationManager.shared.generateNonce()
+        request.nonce = AuthenticationManager.shared.sha256Hash(rawNonce)
     }
     
     private func handleAppleSignInResult(_ result: Result<ASAuthorization, Error>) {

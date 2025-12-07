@@ -122,12 +122,8 @@ struct MainView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
-                        Button("Settings") {
-                            // Handle settings
-                        }
-                        
-                        Button("Help") {
-                            // Handle help
+                        Button("Profile") {
+                            showingProfile = true
                         }
                         
                         Divider()

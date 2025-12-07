@@ -592,23 +592,9 @@ struct ProfileView: View {
                     title: "Notifications",
                     icon: "bell.fill",
                     action: {
-                        // Handle notifications
-                    }
-                )
-                
-                settingsRow(
-                    title: "Privacy",
-                    icon: "lock.fill",
-                    action: {
-                        // Handle privacy
-                    }
-                )
-                
-                settingsRow(
-                    title: "Help & Support",
-                    icon: "questionmark.circle.fill",
-                    action: {
-                        // Handle help
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
                     }
                 )
                 

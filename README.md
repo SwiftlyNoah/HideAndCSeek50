@@ -15,6 +15,8 @@ HideAndCSeek50/
 │   │   ├── Logic/               # Business logic and managers
 │   │   ├── Views/               # SwiftUI views
 │   │   ├── Models/              # Data models
+│   │   ├── ViewModels/          # View models
+│   │   ├── Extensions/          # Swift extensions
 │   │   ├── Resources/           # Assets and configuration files
 │   │   └── Markdown/            # Documentation files
 │   └── HideAndCSeek50.xcodeproj # Xcode project file
@@ -27,6 +29,8 @@ HideAndCSeek50/
 ├── README.md                     # This file
 └── DESIGN.md                     # Design documentation
 ```
+
+**See [DESIGN.md](DESIGN.md#directory-structure) for a more detailed breakdown of the project structure.**
 
 ---
 
@@ -196,31 +200,21 @@ If you're interested in running the project locally for development purposes, co
 ### Backend Infrastructure
 
 **Firebase Services:**
-- **Realtime Database**: Stores game data, player locations, chat messages
-  - Structure: `/users`, `/games`, `/lobbies`, `/activeGames`
-  - Real-time listeners for instant updates
-  - See [`DATABASE_SCHEMA_JSON.md`](ios/HideAndCSeek50/Markdown/DATABASE_SCHEMA_JSON.md) for full schema
+- **Realtime Database**: Stores game data, player locations, and chat messages with real-time listeners for instant updates across all connected clients
 
-- **Authentication**: Manages user accounts and sessions
-  - Supports Apple, Google, Email, and Anonymous (guest) sign-in
-  - See [`AUTHENTICATION.md`](ios/HideAndCSeek50/Markdown/AUTHENTICATION.md)
+- **Authentication**: Manages user accounts and sessions with support for Apple, Google, Email, and Anonymous (guest) sign-in methods
 
-- **Storage**: Hosts uploaded photos
-  - Path: `/games/{gameId}/photos/{messageId}.jpg`
-  - Security rules validate authenticated uploads
-  - See [`storage.rules`](ios/HideAndCSeek50/Markdown/storage.rules)
+- **Storage**: Hosts uploaded photos with secure paths and authentication-validated uploads to prevent unauthorized access
 
-- **Cloud Functions**: Server-side notifications (deployed via admin console in terminal)
-  - Sends push notifications for chat messages
-  - Located in `cloud_functions/` directory
+- **Cloud Functions**: Server-side notification system that sends push notifications for chat messages and game events
 
-**Key Frameworks Used:**
+**Key iOS Frameworks:**
 
-- **SwiftUI**: Modern declarative UI framework
-- **MapKit**: Apple's native mapping framework
-- **Core Location**: GPS and location services
-- **Firebase iOS SDK**: Backend services integration
-- **Combine**: Reactive programming for real-time updates
+- **SwiftUI**: Modern declarative UI framework for building the entire interface
+- **MapKit**: Apple's native mapping framework for rendering maps and location-based features
+- **Core Location**: GPS and location services for real-time player tracking
+- **Firebase iOS SDK**: Backend services integration for database, auth, and cloud messaging
+- **Combine**: Reactive programming framework for handling real-time data updates
 
 ## Video Recap
 

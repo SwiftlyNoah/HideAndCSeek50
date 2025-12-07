@@ -4,7 +4,7 @@
 
 ### Project Overview
 
-Our project seeks to unify the apps and tools needed to play Jet Lag: The Game into a single app including location sharing, question asking, game timers, map tools, game chat, and more!
+Our project seeks to unify the apps and tools needed to play [Jet Lag: The Game](https://store.nebula.tv/products/hideandseek?srsltid=AfmBOoqbGJjHeLowiRxnPiLQtFlGZslfS36k4aODukUM5LNVTO-UcwJW) into a single app including location sharing, question asking, game timers, map tools, game chat, and more!
 
 ---
 
@@ -80,7 +80,7 @@ Photos are uploaded to Firebase Storage at `/games/{gameId}/photos/{messageId}.j
 
 **Compression**: We compress images to max 5MB before upload (in `UIImage+Compression.swift`) to balance quality and upload time. Original implementation had no limit and caused slow uploads on cellular.
 
-#### 3. Team-Based Channels
+#### 3. Team-Based Channels - help
 
 Messages have a `team` field (`"hiders"`, `"seekers"`, or `"all"`). We filter messages client-side rather than using separate Firebase paths because:
 - **Flexibility**: Easy to add future features like "switch team visibility"
@@ -91,24 +91,13 @@ Messages have a `team` field (`"hiders"`, `"seekers"`, or `"all"`). We filter me
 
 ---
 
-## Authentication Strategy
+## User Log-In Strategy
 
-### Multi-Provider Support
+### Multiple Sign In Methods
 
-`AuthenticationManager.swift` supports four authentication methods:
+To increase functionality and ease of use for users, we added multiple sign in methods (Google, Apple ID, Email/Password, and Guest). Guest was added to allow for very quick testing without creating an account. We do not recommend this as it makes users show up as "Anonymous" in game.
 
-1. **Anonymous**: Uses Firebase's anonymous auth for instant guest access
-2. **Apple Sign In**: Native iOS authentication via `AuthenticationServices` framework
-3. **Google Sign In**: Via `GoogleSignIn` SDK
-4. **Email/Password**: Firebase's traditional auth
-
-#### Design Rationale
-
-**Why Anonymous?**: CS50 staff and users can test immediately without creating accounts. We convert anonymous users to permanent accounts via account linking if they want to save progress.
-
-**Why Multiple Providers?**: User preference varies. Apple Sign In is required for App Store approval (Apple's guideline), Google is cross-platform, and email is universal.
-
-#### Implementation Details
+#### Implementation Details - help
 
 We use a singleton pattern for `AuthenticationManager` to maintain global auth state:
 
@@ -127,19 +116,17 @@ This singleton is injected as `@EnvironmentObject` in `HideAndCSeek50App.swift`,
 
 ## Map Integration
 
-### Dual Map View System
+### Team Specific Map Views
 
-The map experience differs for hiders and seekers, implemented primarily in `GameMapView.swift`:
+The map shown is different for hiders and seekers and is implemented in `GameMapView.swift`:
 
 #### 1. Hider View
-- Sees **all seeker locations** in real-time (red markers)
-- Full map visibility from game start
-- Can use map tools (circles, measurements, polygons) freely
+- Sees seeker locations in real time
+- Can use map tools to draw geographic answers based on answered questions (circles, measurements, polygons)
 
 #### 2. Seeker View
-- **Limited initial visibility** (configurable radius, default 1000m)
-- Progressively reveals map through questions (future feature)
-- Cannot see hider locations until found
+- Cannot see hider locations (obviously)
+- Same map tools as hiders
 
 This asymmetry is the core gameplay mechanic. Implementation-wise:
 
@@ -147,18 +134,13 @@ This asymmetry is the core gameplay mechanic. Implementation-wise:
 // Simplified logic in GameMapView.swift
 if playerTeam == .hiders {
     // Show all opponent locations
-    ForEach(seekerLocations) { location in
-        RedMarker(location)
-    }
+    ForEach(seekerLocations) { location in RedMarker(location)}
+    ForEach(hiderLocations) {location in BlueMarker(location)}
 } else {
-    // Limited view logic
-    if inRevealedArea(location) {
-        // Show location
-    }
+    // Can only see seekers
+    ForEach(seekerLocations) {location in RedMarker(location)
 }
 ```
-
-**Challenge**: Initially, we used a single shared map for both teams and toggled layers. This caused race conditions where both teams briefly saw each other's full map. We solved this by maintaining separate `@State` variables for each team's visible markers.
 
 ---
 
@@ -166,19 +148,15 @@ if playerTeam == .hiders {
 
 ### Complex Overlay Management
 
-The map tools (circles, bisectors, measurements, polygons) in `MapToolsSheet.swift` and `MapToolsViewModel.swift` required careful state management:
+The map tools (circles, bisectors, measurements, polygons) in `MapToolsSheet.swift` and `MapToolsViewModel.swift` required storage, map references & integration, and geographic math:
 
-#### 1. Tool State Persistence
+#### 1. Long Term Tool Storage
 
-Each tool (circle, bisector, etc.) is stored as a Codable struct (e.g., `CircleOverlayItem` in the `MapToolItems/` directory). We save these to Firebase at `/games/{gameId}/mapTools` so teammates see the same drawings.
-
-**Sync Strategy**: We use a "last-write-wins" approach with timestamps. When a player draws a circle, it's immediately saved with `savedAt: Date()`. Other players' listeners update their local state.
-
-**Alternative Considered**: Operational Transform (OT) for real-time collaborative editing (like Google Docs). Rejected as too complex for our scope; rare conflicts are acceptable.
+Each tool (circle, bisector, etc.) is stored as a Codable struct (e.g., `CircleOverlayItem` in the `MapToolItems/` directory). We save these to Firebase at `/games/{gameId}/mapTools` when uploaded so teammates can import and see the same drawings.
 
 #### 2. Crosshair Coordinate System
 
-Many tools need a "center point". We use a crosshair overlay in the map center:
+Many tools need a "reference point". We use a crosshair overlay in the map center:
 
 ```swift
 @State private var crosshairCoordinate: CLLocationCoordinate2D

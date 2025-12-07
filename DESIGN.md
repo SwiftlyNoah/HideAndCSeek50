@@ -1,6 +1,4 @@
-# DESIGN.md
-
-## Hide and CSeek50: Design Document
+# Hide and CSeek50: Design Document
 
 ### Project Overview
 

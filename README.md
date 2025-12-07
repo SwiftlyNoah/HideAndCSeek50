@@ -8,7 +8,7 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 1. [Installation & Setup](#installation-&-setup)
 2. [How to Run the App](#how-to-run-the-app)

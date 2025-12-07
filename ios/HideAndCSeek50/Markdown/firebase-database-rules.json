@@ -2,24 +2,24 @@
   "rules": {
     ".read": false,
     ".write": false,
-    
+
     "users": {
       "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
+        ".read": "auth != null",
         ".write": "auth != null && auth.uid == $uid"
       }
     },
-    
+
     "lobbies": {
       ".read": "auth != null",
       ".write": "auth != null"
     },
-    
+
     "games": {
       ".read": "auth != null",
       ".write": "auth != null"
     },
-    
+
     "activeGames": {
       ".read": "auth != null",
       ".write": "auth != null"

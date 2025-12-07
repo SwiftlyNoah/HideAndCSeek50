@@ -10,11 +10,12 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
 
 ## 📋 Table of Contents
 
-1. [Installation & Setup](#installation--setup)
+1. [Installation & Setup](#installation-&-setup)
 2. [How to Run the App](#how-to-run-the-app)
 3. [Testing the App](#testing-the-app)
 4. [Core Features](#core-features)
 5. [Technical Architecture](#technical-architecture)
+6. [Video Recap](#video-recap)
 
 ---
 
@@ -98,6 +99,8 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
     
    - At least two players or simulators must join the game in order to start the game and use game features
 
+---
+
 ## Testing the App
 
 #### 1. Lobby System
@@ -159,6 +162,8 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
 1. **Simulator**: Camera and GPS don't work. Must use physical device.
 2. **Network Required**: App requires internet connection for real-time features.
 3. **GPS Accuracy**: Indoor location may be inaccurate or unavailable.
+
+---
 
 ## Technical Architecture
 
@@ -231,3 +236,5 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
    - [`GameView`](HideAndCSeek50/Views/Gameplay/GameView.swift) observes state and updates UI
 
 ---
+
+## Video Recap

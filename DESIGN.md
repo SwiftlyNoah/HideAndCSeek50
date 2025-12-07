@@ -4,7 +4,7 @@
 
 ### Project Overview
 
-Our project seeks to unify the apps and tools needed to play [Jet Lag: The Game](https://store.nebula.tv/products/hideandseek?srsltid=AfmBOoqbGJjHeLowiRxnPiLQtFlGZslfS36k4aODukUM5LNVTO-UcwJW) into a single app including location sharing, question asking, game timers, map tools, game chat, and more!
+Our project seeks to unify the apps and tools needed to play [Jet Lag: The Game The Home Game](https://store.nebula.tv/products/hideandseek?srsltid=AfmBOoqbGJjHeLowiRxnPiLQtFlGZslfS36k4aODukUM5LNVTO-UcwJW) into a single app including location sharing, question asking, game timers, map tools, game chat, and more!
 
 ---
 

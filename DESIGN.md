@@ -162,15 +162,11 @@ Many tools need a "reference point". We use a crosshair overlay in the map cente
 @State private var crosshairCoordinate: CLLocationCoordinate2D
 ```
 
-The crosshair follows the map center as users pan. This design:
-- **Simplifies UX**: Users see exactly where they're placing tools
-- **Avoids Tap Detection Issues**: MapKit's tap gesture recognizers conflict with SwiftUI gestures; crosshair avoids this
+The crosshair follows the map center as users pan. This design allows users to see exactly where they are adding their map tool reference and avoids the slight inaccuracies with tapping on the map. This is slightly less convenient than tapping on the map but is more precise and clear.
 
-**Trade-off**: Slightly less precise than direct taps, but more reliable and clearer for users.
+#### 3. Polygon Creation with Variable Points - jack look at
 
-#### 3. Polygon Creation with Variable Points
-
-Polygons can have arbitrary numbers of points. We store them as `[CLLocationCoordinate2D]` and render with `MKPolygon`. The challenge was managing point addition/removal:
+The implemented polygon tool takes a set of points (more than 3) and draws a polygon. We store them as `[CLLocationCoordinate2D]` and render with `MKPolygon`. One challenge was managing point addition/removal:
 
 ```swift
 struct PolygonToolState {
@@ -185,32 +181,11 @@ Users tap "Add Point" repeatedly, then "Complete Polygon". We debounce rapid tap
 
 ## Game State Management
 
-### State Machine Architecture
+### Game States for Timers
 
-Games progress through states: `waiting → starting → inProgress → paused → completed`. This is stored at `/games/{gameId}/info/state` and drives UI throughout the app.
+Games progress through states: `preHiding → hiding → preSeeking → seeking → completed`. This is stored at `/games/{gameId}/info/state` and determines timer UI as the game occurs.
 
-#### Implementation in GameView
-
-`GameView.swift` observes game state and renders conditionally:
-
-```swift
-@State private var gameState: GameState = .waiting
-
-var body: some View {
-    switch gameState {
-    case .waiting:
-        LobbyWaitingView()
-    case .inProgress:
-        ActiveGameplayView()
-    case .completed:
-        GameCompletedView()
-    }
-}
-```
-
-**Why Not Separate Views?**: We initially had separate view controllers for each state, but navigation between them caused memory leaks (views weren't properly deallocating Firebase listeners). A single view with conditional rendering solved this.
-
-#### State Transitions
+#### Game State Transitions - help
 
 Only the **host** can transition states (enforced in Firebase rules). This prevents race conditions where multiple players try to start/end the game simultaneously.
 
@@ -225,11 +200,11 @@ Client-side, we optimistically update local state but revert if Firebase rejects
 
 ---
 
-## Timer System
+## Timer System - noah review
 
 ### Client-Side Timer with Server Validation
 
-Game timers (e.g., 30-minute hiding phase) run client-side but sync against server timestamps. Implementation in `GameView.swift`:
+Game timers (e.g., 30-minute hiding phase) are rendered client-side but sync against server timestamps. Implementation in `GameView.swift`:
 
 ```swift
 @State private var timeRemaining: TimeInterval = 0
@@ -246,20 +221,9 @@ Timer.publish(every: 1, on: .main, in: .common)
     }
 ```
 
-#### Why Not Firebase Server-Side Timer?
-
-**Considered**: Firebase Cloud Functions with scheduled jobs to end games automatically.
-
-**Rejected Because**:
-1. **Cost**: Scheduled functions run continuously, increasing costs
-2. **Latency**: Functions have cold-start delays (1-2 seconds)
-3. **Client Control**: Players can manually end games early; server-side timer would conflict
-
-**Trade-off**: Clients can cheat by manipulating local clocks, but this is a casual game, and the server timestamp prevents major discrepancies.
-
 ---
 
-## Photo Sharing Implementation
+## Photo Sharing Implementation - help
 
 ### Bridging UIKit and SwiftUI
 
@@ -314,11 +278,11 @@ This prevents users from uploading photos on behalf of others.
 
 ---
 
-## Notification System (Optional Feature)
+## Notification System - help
 
 ### Push Notification Architecture
 
-We implemented **Firebase Cloud Messaging (FCM)** for chat notifications, though this is optional (app works without it). Key components:
+We implemented Firebase Cloud Messaging for chat notifications. Key components:
 
 1. **NotificationManager.swift**: Requests permission, stores FCM tokens
 2. **Cloud Function**: `sendChatNotification` in `functions/index.js`
@@ -347,19 +311,11 @@ When a player closes the app mid-game, we need to allow rejoining. Implementatio
 
 #### 1. Active Game Tracking
 
-When a game starts, we write to `/activeGames/{gameId}/players/{uid}`:
-
-```json
-{
-  "uid": "user123",
-  "team": "hiders",
-  "lastSeen": 1700000000
-}
-```
+When a game starts, we assign the user to a game in the Firebase database. If they leave the game or decline to rejoin the game, they will be unassigned from said game.
 
 #### 2. Rejoin Detection
 
-On app launch, `MainView.swift` checks `/activeGames` for the current user's UID. If found and game is still `inProgress`, it shows a "Rejoin Game" button.
+On app launch, `MainView.swift` checks `/activeGames` for the current user's UID. If found in the database and game is still `inProgress`, it shows a "Rejoin Game" button.
 
 ```swift
 .onAppear {
@@ -373,9 +329,7 @@ On app launch, `MainView.swift` checks `/activeGames` for the current user's UID
 
 #### 3. State Restoration
 
-When rejoining, `GameView.swift` fetches full game state from `/games/{gameId}` and resumes location tracking. Previous messages, locations, and map tools load automatically via Firebase listeners.
-
-**Alternative Considered**: Local CoreData persistence. Rejected because Firebase already persists state server-side; duplicating locally adds complexity without benefit.
+When rejoining, `GameView.swift` fetches full game state from `/games/{gameId}` and resumes location tracking. Previous messages, locations, and map tools load automatically from the Firebase database.
 
 ---
 
@@ -392,57 +346,15 @@ func generateLobbyCode() -> String {
 }
 ```
 
-We check for collisions by attempting to create at `/lobbies/{code}` with `setValue()`. Firebase rejects if it already exists, and we retry with a new code.
+We check for duplicates of games by attempting to create at `/lobbies/{code}` with `setValue()`. Firebase throws an error if a game with the same code already exists, and we retry with a new code.
 
-**Collision Probability**: With 36^6 = ~2 billion possible codes and <1000 concurrent lobbies, collision chance is negligible (<0.0001%).
+### Lobby Joining Via Quick Match/Code Join - help, further explanation needed for lobby code matching w/ joining
 
-#### Lobby Expiration
-
-Lobbies expire after 1 hour (set in `expiresAt` field). We don't implement server-side cleanup (to avoid Cloud Function costs); instead, clients filter expired lobbies when displaying the "Join Random Game" list.
-
-**Future Improvement**: Firebase TTL (time-to-live) rules could auto-delete expired lobbies, but this requires Firestore, not Realtime Database.
+If the lobby is marked as public in the game settings, when other users click the quick match button, it will query the database for public games and display those games. If it is not public, the game will not show up.
 
 ---
 
-## Performance Optimizations
-
-### 1. Throttled Location Uploads
-
-Without throttling, moving 100 meters would trigger 20 Firebase writes (every 5 meters). We throttle to max 1 write per second in `LocationManager.swift`:
-
-```swift
-private var lastUploadTime: Date?
-
-func uploadLocation() {
-    guard let last = lastUploadTime, Date().timeIntervalSince(last) > 1.0 else { return }
-    // Upload to Firebase
-    lastUploadTime = Date()
-}
-```
-
-This reduced write costs by 95% in testing with no perceptible impact on gameplay.
-
-### 2. Lazy Loading of Messages
-
-Initially, we loaded all messages on game join. For long games (2+ hours), this meant downloading 500+ messages. We now load the latest 50, then paginate older messages:
-
-```swift
-ref.child("messages")
-    .queryLimited(toLast: 50)
-    .observe(.value) { snapshot in
-        // Load messages
-    }
-```
-
-Users can tap "Load Earlier Messages" to fetch the next batch. This reduced initial load time from 5 seconds to <1 second.
-
-### 3. Image Caching
-
-Firebase Storage URLs are cacheable. We use `URLSession` with default caching for message photos, avoiding redundant downloads.
-
----
-
-## Security Considerations
+## Security Considerations - help, no idea about this
 
 ### Firebase Security Rules
 
@@ -472,127 +384,7 @@ This prevents:
 
 ---
 
-## Testing Strategy
-
-### Multi-Device Testing
-
-Hide and CSeek50 requires multi-player testing. Our approach:
-
-1. **Physical Devices**: Multiple iPhones for simultaneous gameplay testing
-2. **Simulator + Device**: One simulator (for UI testing) + one device (for GPS/camera)
-3. **Firebase Emulator**: Local Firebase instance for integration tests (not yet implemented)
-
-**Challenge**: Xcode's scheme switching is slow when testing multiple builds. We use a shared Firebase staging project so all developers can test against the same data without constant rebuilds.
-
-### Debug Logging
-
-We added extensive `print()` statements throughout for development:
-
-```swift
-// In LocationManager.swift
-print("📍 Location updated: \(location.coordinate)")
-
-// In DatabaseManager.swift
-print("🔥 Firebase write: /games/\(gameId)/messages/\(messageId)")
-```
-
-Emojis help visually distinguish log types in Xcode's console. In production, we'd replace these with proper logging frameworks (e.g., OSLog).
-
----
-
-## Challenges and Solutions
-
-### Challenge 1: MapKit Annotation Lag
-
-**Problem**: With 10+ players, map annotations (markers) updated slowly, causing stuttering during pans/zooms.
-
-**Cause**: We used `@State` in `GameMapView.swift`, triggering full view rebuilds on every location update.
-
-**Solution**: Migrated to `MKMapView` (UIKit) wrapped in `UIViewRepresentable`, updating annotations imperatively:
-
-```swift
-func updateUIView(_ uiView: MKMapView, context: Context) {
-    // Update annotations without rebuilding entire view
-    uiView.removeAnnotations(uiView.annotations)
-    uiView.addAnnotations(newAnnotations)
-}
-```
-
-This reduced frame drops from 30% to <5%.
-
-### Challenge 2: Photo Upload Progress Indication
-
-**Problem**: Users didn't know if photos were uploading or stuck.
-
-**Initial Approach**: Simple "Uploading..." text.
-
-**User Feedback**: Confusing on slow connections (30+ seconds).
-
-**Solution**: Added `@State private var uploadProgress: Double` with Firebase Storage's progress observers:
-
-```swift
-uploadTask.observe(.progress) { snapshot in
-    self.uploadProgress = Double(snapshot.progress!.completedUnitCount) 
-                         / Double(snapshot.progress!.totalUnitCount)
-}
-```
-
-Displayed as `ProgressView(value: uploadProgress)`. Significantly improved perceived performance.
-
-### Challenge 3: Background Location Updates
-
-**Problem**: iOS suspends apps in background, stopping location updates.
-
-**Attempted Solution**: Enable `UIBackgroundModes` with `location`.
-
-**Result**: Apple's App Review rejected our build, citing "Background Location access not justified for hide-and-seek game."
-
-**Final Solution**: Removed background modes, added clear UI message: "Keep app open during gameplay." Accepted trade-off for App Store compliance.
-
----
-
-## Scalability Considerations
-
-### Current Limitations
-
-1. **Single Database Region**: Firebase Realtime Database uses US-Central region. Players in Asia/Europe experience higher latency (200-300ms vs 50ms).
-
-2. **No Sharding**: All games in one database instance. Firebase limits ~200k concurrent connections; we'd need sharding at ~10k concurrent games.
-
-3. **Broadcast Writes**: All players write to the same `/games/{gameId}` path. Firebase scales to ~1000 writes/sec per path; limits max players per game.
-
-### Future Scaling Strategies
-
-1. **Multi-Region Deployment**: Use Firebase's multi-region setup with geolocation-based routing
-2. **Firestore Migration**: For complex queries (e.g., matchmaking by skill level)
-3. **WebSockets for Location**: Direct WebSocket server for ultra-low-latency location streaming
-4. **CDN for Assets**: Move profile pictures to CloudFront/CloudFlare CDN
-
----
-
-## Lessons Learned
-
-### What Went Well
-
-1. **SwiftUI + Combine**: The reactive programming model drastically reduced boilerplate compared to UIKit MVC patterns.
-
-2. **Firebase Real-time Database**: The speed and simplicity of real-time sync exceeded expectations. Minimal backend code required.
-
-3. **Modular Architecture**: Separating managers (Auth, Database, Location) into singletons made testing and debugging easier.
-
-### What We'd Do Differently
-
-1. **Earlier Multi-Device Testing**: We initially tested on simulators, discovering late that GPS/camera don't work. Earlier physical device testing would have avoided rework.
-
-2. **Firebase Emulator Setup**: We tested directly against production Firebase, causing occasional data corruption. Local emulator would have provided safer testing.
-
-3. **Formal State Management**: We used ad-hoc `@State` and `@ObservedObject` throughout. A formal pattern (e.g., Redux/TCA) would improve maintainability as complexity grew.
-
-4. **Accessibility from Day One**: We added VoiceOver support late in development. Building accessibility into initial designs would have been easier.
-
----
-
-## Code Organization Rationale
+## Repository Organization
 
 ### Directory Structure
 
@@ -601,7 +393,7 @@ HideAndCSeek50/
 ├── Logic/              # Business logic, managers, utilities
 │   ├── Extensions/     # Swift extensions for models and maps
 │   ├── Markdown/       # Project documentation
-│   └── Models/         # Data models and Codable structs
+│   └── Models/         # Data models and Codable structs (map tools, etc.)
 ├── Views/              # SwiftUI views, organized by feature
 │   ├── Components/     # Reusable UI components
 │   ├── Gameplay/       # Active game views (map, chat, etc.)
@@ -611,27 +403,4 @@ HideAndCSeek50/
 └── Resources/          # Assets, Info.plist, Firebase config
 ```
 
-**Why This Structure?**:
-- **Feature-Based**: Views are grouped by feature (Lobby, Gameplay) for easier navigation
-- **Separation of Concerns**: Logic, Views, and ViewModels are separate, enabling reusability
-- **Centralized Resources**: All configuration files and assets in one location
-
-**Alternative Considered**: Clean Architecture with layers (Domain, Data, Presentation). Rejected as overkill for a 3-person team with 6-week timeline.
-
 ---
-
-## Conclusion
-
-Hide and CSeek50 demonstrates real-time multiplayer app development using modern iOS technologies. Key technical achievements include:
-
-- **Real-time sync** with sub-second latency for location and chat
-- **Multi-format messaging** with photo compression and storage
-- **Advanced map tools** with team-synchronized overlays
-- **Robust state management** across app termination and reconnection
-- **Multi-provider authentication** with seamless account linking
-
-The app is production-ready for CS50 demonstration and could scale to public release with the improvements outlined above. The codebase demonstrates careful consideration of performance, security, user experience, and maintainability throughout the development process.
-
----
-
-**Primary Design Philosophy**: Favor simplicity and developer velocity over premature optimization. Build features that work reliably for 2-10 players before scaling to thousands. Use Firebase's managed services to minimize backend complexity and focus on iOS user experience.

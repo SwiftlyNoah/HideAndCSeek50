@@ -1,21 +1,8 @@
 # Hide and CSeek50
 
-A digital hide and seek iOS app inspired by Jet Lag: The Game's Home Game format. Players compete in teams with real-world location tracking and map-based gameplay. The hiders choose some geographic location to hide and seekers find them by asking a series of geographic and photo based questions.
+A digital hide and seek iOS app inspired by [Jet Lag: The Game](https://store.nebula.tv/products/hideandseek?srsltid=AfmBOoqbGJjHeLowiRxnPiLQtFlGZslfS36k4aODukUM5LNVTO-UcwJW). Players compete in teams with real-world location tracking and map-based gameplay—hiders choose a geographic location to hide while seekers find them by asking a series of geographic and photo-based questions.
 
-## Our Project Overview
-
-Hide and CSeek50 is a tool to condense the various apps/tools needed to properly play this game. Instead of using some location sharing app, a messaging app, and a map to draw on, everything is packaged into our single interface.
-
----
-
-## Table of Contents
-
-1. [Installation & Setup](#installation-&-setup)
-2. [How to Run the App](#how-to-run-the-app)
-3. [Testing the App](#testing-the-app)
-4. [Core Features](#core-features)
-5. [Technical Architecture](#technical-architecture)
-6. [Video Recap](#video-recap)
+Hide and CSeek50 consolidates the various apps and tools needed to play this game into a single interface. Instead of juggling location sharing apps, messaging apps, and map drawing tools, everything is packaged into one cohesive experience.
 
 ---
 
@@ -23,7 +10,7 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
 
 ```
 HideAndCSeek50/
-├── ios/                          # iOS application code
+├── ios/                         # iOS application code
 │   ├── HideAndCSeek50/          # Main app source code
 │   │   ├── Logic/               # Business logic and managers
 │   │   ├── Views/               # SwiftUI views

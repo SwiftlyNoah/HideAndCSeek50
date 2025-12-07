@@ -7,11 +7,28 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1409C9C22EE62050003166E7 /* MKCoordinateRegion+Equality.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9C12EE62045003166E7 /* MKCoordinateRegion+Equality.swift */; };
+		1409C9C52EE62117003166E7 /* PerpendicularBisectorToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9C42EE62108003166E7 /* PerpendicularBisectorToolView.swift */; };
+		1409C9C72EE6213C003166E7 /* TrainLinesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9C62EE62138003166E7 /* TrainLinesView.swift */; };
+		1409C9C92EE62158003166E7 /* MunicipalitiesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9C82EE62155003166E7 /* MunicipalitiesView.swift */; };
+		1409C9CB2EE6218C003166E7 /* RadiusToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9CA2EE62187003166E7 /* RadiusToolView.swift */; };
+		1409C9CE2EE6221E003166E7 /* PlayerAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9CD2EE62218003166E7 /* PlayerAnnotation.swift */; };
+		1409C9D02EE62231003166E7 /* SearchResultAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9CF2EE6222D003166E7 /* SearchResultAnnotation.swift */; };
+		1409C9D22EE622A2003166E7 /* BisectorPointAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9D12EE622A2003166E7 /* BisectorPointAnnotation.swift */; };
+		1409C9D42EE622BF003166E7 /* MeasurePointAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9D32EE622BD003166E7 /* MeasurePointAnnotation.swift */; };
+		1409C9D62EE622F5003166E7 /* PolygonVertexAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9D52EE622F4003166E7 /* PolygonVertexAnnotation.swift */; };
+		1409C9D82EE62416003166E7 /* GameSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9D72EE62413003166E7 /* GameSettingsView.swift */; };
+		1409C9DE2EE6246D003166E7 /* TimerActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9DD2EE6246A003166E7 /* TimerActionsView.swift */; };
+		1409C9E02EE624E9003166E7 /* QuestionCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9DF2EE624E6003166E7 /* QuestionCategory.swift */; };
+		1409C9E22EE62580003166E7 /* MeasureToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9E12EE6256D003166E7 /* MeasureToolView.swift */; };
+		1409C9E42EE625DE003166E7 /* PolygonToolView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9E32EE625D9003166E7 /* PolygonToolView.swift */; };
+		1409C9E62EE625FF003166E7 /* Export+SyncSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9E52EE625F8003166E7 /* Export+SyncSection.swift */; };
+		1409C9E82EE62623003166E7 /* SyncMapToolsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9E72EE62620003166E7 /* SyncMapToolsSheet.swift */; };
 		140B02AD2EC8791E0005EE81 /* AuthenticationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B029B2EC8791E0005EE81 /* AuthenticationManager.swift */; };
 		140B02AF2EC8791E0005EE81 /* CreateLobbyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B029D2EC8791E0005EE81 /* CreateLobbyView.swift */; };
 		140B02B02EC8791E0005EE81 /* DatabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B029E2EC8791E0005EE81 /* DatabaseManager.swift */; };
 		140B02B22EC8791E0005EE81 /* Game.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B02A02EC8791E0005EE81 /* Game.swift */; };
-		140B02B32EC8791E0005EE81 /* HelperViewsActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B02A22EC8791E0005EE81 /* HelperViewsActionButton.swift */; };
+		140B02B32EC8791E0005EE81 /* ActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B02A22EC8791E0005EE81 /* ActionButton.swift */; };
 		140B02B52EC8791E0005EE81 /* HideAndCSeek50App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B02A42EC8791E0005EE81 /* HideAndCSeek50App.swift */; };
 		140B02B62EC8791E0005EE81 /* JoinLobbyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B02A62EC8791E0005EE81 /* JoinLobbyView.swift */; };
 		140B02B72EC8791E0005EE81 /* LobbySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B02A72EC8791E0005EE81 /* LobbySettingsView.swift */; };
@@ -41,7 +58,7 @@
 		14990EEC2ED9425700DFD3E5 /* BottomSheet in Frameworks */ = {isa = PBXBuildFile; productRef = 14990EEB2ED9425700DFD3E5 /* BottomSheet */; };
 		14990EEE2ED94C2F00DFD3E5 /* TransportSelectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990EED2ED94C2F00DFD3E5 /* TransportSelectionSheet.swift */; };
 		14990EF02ED94E0700DFD3E5 /* TransportType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990EEF2ED94E0700DFD3E5 /* TransportType.swift */; };
-		14990EF42ED9654F00DFD3E5 /* MapExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990EF32ED9654A00DFD3E5 /* MapExtensions.swift */; };
+		14990EF42ED9654F00DFD3E5 /* MKMapItem+Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990EF32ED9654A00DFD3E5 /* MKMapItem+Address.swift */; };
 		14990EF62ED9735B00DFD3E5 /* Rapid_Transit_Routes.geojson in Resources */ = {isa = PBXBuildFile; fileRef = 14990EF52ED9735B00DFD3E5 /* Rapid_Transit_Routes.geojson */; };
 		14990EFA2ED9739000DFD3E5 /* CircleOverlayItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990EF92ED9739000DFD3E5 /* CircleOverlayItem.swift */; };
 		14990EFC2ED973E300DFD3E5 /* ma.json in Resources */ = {isa = PBXBuildFile; fileRef = 14990EFB2ED973E300DFD3E5 /* ma.json */; };
@@ -69,6 +86,23 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1409C9C12EE62045003166E7 /* MKCoordinateRegion+Equality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MKCoordinateRegion+Equality.swift"; sourceTree = "<group>"; };
+		1409C9C42EE62108003166E7 /* PerpendicularBisectorToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerpendicularBisectorToolView.swift; sourceTree = "<group>"; };
+		1409C9C62EE62138003166E7 /* TrainLinesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainLinesView.swift; sourceTree = "<group>"; };
+		1409C9C82EE62155003166E7 /* MunicipalitiesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MunicipalitiesView.swift; sourceTree = "<group>"; };
+		1409C9CA2EE62187003166E7 /* RadiusToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadiusToolView.swift; sourceTree = "<group>"; };
+		1409C9CD2EE62218003166E7 /* PlayerAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerAnnotation.swift; sourceTree = "<group>"; };
+		1409C9CF2EE6222D003166E7 /* SearchResultAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultAnnotation.swift; sourceTree = "<group>"; };
+		1409C9D12EE622A2003166E7 /* BisectorPointAnnotation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BisectorPointAnnotation.swift; sourceTree = "<group>"; };
+		1409C9D32EE622BD003166E7 /* MeasurePointAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurePointAnnotation.swift; sourceTree = "<group>"; };
+		1409C9D52EE622F4003166E7 /* PolygonVertexAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolygonVertexAnnotation.swift; sourceTree = "<group>"; };
+		1409C9D72EE62413003166E7 /* GameSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSettingsView.swift; sourceTree = "<group>"; };
+		1409C9DD2EE6246A003166E7 /* TimerActionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerActionsView.swift; sourceTree = "<group>"; };
+		1409C9DF2EE624E6003166E7 /* QuestionCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionCategory.swift; sourceTree = "<group>"; };
+		1409C9E12EE6256D003166E7 /* MeasureToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasureToolView.swift; sourceTree = "<group>"; };
+		1409C9E32EE625D9003166E7 /* PolygonToolView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolygonToolView.swift; sourceTree = "<group>"; };
+		1409C9E52EE625F8003166E7 /* Export+SyncSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Export+SyncSection.swift"; sourceTree = "<group>"; };
+		1409C9E72EE62620003166E7 /* SyncMapToolsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncMapToolsSheet.swift; sourceTree = "<group>"; };
 		140B02962EC8791E0005EE81 /* AUTHENTICATION.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AUTHENTICATION.md; sourceTree = "<group>"; };
 		140B02972EC8791E0005EE81 /* DATABASE_SCHEMA_JSON.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DATABASE_SCHEMA_JSON.md; sourceTree = "<group>"; };
 		140B02982EC8791E0005EE81 /* DATABASE_SCHEMA_OVERWIEW.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DATABASE_SCHEMA_OVERWIEW.md; sourceTree = "<group>"; };
@@ -78,7 +112,7 @@
 		140B029E2EC8791E0005EE81 /* DatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager.swift; sourceTree = "<group>"; };
 		140B02A02EC8791E0005EE81 /* Game.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game.swift; sourceTree = "<group>"; };
 		140B02A12EC8791E0005EE81 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
-		140B02A22EC8791E0005EE81 /* HelperViewsActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperViewsActionButton.swift; sourceTree = "<group>"; };
+		140B02A22EC8791E0005EE81 /* ActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButton.swift; sourceTree = "<group>"; };
 		140B02A42EC8791E0005EE81 /* HideAndCSeek50App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HideAndCSeek50App.swift; sourceTree = "<group>"; };
 		140B02A52EC8791E0005EE81 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		140B02A62EC8791E0005EE81 /* JoinLobbyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoinLobbyView.swift; sourceTree = "<group>"; };
@@ -109,7 +143,7 @@
 		14990EE82ED93DEA00DFD3E5 /* SearchResultsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsSheet.swift; sourceTree = "<group>"; };
 		14990EED2ED94C2F00DFD3E5 /* TransportSelectionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportSelectionSheet.swift; sourceTree = "<group>"; };
 		14990EEF2ED94E0700DFD3E5 /* TransportType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportType.swift; sourceTree = "<group>"; };
-		14990EF32ED9654A00DFD3E5 /* MapExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapExtensions.swift; sourceTree = "<group>"; };
+		14990EF32ED9654A00DFD3E5 /* MKMapItem+Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MKMapItem+Address.swift"; sourceTree = "<group>"; };
 		14990EF52ED9735B00DFD3E5 /* Rapid_Transit_Routes.geojson */ = {isa = PBXFileReference; lastKnownFileType = text; path = Rapid_Transit_Routes.geojson; sourceTree = "<group>"; };
 		14990EF92ED9739000DFD3E5 /* CircleOverlayItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleOverlayItem.swift; sourceTree = "<group>"; };
 		14990EFB2ED973E300DFD3E5 /* ma.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ma.json; sourceTree = "<group>"; };
@@ -151,6 +185,49 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1409C9C32EE620FB003166E7 /* Map Tools Subviews */ = {
+			isa = PBXGroup;
+			children = (
+				1409C9C62EE62138003166E7 /* TrainLinesView.swift */,
+				1409C9C82EE62155003166E7 /* MunicipalitiesView.swift */,
+				1409C9CA2EE62187003166E7 /* RadiusToolView.swift */,
+				1409C9E12EE6256D003166E7 /* MeasureToolView.swift */,
+				1409C9C42EE62108003166E7 /* PerpendicularBisectorToolView.swift */,
+				1409C9E32EE625D9003166E7 /* PolygonToolView.swift */,
+				149AB4C72EE2DA05005F7D7E /* PointToolView.swift */,
+				1409C9E52EE625F8003166E7 /* Export+SyncSection.swift */,
+				1409C9E72EE62620003166E7 /* SyncMapToolsSheet.swift */,
+			);
+			path = "Map Tools Subviews";
+			sourceTree = "<group>";
+		};
+		1409C9CC2EE621DF003166E7 /* Map Annotations */ = {
+			isa = PBXGroup;
+			children = (
+				1409C9CD2EE62218003166E7 /* PlayerAnnotation.swift */,
+				1409C9CF2EE6222D003166E7 /* SearchResultAnnotation.swift */,
+				1409C9D32EE622BD003166E7 /* MeasurePointAnnotation.swift */,
+				1409C9D12EE622A2003166E7 /* BisectorPointAnnotation.swift */,
+				1409C9D52EE622F4003166E7 /* PolygonVertexAnnotation.swift */,
+			);
+			path = "Map Annotations";
+			sourceTree = "<group>";
+		};
+		1409C9E92EE62663003166E7 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				1474BE712ED5164B00568A90 /* QuestionView.swift */,
+				1409C9DD2EE6246A003166E7 /* TimerActionsView.swift */,
+				1474BE6D2ED5164B00568A90 /* GameChatView.swift */,
+				14990EE82ED93DEA00DFD3E5 /* SearchResultsSheet.swift */,
+				14990EED2ED94C2F00DFD3E5 /* TransportSelectionSheet.swift */,
+				DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */,
+				14990EFD2ED97BA500DFD3E5 /* MapToolsSheet.swift */,
+				1409C9C32EE620FB003166E7 /* Map Tools Subviews */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
 		140B02992EC8791E0005EE81 /* Markdown */ = {
 			isa = PBXGroup;
 			children = (
@@ -191,13 +268,9 @@
 			children = (
 				1474BE6F2ED5164B00568A90 /* GameView.swift */,
 				1474BE6E2ED5164B00568A90 /* GameMapView.swift */,
-				1474BE6D2ED5164B00568A90 /* GameChatView.swift */,
-				1474BE712ED5164B00568A90 /* QuestionView.swift */,
+				1409C9E92EE62663003166E7 /* Components */,
 				14A2BAD62EDEAC6700E4B3C2 /* GameEndView.swift */,
-				14990EE82ED93DEA00DFD3E5 /* SearchResultsSheet.swift */,
-				14990EED2ED94C2F00DFD3E5 /* TransportSelectionSheet.swift */,
-				DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */,
-				14990EFD2ED97BA500DFD3E5 /* MapToolsSheet.swift */,
+				1409C9D72EE62413003166E7 /* GameSettingsView.swift */,
 			);
 			path = Gameplay;
 			sourceTree = "<group>";
@@ -215,8 +288,10 @@
 		14990EF12ED95A1D00DFD3E5 /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
-				14990EF32ED9654A00DFD3E5 /* MapExtensions.swift */,
+				143B7FE22EDAD1070093A0C6 /* UIImage+Compression.swift */,
 				14990EFF2ED984F200DFD3E5 /* GameModels+Dictionary.swift */,
+				14990EF32ED9654A00DFD3E5 /* MKMapItem+Address.swift */,
+				1409C9C12EE62045003166E7 /* MKCoordinateRegion+Equality.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -225,7 +300,7 @@
 			isa = PBXGroup;
 			children = (
 				143B7FDA2EDAD09E0093A0C6 /* ImagePicker.swift */,
-				140B02A22EC8791E0005EE81 /* HelperViewsActionButton.swift */,
+				140B02A22EC8791E0005EE81 /* ActionButton.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -236,8 +311,6 @@
 				14990F062ED988FC00DFD3E5 /* ChatViewModel.swift */,
 				1474BE852ED65F8200568A90 /* MapSearchViewModel.swift */,
 				14990F012ED9878100DFD3E5 /* MapToolsViewModel.swift */,
-				143B7FE22EDAD1070093A0C6 /* UIImage+Compression.swift */,
-				149AB4C72EE2DA05005F7D7E /* PointToolView.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -273,8 +346,6 @@
 				140B029B2EC8791E0005EE81 /* AuthenticationManager.swift */,
 				140B029E2EC8791E0005EE81 /* DatabaseManager.swift */,
 				14513F902EDFEE30003FF3EA /* NotificationManager.swift */,
-				149AB4C32EE2A3EE005F7D7E /* MapToolsData.swift */,
-				149AB4C52EE2D99A005F7D7E /* PointOverlayItem.swift */,
 			);
 			path = Logic;
 			sourceTree = "<group>";
@@ -284,10 +355,13 @@
 			children = (
 				140B02A02EC8791E0005EE81 /* Game.swift */,
 				14E268EF2EC9649300FBCF90 /* Lobby.swift */,
-				14E268ED2EC9647900FBCF90 /* Stats+History.swift */,
-				142066B52ECBDE200084F53C /* CityRegions.swift */,
+				1409C9DF2EE624E6003166E7 /* QuestionCategory.swift */,
 				14990EEF2ED94E0700DFD3E5 /* TransportType.swift */,
-				DA0A67912EDA4DF900F5A00D /* MapToolItems */,
+				149AB4C32EE2A3EE005F7D7E /* MapToolsData.swift */,
+				142066B52ECBDE200084F53C /* CityRegions.swift */,
+				14E268ED2EC9647900FBCF90 /* Stats+History.swift */,
+				DA0A67912EDA4DF900F5A00D /* Map Tool Items */,
+				1409C9CC2EE621DF003166E7 /* Map Annotations */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -312,15 +386,16 @@
 			);
 			sourceTree = "<group>";
 		};
-		DA0A67912EDA4DF900F5A00D /* MapToolItems */ = {
+		DA0A67912EDA4DF900F5A00D /* Map Tool Items */ = {
 			isa = PBXGroup;
 			children = (
-				294366602EDFE95600269F24 /* PolygonOverlayItem.swift */,
 				14990EF92ED9739000DFD3E5 /* CircleOverlayItem.swift */,
 				DA0A67922EDA4E1900F5A00D /* DistanceOverlayItem.swift */,
 				DA0A678F2EDA434800F5A00D /* BisectorOverlayItem.swift */,
+				294366602EDFE95600269F24 /* PolygonOverlayItem.swift */,
+				149AB4C52EE2D99A005F7D7E /* PointOverlayItem.swift */,
 			);
-			path = MapToolItems;
+			path = "Map Tool Items";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -417,14 +492,18 @@
 			files = (
 				294366612EDFE95600269F24 /* PolygonOverlayItem.swift in Sources */,
 				14A2BAD72EDEAC6700E4B3C2 /* GameEndView.swift in Sources */,
+				1409C9C92EE62158003166E7 /* MunicipalitiesView.swift in Sources */,
 				140B02AD2EC8791E0005EE81 /* AuthenticationManager.swift in Sources */,
+				1409C9D22EE622A2003166E7 /* BisectorPointAnnotation.swift in Sources */,
 				140B02AF2EC8791E0005EE81 /* CreateLobbyView.swift in Sources */,
 				140B02B02EC8791E0005EE81 /* DatabaseManager.swift in Sources */,
 				149AB4C42EE2A3EE005F7D7E /* MapToolsData.swift in Sources */,
 				140B02B22EC8791E0005EE81 /* Game.swift in Sources */,
 				14990EFE2ED97BA500DFD3E5 /* MapToolsSheet.swift in Sources */,
+				1409C9DE2EE6246D003166E7 /* TimerActionsView.swift in Sources */,
+				1409C9D42EE622BF003166E7 /* MeasurePointAnnotation.swift in Sources */,
 				14513F912EDFEE30003FF3EA /* NotificationManager.swift in Sources */,
-				140B02B32EC8791E0005EE81 /* HelperViewsActionButton.swift in Sources */,
+				140B02B32EC8791E0005EE81 /* ActionButton.swift in Sources */,
 				14990EF02ED94E0700DFD3E5 /* TransportType.swift in Sources */,
 				1474BE7E2ED5165200568A90 /* AuthenticationView.swift in Sources */,
 				14990EE92ED93DEA00DFD3E5 /* SearchResultsSheet.swift in Sources */,
@@ -432,21 +511,30 @@
 				1474BE7F2ED5165200568A90 /* EmailSignInView.swift in Sources */,
 				1474BE802ED5165200568A90 /* ProfileView.swift in Sources */,
 				14990F002ED984F200DFD3E5 /* GameModels+Dictionary.swift in Sources */,
+				1409C9CE2EE6221E003166E7 /* PlayerAnnotation.swift in Sources */,
 				149AB4C82EE2DA05005F7D7E /* PointToolView.swift in Sources */,
 				14990F022ED9878100DFD3E5 /* MapToolsViewModel.swift in Sources */,
 				DA0A67932EDA4E1D00F5A00D /* DistanceOverlayItem.swift in Sources */,
 				14E268F02EC9649700FBCF90 /* Lobby.swift in Sources */,
+				1409C9E62EE625FF003166E7 /* Export+SyncSection.swift in Sources */,
 				143B7FE32EDAD1070093A0C6 /* UIImage+Compression.swift in Sources */,
 				1474BE742ED5164B00568A90 /* GameChatView.swift in Sources */,
 				1474BE752ED5164B00568A90 /* GameMapView.swift in Sources */,
+				1409C9C52EE62117003166E7 /* PerpendicularBisectorToolView.swift in Sources */,
+				1409C9E82EE62623003166E7 /* SyncMapToolsSheet.swift in Sources */,
 				1474BE762ED5164B00568A90 /* GameView.swift in Sources */,
+				1409C9E02EE624E9003166E7 /* QuestionCategory.swift in Sources */,
 				14990EFA2ED9739000DFD3E5 /* CircleOverlayItem.swift in Sources */,
 				1474BE782ED5164B00568A90 /* QuestionView.swift in Sources */,
+				1409C9C22EE62050003166E7 /* MKCoordinateRegion+Equality.swift in Sources */,
 				143B7FDB2EDAD09E0093A0C6 /* ImagePicker.swift in Sources */,
 				DA0A67902EDA434D00F5A00D /* BisectorOverlayItem.swift in Sources */,
-				14990EF42ED9654F00DFD3E5 /* MapExtensions.swift in Sources */,
+				1409C9E42EE625DE003166E7 /* PolygonToolView.swift in Sources */,
+				1409C9E22EE62580003166E7 /* MeasureToolView.swift in Sources */,
+				14990EF42ED9654F00DFD3E5 /* MKMapItem+Address.swift in Sources */,
 				140B02B52EC8791E0005EE81 /* HideAndCSeek50App.swift in Sources */,
 				140B02B62EC8791E0005EE81 /* JoinLobbyView.swift in Sources */,
+				1409C9D62EE622F5003166E7 /* PolygonVertexAnnotation.swift in Sources */,
 				142066B62ECBDE200084F53C /* CityRegions.swift in Sources */,
 				149AB4C62EE2D99A005F7D7E /* PointOverlayItem.swift in Sources */,
 				142066BA2ECBDFF50084F53C /* LocationManager.swift in Sources */,
@@ -454,10 +542,14 @@
 				14E268EE2EC9648000FBCF90 /* Stats+History.swift in Sources */,
 				140B02B72EC8791E0005EE81 /* LobbySettingsView.swift in Sources */,
 				140B02B82EC8791E0005EE81 /* LobbyView.swift in Sources */,
+				1409C9C72EE6213C003166E7 /* TrainLinesView.swift in Sources */,
 				140B02B92EC8791E0005EE81 /* MainView.swift in Sources */,
 				DAE3F4C42ED695680055DBAB /* DirectionsSheet.swift in Sources */,
 				14990F072ED988FF00DFD3E5 /* ChatViewModel.swift in Sources */,
+				1409C9D02EE62231003166E7 /* SearchResultAnnotation.swift in Sources */,
+				1409C9CB2EE6218C003166E7 /* RadiusToolView.swift in Sources */,
 				140B02BB2EC8791E0005EE81 /* QuickMatchView.swift in Sources */,
+				1409C9D82EE62416003166E7 /* GameSettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

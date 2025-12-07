@@ -750,44 +750,7 @@ struct GameMapView: UIViewRepresentable {
     }
 }
 
-class PlayerAnnotation: NSObject, MKAnnotation {
-    let displayName: String
-    let coordinate: CLLocationCoordinate2D
-    let team: Team
-    
-    var title: String? {
-        return displayName
-    }
-    
-    var subtitle: String? {
-        return team.displayName
-    }
-    
-    init(displayName: String, coordinate: CLLocationCoordinate2D, team: Team) {
-        self.displayName = displayName
-        self.coordinate = coordinate
-        self.team = team
-        super.init()
-    }
-}
-
-class SearchResultAnnotation: NSObject, MKAnnotation {
-    let name: String
-    let coordinate: CLLocationCoordinate2D
-    let isSelected: Bool
-    
-    var title: String? {
-        return name
-    }
-    
-    init(name: String, coordinate: CLLocationCoordinate2D, isSelected: Bool) {
-        self.name = name
-        self.coordinate = coordinate
-        self.isSelected = isSelected
-        super.init()
-    }
-}
-
+// MARK: - Make inverse shapes
 extension GameMapView {
     static func makeInverseCirclePolygon(center: CLLocationCoordinate2D, radiusMeters: CLLocationDistance) -> MKPolygon {
         // Outer polygon covering a wide area around the center
@@ -843,45 +806,5 @@ extension GameMapView {
         }
         let inverse = MKPolygon(coordinates: outerCoords, count: outerCoords.count, interiorPolygons: [hole])
         return inverse
-    }
-}
-
-final class MeasurePointAnnotation: NSObject, MKAnnotation {
-    enum Kind { case a }
-    let kind: Kind
-    dynamic var coordinate: CLLocationCoordinate2D
-    var title: String? { "Measure Point" }
-    init(kind: Kind, coordinate: CLLocationCoordinate2D) {
-        self.kind = kind
-        self.coordinate = coordinate
-        super.init()
-    }
-}
-
-final class BisectorPointAnnotation: NSObject, MKAnnotation {
-    enum Kind { case a, b }
-    let kind: Kind
-    dynamic var coordinate: CLLocationCoordinate2D
-    var title: String? {
-        switch kind {
-        case .a: return "Point A"
-        case .b: return "Point B"
-        }
-    }
-    init(kind: Kind, coordinate: CLLocationCoordinate2D) {
-        self.kind = kind
-        self.coordinate = coordinate
-        super.init()
-    }
-}
-
-final class PolygonVertexAnnotation: NSObject, MKAnnotation {
-    let vertexIndex: Int
-    dynamic var coordinate: CLLocationCoordinate2D
-    var title: String? { "Vertex \(vertexIndex + 1)" }
-    init(vertexIndex: Int, coordinate: CLLocationCoordinate2D) {
-        self.vertexIndex = vertexIndex
-        self.coordinate = coordinate
-        super.init()
     }
 }

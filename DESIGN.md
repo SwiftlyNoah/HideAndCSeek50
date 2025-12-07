@@ -4,7 +4,7 @@
 
 ### Project Overview
 
-Our project seeks to unify the apps and tools needed to play [Jet Lag: The Game The Home Game](https://store.nebula.tv/products/hideandseek?srsltid=AfmBOoqbGJjHeLowiRxnPiLQtFlGZslfS36k4aODukUM5LNVTO-UcwJW) into a single app including location sharing, question asking, game timers, map tools, game chat, and more!
+Our project seeks to unify the apps and tools needed to play [Jet Lag: The Game](https://store.nebula.tv/products/hideandseek?srsltid=AfmBOoqbGJjHeLowiRxnPiLQtFlGZslfS36k4aODukUM5LNVTO-UcwJW) into a single app including location sharing, question asking, game timers, map tools, game chat, and more!
 
 ---
 
@@ -28,7 +28,7 @@ It was a free, easy to use platform that some of our developers had experience u
 
 ### LocationManager Implementation
 
-`LocationManager.swift` is implemented as a singleton with `CLLocationManager` for GPS access. - help
+[`LocationManager.swift`](ios/HideAndCSeek50/Logic/LocationManager.swift) is implemented with `CLLocationManager` for GPS access.
 
 #### 1. Update Frequency Strategy
 
@@ -40,15 +40,15 @@ We update location after every 5 meters of movement using the Apple Location Man
 
 We use `requestAlwaysAuthorization()` because having accurate locations for players is crucial in game. Not tracking when player's screens are off will signficantly affect gameplay.
 
-#### 3. Publisher Pattern for Updates - help
+#### 3. Publisher Pattern for Updates
 
 `LocationManager` publishes location updates via Combine's `@Published` property:
 
 ```swift
-@Published var currentLocation: CLLocationCoordinate2D?
+@Published var location: CLLocation?
 ```
 
-This allows `GameView.swift` to reactively upload locations to Firebase whenever they change, without manual observation patterns.
+This allows [`GameView.swift`](ios/HideAndCSeek50/Views/Gameplay/GameView.swift) to reactively upload locations to Firebase whenever they change, without manual observation patterns.
 
 ---
 
@@ -56,31 +56,32 @@ This allows `GameView.swift` to reactively upload locations to Firebase whenever
 
 ### Multi-Format Messaging
 
-Our chat system (primarily in `ChatViewModel.swift` and `GameChatView.swift`) supports text, photos, and system events. Key design choices:
+Our chat system (primarily in [`ChatViewModel.swift`](ios/HideAndCSeek50/ViewModels/ChatViewModel.swift) and [`GameChatView.swift`](ios/HideAndCSeek50/Views/Gameplay/GameChatView.swift)) supports text, photos, locations, and system events. Key design choices:
 
 #### 1. Unified Message Model
 
-We use a single `Message` model with a `type` enum to simplify processing (sending, recieving, storing in database):
+We use a single `GameMessage` model with a `type` enum to simplify processing (sending, receiving, storing in database):
 
 ```swift
 enum MessageType: String, Codable {
-    case text
-    case photo
-    case event
-    case question
+    case text = "text"
+    case photo = "photo"
+    case question = "question"
+    case event = "event"
+    case location = "location"
 }
 ```
 
-#### 2. Photo Upload Strategy - help
+#### 2. Photo Upload Strategy
 
 Photos are uploaded to Firebase Storage at `/games/{gameId}/photos/{messageId}.jpg`, then the download URL is saved in the message document. This separation:
 - **Keeps Database Light**: URLs are ~200 bytes vs multi-MB images
 - **Enables CDN Caching**: Firebase Storage has global CDN for fast image delivery
-- **Simplifies Security**: Storage rules (in `storage.rules`) validate uploads separately
+- **Simplifies Security**: Storage rules (in [`storage.rules`](ios/HideAndCSeek50/Markdown/storage.rules)) validate uploads separately
 
-**Compression**: We compress images to max 5MB before upload (in `UIImage+Compression.swift`) to balance quality and upload time. Original implementation had no limit and caused slow uploads on cellular.
+**Compression**: We compress images to max 5MB before upload (in [`UIImage+Compression.swift`](ios/HideAndCSeek50/ViewModels/UIImage+Compression.swift)) to balance quality and upload time. Original implementation had no limit and caused slow uploads on cellular.
 
-#### 3. Team-Based Channels - help
+#### 3. Team-Based Channels
 
 Messages have a `team` field (`"hiders"`, `"seekers"`, or `"all"`). We filter messages client-side rather than using separate Firebase paths because:
 - **Flexibility**: Easy to add future features like "switch team visibility"
@@ -97,9 +98,9 @@ Messages have a `team` field (`"hiders"`, `"seekers"`, or `"all"`). We filter me
 
 To increase functionality and ease of use for users, we added multiple sign in methods (Google, Apple ID, Email/Password, and Guest). Guest was added to allow for very quick testing without creating an account. We do not recommend this as it makes users show up as "Anonymous" in game.
 
-#### Implementation Details - help
+#### Implementation Details
 
-We use a singleton pattern for `AuthenticationManager` to maintain global auth state:
+We use a singleton pattern for [`AuthenticationManager`](ios/HideAndCSeek50/Logic/AuthenticationManager.swift) to maintain global auth state:
 
 ```swift
 class AuthenticationManager: ObservableObject {
@@ -108,9 +109,7 @@ class AuthenticationManager: ObservableObject {
 }
 ```
 
-This singleton is injected as `@EnvironmentObject` in `HideAndCSeek50App.swift`, making it accessible throughout the view hierarchy without prop drilling.
-
-**Alternative Considered**: Passing auth state explicitly through view parameters. Rejected because it creates verbose code and makes refactoring harder.
+This singleton is injected as `@EnvironmentObject` in [`HideAndCSeek50App.swift`](ios/HideAndCSeek50/HideAndCSeek50App.swift), making it accessible throughout the view hierarchy.
 
 ---
 
@@ -118,7 +117,7 @@ This singleton is injected as `@EnvironmentObject` in `HideAndCSeek50App.swift`,
 
 ### Team Specific Map Views
 
-The map shown is different for hiders and seekers and is implemented in `GameMapView.swift`:
+The map shown is different for hiders and seekers and is implemented in [`GameMapView.swift`](ios/HideAndCSeek50/Views/Gameplay/GameMapView.swift):
 
 #### 1. Hider View
 - Sees seeker locations in real time
@@ -134,11 +133,18 @@ This asymmetry is the core gameplay mechanic. Implementation-wise:
 // Simplified logic in GameMapView.swift
 if playerTeam == .hiders {
     // Show all opponent locations
-    ForEach(seekerLocations) { location in RedMarker(location)}
-    ForEach(hiderLocations) {location in BlueMarker(location)}
-} else {
+    ForEach(seekerLocations) { location in 
+        RedMarker(location)
+    }
+    ForEach(hiderLocations) { location in 
+        RedMarker(location)
+    }
+} 
+else {
     // Can only see seekers
-    ForEach(seekerLocations) {location in RedMarker(location)
+    ForEach(seekerLocations) { location in 
+        RedMarker(location)
+    }
 }
 ```
 
@@ -148,11 +154,11 @@ if playerTeam == .hiders {
 
 ### Complex Overlay Management
 
-The map tools (circles, bisectors, measurements, polygons) in `MapToolsSheet.swift` and `MapToolsViewModel.swift` required storage, map references & integration, and geographic math:
+The map tools (circles, bisectors, measurements, polygons) in [`MapToolsSheet.swift`](ios/HideAndCSeek50/Views/Gameplay/MapToolsSheet.swift) and [`MapToolsViewModel.swift`](ios/HideAndCSeek50/ViewModels/MapToolsViewModel.swift) required storage, map references & integration, and geographic math:
 
 #### 1. Long Term Tool Storage
 
-Each tool (circle, bisector, etc.) is stored as a Codable struct (e.g., `CircleOverlayItem` in the `MapToolItems/` directory). We save these to Firebase at `/games/{gameId}/mapTools` when uploaded so teammates can import and see the same drawings.
+Each tool (circle, bisector, etc.) is stored as a Codable struct (e.g., [`CircleOverlayItem`](ios/HideAndCSeek50/Models/MapToolItems/CircleOverlayItem.swift) in the [`MapToolItems/`](ios/HideAndCSeek50/Models/MapToolItems) directory). We save these to Firebase at `/games/{gameId}/mapTools` when uploaded so teammates can import and see the same drawings.
 
 #### 2. Crosshair Coordinate System
 
@@ -164,18 +170,19 @@ Many tools need a "reference point". We use a crosshair overlay in the map cente
 
 The crosshair follows the map center as users pan. This design allows users to see exactly where they are adding their map tool reference and avoids the slight inaccuracies with tapping on the map. This is slightly less convenient than tapping on the map but is more precise and clear.
 
-#### 3. Polygon Creation with Variable Points - jack look at
+#### 3. Polygon Creation with Variable Points
 
-The implemented polygon tool takes a set of points (more than 3) and draws a polygon. We store them as `[CLLocationCoordinate2D]` and render with `MKPolygon`. One challenge was managing point addition/removal:
+The implemented polygon tool takes a set of points (more than 3) and draws a polygon. We store them as `[CLLocationCoordinate2D]` in [`PolygonOverlayItem`](ios/HideAndCSeek50/Models/MapToolItems/PolygonOverlayItem.swift) and render with `MKPolygon`.
 
 ```swift
-struct PolygonToolState {
-    var points: [CLLocationCoordinate2D] = []
-    var isComplete: Bool = false
+struct PolygonOverlayItem: Identifiable, Equatable, Codable {
+    let id: UUID
+    let vertices: [CLLocationCoordinate2D]
+    let colorIndex: Int
+    let shadeOutside: Bool
+    let polygon: MKPolygon
 }
 ```
-
-Users tap "Add Point" repeatedly, then "Complete Polygon". We debounce rapid taps to prevent accidental double-adds (using a 500ms cooldown).
 
 ---
 
@@ -185,26 +192,17 @@ Users tap "Add Point" repeatedly, then "Complete Polygon". We debounce rapid tap
 
 Games progress through states: `preHiding → hiding → preSeeking → seeking → completed`. This is stored at `/games/{gameId}/info/state` and determines timer UI as the game occurs.
 
-#### Game State Transitions - help
+#### Game State Transitions
 
 Only the **host** can transition states (enforced in Firebase rules). This prevents race conditions where multiple players try to start/end the game simultaneously.
 
-```json
-// In Firebase rules
-"state": {
-  ".write": "data.parent().child('hostUID').val() == auth.uid"
-}
-```
-
-Client-side, we optimistically update local state but revert if Firebase rejects the write (handled in `DatabaseManager.swift`).
-
 ---
 
-## Timer System - noah review
+## Timer System
 
 ### Client-Side Timer with Server Validation
 
-Game timers (e.g., 30-minute hiding phase) are rendered client-side but sync against server timestamps. Implementation in `GameView.swift`:
+Game timers (e.g., 30-minute hiding phase) are rendered client-side but sync against server timestamps. Implementation in [`GameView.swift`](ios/HideAndCSeek50/Views/Gameplay/GameView.swift):
 
 ```swift
 @State private var timeRemaining: TimeInterval = 0
@@ -223,11 +221,11 @@ Timer.publish(every: 1, on: .main, in: .common)
 
 ---
 
-## Photo Sharing Implementation - help
+## Photo Sharing Implementation
 
 ### Bridging UIKit and SwiftUI
 
-SwiftUI doesn't provide native camera access, so we created `ImagePicker.swift` using `UIViewControllerRepresentable`:
+SwiftUI doesn't provide native camera access, so we created [`ImagePicker.swift`](ios/HideAndCSeek50/Views/Components/ImagePicker.swift) using `UIViewControllerRepresentable`:
 
 ```swift
 struct ImagePicker: UIViewControllerRepresentable {
@@ -250,7 +248,7 @@ struct ImagePicker: UIViewControllerRepresentable {
 #### Image Processing Pipeline
 
 1. **Capture**: User selects photo from camera/library
-2. **Orientation Fix**: Apply `fixOrientation()` (in `UIImage+Compression.swift`) to handle EXIF rotation metadata
+2. **Orientation Fix**: Apply `fixOrientation()` (in [`UIImage+Compression.swift`](ios/HideAndCSeek50/ViewModels/UIImage+Compression.swift)) to handle EXIF rotation metadata
 3. **Compression**: Compress to max 5MB JPEG using `compressedJPEGData()`
 4. **Upload**: Send to Firebase Storage with metadata
 5. **URL Retrieval**: Get download URL and save to message document
@@ -278,28 +276,90 @@ This prevents users from uploading photos on behalf of others.
 
 ---
 
-## Notification System - help
+## Notification System
 
 ### Push Notification Architecture
 
-We implemented Firebase Cloud Messaging for chat notifications. Key components:
+We implemented Firebase Cloud Messaging (FCM) for real-time chat notifications, ensuring players receive updates even when the app is in the background or closed.
 
-1. **NotificationManager.swift**: Requests permission, stores FCM tokens
-2. **Cloud Function**: `sendChatNotification` in `functions/index.js`
-3. **APNs Integration**: Apple Push Notification service for iOS delivery
+#### Architecture Components
 
-#### Design Decision: Cloud Functions vs Direct FCM
+1. **[`NotificationManager.swift`](ios/HideAndCSeek50/Logic/NotificationManager.swift)** - Client-side notification handler
+   - Requests user permission for notifications
+   - Manages FCM token lifecycle
+   - Subscribes/unsubscribes from game-specific topics
+   - Handles foreground and background notification presentation
 
-**Option A (Chosen)**: Cloud Functions listen to `/games/{gameId}/messages` and send notifications server-side.
+2. **Cloud Function** - Server-side notification sender in [`functions/index.js`](cloud_functions/functions/index.js)
+   - `sendChatNotification`: Triggered when new messages are added to `/games/{gameId}/messages`
+   - `onPlayerJoinGame`: Automatically subscribes players to game topic
+   - `onPlayerLeaveGame`: Unsubscribes players when they leave
+
+3. **APNs Integration** - Apple Push Notification service bridges FCM to iOS devices
+
+#### Notification Flow
+
+**When a message is sent:**
+
+1. **Client sends message** → [`ChatViewModel.swift`](ios/HideAndCSeek50/ViewModels/ChatViewModel.swift) writes message to `/games/{gameId}/messages/{messageId}` in Firebase Realtime Database
+
+2. **Cloud Function triggers** → `sendChatNotification` function detects the new message via Firebase database listener
+
+3. **Recipients identified** → Function fetches all players in the game (hiders + seekers), excludes the sender
+
+4. **FCM tokens retrieved** → Function queries `/users/{uid}/fcmToken` for each recipient
+
+5. **Notifications sent** → FCM sends multicast message to all recipient tokens with:
+   - **Title**: Sender's name
+   - **Body**: Message preview (truncated to 100 chars)
+   - **Data payload**: `gameId`, `messageId`, `senderUID`, `timestamp`
+
+6. **iOS delivers** → APNs delivers notification to devices. Depending on app state:
+   - **Foreground**: Banner shown with sound (`UNNotificationPresentationOptions`)
+   - **Background/Closed**: System notification appears in notification center
+   - **Tapped**: App opens and navigates to game chat via `NotificationCenter.default.post`
+
+#### FCM Token Management
+
+FCM tokens are device-specific identifiers that change when:
+- App is reinstalled
+- User logs out and back in
+- Token expires (60 days)
+
+**Token lifecycle:**
+```swift
+// 1. Request permission on app launch
+await notificationManager.requestPermission()
+
+// 2. Register for remote notifications (APNS)
+UIApplication.shared.registerForRemoteNotifications()
+
+// 3. FCM generates token after APNS token is available
+Messaging.messaging().delegate = self
+
+// 4. Token saved to user profile
+func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+    // Save to /users/{uid}/fcmToken
+    userRef.child("fcmToken").setValue(token)
+}
+```
+
+**Automatic cleanup:** A scheduled Cloud Function (`cleanupInvalidTokens`) runs daily to remove tokens older than 60 days.
+
+### Design Decision: Cloud Functions vs client-side FCM Topics
+
+**Option A (Chosen)**: Cloud Functions listen to database changes and send notifications server-side.
 
 **Option B (Rejected)**: Clients send notifications directly via FCM SDK.
 
 **Why Cloud Functions?**:
-- **Security**: Clients can't spoof sender identity
-- **Reliability**: Server-side ensures delivery even if sender's app crashes
-- **Scalability**: Handles batch notifications (e.g., notify 10 seekers) efficiently
+- **Functioanlity**: If a client sent a notification to a group via an FCM topic, it would send themselves a notification too!
+- **Security**: Clients can't spoof sender identity or send notifications on behalf of others
+- **Reliability**: Server-side ensures delivery even if sender's app crashes mid-send
+- **Scalability**: Handles batch notifications efficiently (e.g., notify 10 seekers with one function call)
+- **Centralized logic**: Message preview formatting and notification rules live in one place
 
-**Trade-off**: Added complexity and deployment step (see `FIREBASE_FUNCTIONS_DEPLOYMENT.md`).
+**Trade-off**: Added deployment complexity. Functions must be deployed separately via Firebase CLI (see deployment notes in [`functions/index.js`](cloud_functions/functions/index.js)).
 
 ---
 
@@ -315,7 +375,7 @@ When a game starts, we assign the user to a game in the Firebase database. If th
 
 #### 2. Rejoin Detection
 
-On app launch, `MainView.swift` checks `/activeGames` for the current user's UID. If found in the database and game is still `inProgress`, it shows a "Rejoin Game" button.
+On app launch, [`MainView.swift`](ios/HideAndCSeek50/Views/MainView.swift) checks `/activeGames` for the current user's UID. If found in the database and game is still `inProgress`, it shows a "Rejoin Game" button.
 
 ```swift
 .onAppear {
@@ -329,7 +389,7 @@ On app launch, `MainView.swift` checks `/activeGames` for the current user's UID
 
 #### 3. State Restoration
 
-When rejoining, `GameView.swift` fetches full game state from `/games/{gameId}` and resumes location tracking. Previous messages, locations, and map tools load automatically from the Firebase database.
+When rejoining, [`GameView.swift`](ios/HideAndCSeek50/Views/Gameplay/GameView.swift) fetches full game state from `/games/{gameId}` and resumes location tracking. Previous messages, locations, and map tools load automatically from the Firebase database.
 
 ---
 
@@ -337,28 +397,28 @@ When rejoining, `GameView.swift` fetches full game state from `/games/{gameId}` 
 
 ### Unique Code Generation
 
-Lobby codes are 6-character alphanumeric strings (e.g., "ABCD12"). Generated in `DatabaseManager.swift`:
+Lobby codes are 6-character alphanumeric strings (e.g., "ABCD12"). Generated in [`DatabaseManager.swift`](ios/HideAndCSeek50/Logic/DatabaseManager.swift):
 
 ```swift
-func generateLobbyCode() -> String {
-    let characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    return String((0..<6).map { _ in characters.randomElement()! })
+private func generateGameCode() -> String {
+    let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    return String((0..<6).map { _ in chars.randomElement()! })
 }
 ```
 
 We check for duplicates of games by attempting to create at `/lobbies/{code}` with `setValue()`. Firebase throws an error if a game with the same code already exists, and we retry with a new code.
 
-### Lobby Joining Via Quick Match/Code Join - help, further explanation needed for lobby code matching w/ joining
+### Lobby Joining Via Quick Match/Code Join
 
 If the lobby is marked as public in the game settings, when other users click the quick match button, it will query the database for public games and display those games. If it is not public, the game will not show up.
 
 ---
 
-## Security Considerations - help, no idea about this
+## Security Considerations
 
 ### Firebase Security Rules
 
-Our security model (detailed in `firebase-database-rules.json`):
+Our security model (detailed in [`firebase-database-rules.json`](ios/HideAndCSeek50/Markdown/firebase-database-rules.json)):
 
 1. **User Data**: Users can only read/write their own `/users/{uid}`
 2. **Game Access**: Only game participants can access `/games/{gameId}`
@@ -388,19 +448,131 @@ This prevents:
 
 ### Directory Structure
 
+The codebase follows a feature-based organization pattern, grouping related functionality together for maintainability:
+
 ```
 HideAndCSeek50/
-├── Logic/              # Business logic, managers, utilities
-│   ├── Extensions/     # Swift extensions for models and maps
-│   ├── Markdown/       # Project documentation
-│   └── Models/         # Data models and Codable structs (map tools, etc.)
-├── Views/              # SwiftUI views, organized by feature
-│   ├── Components/     # Reusable UI components
-│   ├── Gameplay/       # Active game views (map, chat, etc.)
-│   ├── Lobby/          # Pre-game lobby views
-│   └── Login/          # Authentication views
-├── ViewModels/         # View models for complex views
-└── Resources/          # Assets, Info.plist, Firebase config
+├── ios/                                    # iOS application code
+│   ├── HideAndCSeek50/                     # Main app source code
+│   │   │
+│   │   ├── HideAndCSeek50App.swift         # App entry point, environment setup
+│   │   │
+│   │   ├── Logic/                          # Core business logic and managers
+│   │   │   ├── AuthenticationManager.swift # Handles Apple/Google/Email sign-in
+│   │   │   ├── DatabaseManager.swift       # Firebase Realtime Database operations
+│   │   │   ├── LocationManager.swift       # GPS tracking and location updates
+│   │   │   └── NotificationManager.swift   # FCM push notifications
+│   │   │
+│   │   ├── Models/                         # Data models and structures
+│   │   │   ├── Game.swift                  # Game, GameInfo, GameTeams, Player models
+│   │   │   │                               # GameMessage, MessageType enum
+│   │   │   ├── Lobby.swift                 # Lobby and LobbyPlayer models
+│   │   │   ├── Stats+History.swift         # Game statistics and history
+│   │   │   ├── QuestionCategory.swift      # Question system data models
+│   │   │   ├── CityRegions.swift           # City boundary and region data
+│   │   │   ├── TransportType.swift         # Transportation mode definitions
+│   │   │   ├── MapToolsData.swift          # Map tools collection model
+│   │   │   │
+│   │   │   ├── Map Tool Items/             # Codable structs for map overlays
+│   │   │   │   ├── CircleOverlayItem.swift        # Circle drawing tool data
+│   │   │   │   ├── PolygonOverlayItem.swift       # Polygon drawing tool data
+│   │   │   │   ├── BisectorOverlayItem.swift      # Perpendicular bisector data
+│   │   │   │   ├── DistanceOverlayItem.swift      # Distance measurement data
+│   │   │   │   └── PointOverlayItem.swift         # Point marker data
+│   │   │   │
+│   │   │   └── Map Annotations/            # MapKit annotation classes
+│   │   │       ├── PlayerAnnotation.swift         # Player location pins
+│   │   │       ├── SearchResultAnnotation.swift   # POI search results
+│   │   │       ├── BisectorPointAnnotation.swift  # Bisector reference points
+│   │   │       ├── MeasurePointAnnotation.swift   # Distance measurement points
+│   │   │       └── PolygonVertexAnnotation.swift  # Polygon corner markers
+│   │   │
+│   │   ├── ViewModels/                     # View models for complex views
+│   │   │   ├── ChatViewModel.swift         # Chat message sending/receiving
+│   │   │   ├── MapSearchViewModel.swift    # Map search and directions
+│   │   │   └── MapToolsViewModel.swift     # Map tool state management
+│   │   │
+│   │   ├── Views/                          # SwiftUI views organized by feature
+│   │   │   │
+│   │   │   ├── MainView.swift              # Main navigation and game rejoining
+│   │   │   │
+│   │   │   ├── Components/                 # Reusable UI components
+│   │   │   │   ├── ActionButton.swift      # Custom styled button
+│   │   │   │   └── ImagePicker.swift       # UIKit camera/photo library bridge
+│   │   │   │
+│   │   │   ├── Login/                      # Authentication screens
+│   │   │   │   ├── AuthenticationView.swift    # Sign-in options
+│   │   │   │   ├── EmailSignInView.swift       # Email/password sign-in
+│   │   │   │   └── ProfileView.swift           # User profile management
+│   │   │   │
+│   │   │   ├── Lobby/                      # Pre-game lobby system
+│   │   │   │   ├── LobbyView.swift             # Lobby waiting room
+│   │   │   │   ├── CreateLobbyView.swift       # Lobby creation form
+│   │   │   │   ├── JoinLobbyView.swift         # Join via code
+│   │   │   │   ├── QuickMatchView.swift        # Browse public lobbies
+│   │   │   │   └── LobbySettingsView.swift     # Lobby configuration
+│   │   │   │
+│   │   │   └── Gameplay/                   # Active game screens
+│   │   │       ├── GameView.swift              # Main game container
+│   │   │       ├── GameMapView.swift           # MapKit integration (UIViewRepresentable)
+│   │   │       ├── GameEndView.swift           # Post-game summary
+│   │   │       ├── GameSettingsView.swift      # In-game settings
+│   │   │       │
+│   │   │       └── Components/             # Game-specific subviews
+│   │   │           ├── GameChatView.swift          # Chat interface
+│   │   │           ├── QuestionView.swift          # Question asking UI
+│   │   │           ├── MapToolsSheet.swift         # Map tools bottom sheet
+│   │   │           ├── SearchResultsSheet.swift    # Search results display
+│   │   │           ├── DirectionsSheet.swift       # Route directions
+│   │   │           ├── TransportSelectionSheet.swift # Transport mode picker
+│   │   │           ├── TimerActionsView.swift      # Timer control buttons
+│   │   │           │
+│   │   │           └── Map Tools Subviews/ # Individual map tool interfaces
+│   │   │               ├── RadiusToolView.swift            # Circle creation
+│   │   │               ├── PolygonToolView.swift           # Polygon drawing
+│   │   │               ├── PerpendicularBisectorToolView.swift  # Bisector tool
+│   │   │               ├── MeasureToolView.swift           # Distance measurement
+│   │   │               ├── PointToolView.swift             # Point markers
+│   │   │               ├── MunicipalitiesView.swift        # Region shading
+│   │   │               ├── TrainLinesView.swift            # Transit overlay
+│   │   │               ├── Export+SyncSection.swift        # Tool export UI
+│   │   │               └── SyncMapToolsSheet.swift         # Tool sync interface
+│   │   │
+│   │   ├── Extensions/                     # Swift type extensions
+│   │   │   ├── GameModels+Dictionary.swift      # Codable Firebase conversion
+│   │   │   ├── UIImage+Compression.swift        # Image compression utilities
+│   │   │   ├── MKCoordinateRegion+Equality.swift # Map region comparison
+│   │   │   └── MKMapItem+Address.swift          # Address formatting helpers
+│   │   │
+│   │   ├── Resources/                      # Assets and configuration
+│   │   │   ├── GoogleService-Info.plist    # Firebase configuration
+│   │   │   ├── Info.plist                  # App permissions and settings
+│   │   │   ├── ma.json                     # MBTA transit data
+│   │   │   └── Assets.xcassets/            # App icons and images
+│   │   │       ├── AppIcon.appiconset/
+│   │   │       ├── AccentColor.colorset/
+│   │   │       └── HideAndSeekIcon.imageset/
+│   │   │
+│   │   └── Markdown/                       # Project documentation
+│   │       ├── firebase-database-rules.json    # Firebase security rules
+│   │       ├── storage.rules                   # Firebase Storage rules
+│   │       ├── AUTHENTICATION.md               # Auth system docs
+│   │       └── DATABASE_SCHEMA_JSON.md         # Database structure
+│   │
+│   └── HideAndCSeek50.xcodeproj            # Xcode project file
+│
+├── cloud_functions/                        # Firebase Cloud Functions (Node.js)
+│   ├── functions/
+│   │   ├── index.js                        # Notification cloud functions
+│   │   │                                   # - sendChatNotification
+│   │   │                                   # - onPlayerJoinGame
+│   │   │                                   # - onPlayerLeaveGame
+│   │   │                                   # - cleanupInvalidTokens
+│   │   ├── package.json                    # Node dependencies
+│   │   └── node_modules/                   # Installed dependencies
+│   ├── firebase.json                       # Firebase project config
+│   └── .firebaserc                         # Firebase project ID
+│
+├── README.md                               # Project overview and setup
+└── DESIGN.md                               # This file - architecture documentation
 ```
-
----

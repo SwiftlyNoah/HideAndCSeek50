@@ -1,190 +1,233 @@
 # Hide and CSeek50
 
-A digital hide and seek iOS app inspired by Jet Lag: The Game's Home Game format. Players compete in teams with real-world location tracking and map-based gameplay.
+A digital hide and seek iOS app inspired by Jet Lag: The Game's Home Game format. Players compete in teams with real-world location tracking and map-based gameplay. The hiders choose some geographic location to hide and seekers find them by asking a series of geographic and photo based questions.
 
-## Overview
+## Our Project Overview
 
-Hide and CSeek50 transforms the classic game of hide and seek into a high-tech, location-based experience. Hider teams get strategic advantages while Seeker teams use deductive reasoning and geographical questions to narrow down search areas on a dynamic map interface.
+Hide and CSeek50 is a tool to condense the various apps/tools needed to properly play this game. Instead of using some location sharing app, a messaging app, and a map to draw on, everything is packaged into our single interface.
 
-## Core Features
+---
 
-### 🎮 Game Lobby System
-- **Lobby Creation**: Generate unique game codes for easy joining
-- **Team Assignment**: Automatic or manual assignment to Hider/Seeker teams
-- **Player Management**: Real-time player list with ready status
-- **Game Configuration**: Customizable settings for game duration, question difficulty, and special rules
-- **Spectator Mode**: Allow non-playing users to observe games in progress
+## 📋 Table of Contents
 
-### 🗺️ Advanced Map Integration
-- **Dual Map Views**: 
-  - Hiders see full map with seeker locations in real-time
-  - Seekers start with limited/blank map that reveals information progressively
-- **Location Sharing**: Continuous GPS tracking with privacy controls
-- **Dynamic Area Elimination**: Map zones automatically blackout based on question answers
-- **Custom Boundaries**: Set game area limits and safe zones
-- **Terrain Integration**: Leverage MapKit's detailed geographical features
+1. [Installation & Setup](#installation--setup)
+2. [How to Run the App](#how-to-run-the-app)
+3. [Testing the App](#testing-the-app)
+4. [Core Features](#core-features)
+5. [Technical Architecture](#technical-architecture)
 
-### 💬 Question & Communication System
-- **Pre-coded Question Bank**: Curated geographical and location-based questions
-- **Photo Messaging**: Share images as part of questions and answers
-- **Team Chat**: Separate communication channels for each team
-- **Real-time Notifications**: Instant alerts for new questions, answers, and game events
-- **Question Categories**: Different types of clues (distance, direction, landmarks, terrain)
-
-### ⏱️ Timer & Scoring System
-- **Game Countdown**: Configurable game duration with visual timer
-- **Time Bonuses**: Reward quick responses and strategic play
-- **Seeker Challenges**: Special timed challenges that provide map advantages
-- **Score Tracking**: Points system based on time, accuracy, and teamwork
-- **Game History**: Track wins, losses, and performance statistics
-
-### 🔧 Game Management Features
-- **Game States**: Waiting room, active play, paused, completed
-- **Emergency Controls**: Pause, resume, or end games as needed
-- **Reconnection Handling**: Seamless rejoin for disconnected players
-- **Cheat Prevention**: Location validation and anti-spoofing measures
-- **Privacy Controls**: Granular location sharing permissions
-
-## Technical Architecture
-
-### Backend Infrastructure
-- **Firebase Realtime Database**: Live data synchronization across all clients
-- **Cloud Functions**: Server-side game logic and validation
-- **Authentication**: Secure user accounts and game access
-- **Push Notifications**: Cross-platform game event alerts
-
-### iOS Implementation
-- **SwiftUI Interface**: Modern, responsive user interface design
-- **MapKit Integration**: Native Apple maps with custom annotations and overlays
-- **Core Location**: Precise GPS tracking with battery optimization
-- **Combine Framework**: Reactive data flow for real-time updates
-- **Local Storage**: Offline capability and game caching
-
-### Key Frameworks & APIs
-- **MapKit**: Core mapping functionality
-- **Core Location**: GPS and location services
-- **Firebase SDK**: Backend services integration
-- **UserNotifications**: Push notification handling
-- **SwiftUI**: User interface development
-- **Combine**: Reactive programming patterns
-
-## Game Flow
-
-### 1. Pre-Game Setup
-1. Host creates lobby with game code
-2. Players join using code and select teams
-3. Configure game settings (duration, boundaries, rules)
-4. All players confirm ready status
-5. Location permissions granted and verified
-
-### 2. Active Gameplay
-1. Game timer starts, locations begin tracking
-2. Hiders see seeker positions, plan movements
-3. Seekers receive initial limited map view
-4. Question system activates with first clues
-5. Teams communicate and strategize
-6. Map dynamically updates based on answers
-7. Special challenges and bonuses trigger
-
-### 3. Game Completion
-1. Timer expires or seekers find all hiders
-2. Final scores calculated
-3. Game summary and statistics displayed
-4. Option to play again or create new lobby
-
-## Development Team & Responsibilities
-
-### Noah Brauner
-- **Backend Infrastructure**: Firebase setup, database design, real-time synchronization
-- **Authentication System**: User accounts, security, and permissions
-- **iOS Development Lead**: Project coordination and app store deployment
-
-### Jack Ploof  
-- **Non-Map Features**: Messaging system, lobby management, game timers
-- **User Interface**: SwiftUI views, navigation, and user experience design
-- **Communication Systems**: Chat functionality and notification handling
-
-### Ryan Eto
-- **Map Integration**: Location services, MapKit implementation, GPS tracking
-- **Question System**: Geographical questions, answer validation, map updates
-- **Game Logic**: Area elimination algorithms and scoring systems
-
-## Minimum Viable Product (Good Outcome)
-- ✅ Real-time location sharing between players  
-- ✅ Basic timer functionality for game duration
-- ✅ Simple lobby creation and team assignment
-- ✅ Core map display with different views for each team
-
-## Enhanced Features (Better Outcome)
-- ✅ Complete messaging framework with photo sharing
-- ✅ Question and answer system with real-time updates  
-- ✅ Team communication channels
-- ✅ Basic game management and scoring
-
-## Advanced Features (Best Outcome)
-- ✅ Intelligent area elimination based on geographical answers
-- ✅ Advanced map editing and custom boundaries
-- ✅ Seeker challenges and time bonuses
-- ✅ Comprehensive game statistics and history
-- ✅ Anti-cheat measures and location validation
+---
 
 ## Installation & Setup
 
 ### Prerequisites
-- iOS 15.0 or later
-- Xcode 13.0 or later for development
-- Apple Developer Account for distribution
-- Firebase project configuration
 
-### Development Setup
-1. Clone the repository
-2. Install Firebase SDK via Swift Package Manager
-3. Configure Firebase project and add `GoogleService-Info.plist`
-4. Set up location permissions in `Info.plist`
-5. Configure Apple Developer signing
-6. Build and run on device (location services require physical device)
+**Required:**
+- macOS (for Xcode)
+- Xcode 15.0 or later
+- iOS device running iOS 26.0 or later (simulator has limited functionality)
+- Apple ID Developer Account (necessary for notifications and a successful build)
 
-### Firebase Configuration
-1. Create new Firebase project
-2. Enable Realtime Database with appropriate security rules
-3. Set up Authentication (Anonymous or Sign-in providers)
-4. Configure Cloud Functions for server-side validation
-5. Enable Push Notifications via Firebase Cloud Messaging
+**Already Configured:**
+- Google Firebase project (hideandcseek50)
+- All necessary API keys and configuration files
+- Push notification certificates
 
-## Privacy & Permissions
+### Step-by-Step Installation
 
-### Required Permissions
-- **Location Services**: Always or When In Use for GPS tracking
-- **Camera**: Photo capture for question responses
-- **Notifications**: Game event alerts and updates
-- **Network**: Firebase communication and real-time updates
+1. **Open the Project**
+   - Pull the Github repository onto your compatible mac
+   - Open the 'HideAndCSeek50' folder and run the xed . command
 
-### Privacy Considerations
-- Location data only shared during active games
-- Automatic data deletion after game completion
-- Granular privacy controls for each player
-- No permanent location history storage
+2. **Wait for Dependencies to Load**
+   - Xcode will automatically download Swift Package Manager dependencies
+   - This includes Firebase SDK, GoogleSignIn, and BottomSheet
+   - Wait for "Package Resolution" to complete (bottom-right of Xcode window)
 
-## Future Enhancements
+3. **Select Your Development Team**
+   - In Xcode, select the project in the navigator
+   - Go to "Signing & Capabilities" tab
+   - Under "Team", select your Apple Developer Team (via Apple ID)
+   - Xcode will automatically handle provisioning profiles
 
-### Potential Features
-- **AR Integration**: Augmented reality clues and waypoints
-- **Apple Watch Support**: Quick game status and notifications
-- **Multiple Game Modes**: Variants of hide and seek gameplay
-- **Tournament System**: Organized competitions and leaderboards  
-- **Custom Question Creation**: User-generated content and challenges
-- **Offline Mode**: Limited functionality without internet connection
+4. **Connect Your iOS Device**
+   - Plug in your iPhone/iPad via USB
+   - Trust the computer on your device if prompted
+   - In Xcode's toolbar, select your device from the scheme dropdown
+   - Try to load the app onto your device
+   - Enable developer mode if prompted
 
-### Platform Expansion
-- **iPad Support**: Enhanced map interface for larger screens
-- **Mac Catalyst**: Desktop version for game management
-- **Apple TV**: Spectator mode for watching games
-- **Cross-Platform**: Android compatibility considerations
+5. **Build and Run**
+   - Press `Cmd + R` or click the Play button
+   - First build may take 2-3 minutes
+   - If prompted, trust the developer on your device (Settings → General → VPN & Device Management)
 
-## Contributing
+### Important Notes
 
-This project is part of Harvard CS50's final project. Development is currently limited to the core team members listed above.
+- **Simulator Limitations**: The simulator cannot access GPS or camera. You must test on a physical device.
+- **Location Permissions**: The app will request location permissions on first launch. You must manually allow "Always" location sharing in settings for full functionality.
+- **Notification Permissions**: The app will request notification permissions on first launch. You must allow them for full functionality.
+- **Firebase Configuration**: The [`GoogleService-Info.plist`](HideAndCSeek50/Resources/GoogleService-Info.plist) file is already included and configured for the production Firebase project.
 
 ---
 
-**Note**: This app requires location permissions and is designed for outdoor gameplay in appropriate areas. Always follow local laws and safety guidelines when playing location-based games.
+## How to Run the App
+
+### First Launch
+
+1. **Sign In**
+   - You have four options:
+     - **Continue as Guest** (fastest, no account needed)
+     - **Sign in with Apple** (requires Apple ID)
+     - **Sign in with Google** (requires Google account)
+     - **Sign in with Email** (create new account or use existing)
+
+2. **Create or Join a Game**
+   - **To create a game:**
+     - Tap "Create Lobby"
+     - Enter a game name
+     - Select city (Boston or New York)
+     - Set hiding time (default: 30 minutes)
+     - Tap "Create"
+     - Share the 6-digit code with other players
+   
+   - **To join a game:**
+     - Tap "Join Lobby"
+     - Enter the 6-digit code
+     - Tap "Join"
+    
+   - At least two players or simulators must join the game in order to start the game and use game features
+
+## Testing the App
+
+#### 1. Lobby System
+- Create lobby with custom name and settings
+- Join lobby using 6-digit code
+- Join lobby using quick-join option
+- Switch between Hiders and Seekers teams
+- Apply ready status
+- Edit game settings (hiding time, city, number of hiders/seekers) w/ the settings button
+- Pame start when all players ready
+
+#### 2. Location Tracking
+- Blue dot shows your current location on map
+- Location updates as you move (requires ~5 meters of movement)
+- Other players' locations visible (hiders see seekers, seekers can't see hiders)
+
+#### 3. Map Features
+- Map centers on your location
+- Zoom in/out with pinch gestures
+- Pan around the map
+- Search for points of interest in app
+- Different map views for hiders vs seekers
+- Transit lines overlay is toggleable
+- (Boston Only) Color in/turn off certain municipalities
+- Draw a circle on the map with custom shading color, radius, center, and masking
+- Measure distances from one point to another
+- Draw in a perpendicular bisector between two arbitrary points w/ one side shaded
+- Create a custom polygon with an arbitrary number of points, custom shading and masking
+- Add points to the map
+- Automatically use points of interests as circle centers, perpendicular bisector points, measuring anchors, or custom polygons
+- Export to database/sync from database all of these drawn tools to a database so tools save if you close out of the app or if your teammates want to see what you've drawn
+
+#### 4. Chat System
+- Send text messages
+- Send photos (tap camera icon → Camera or Photo Library)
+- Send current location (with automatic pin addition option for all chat members)
+- View message history
+- System event messages (player joined, game started, etc.)
+
+#### 5. Question Asking/Answering
+- Automatically display question categories within a question asking UI
+- Automatically send chosen questions in chat to the other team w/ preset question answers/formats
+- A timer will automatically start indicating the amount of time hiders have left to answer a question
+- Integrated photo sending for photo questions
+- Automatic question category lock outs for the most recently asked question category (cannot ask two questions from same category in a row)
+
+#### 6. Game Timers
+- Live running timers for hiding and seeking displayed at the top of the UI
+- Buttons for pausing, skipping, and ending timers
+
+#### 7. Notifications
+- Database sent notifications for chat messages and questions
+
+#### 8. Miscellaneous
+- Game rejoining prompts when the app is force quit
+
+### Known Limitations
+
+1. **Simulator**: Camera and GPS don't work. Must use physical device.
+2. **Network Required**: App requires internet connection for real-time features.
+3. **GPS Accuracy**: Indoor location may be inaccurate or unavailable.
+
+## Technical Architecture
+
+### Backend Infrastructure
+
+**Firebase Services:**
+- **Realtime Database**: Stores game data, player locations, chat messages
+  - Structure: `/users`, `/games`, `/lobbies`, `/activeGames`
+  - Real-time listeners for instant updates
+  - See [`DATABASE_SCHEMA_JSON.md`](HideAndCSeek50/Markdown/DATABASE_SCHEMA_JSON.md) for full schema
+
+- **Authentication**: Manages user accounts and sessions
+  - Supports Apple, Google, Email, and Anonymous sign-in
+  - See [`AUTHENTICATION.md`](HideAndCSeek50/Markdown/AUTHENTICATION.md)
+
+- **Storage**: Hosts uploaded photos
+  - Path: `/games/{gameId}/photos/{messageId}.jpg`
+  - Security rules validate authenticated uploads
+  - See [`storage.rules`](HideAndCSeek50/Markdown/storage.rules)
+
+- **Cloud Functions**: Server-side notifications (optional, deployed separately)
+  - Sends push notifications for chat messages
+  - See [`FIREBASE_FUNCTIONS_DEPLOYMENT.md`](HideAndCSeek50/Markdown/FIREBASE_FUNCTIONS_DEPLOYMENT.md)
+
+### iOS Implementation
+
+**Key Classes:**
+
+- [`AuthenticationManager.swift`](HideAndCSeek50/Logic/AuthenticationManager.swift): Handles user sign-in/sign-out
+- [`DatabaseManager.swift`](HideAndCSeek50/Logic/DatabaseManager.swift): Firebase database operations
+- [`LocationManager.swift`](HideAndCSeek50/Logic/LocationManager.swift): GPS tracking and location updates
+- [`NotificationManager.swift`](HideAndCSeek50/Logic/NotificationManager.swift): Push notification handling
+
+**Key Views:**
+
+- [`MainView.swift`](HideAndCSeek50/Views/MainView.swift): Home screen and navigation
+- [`CreateLobbyView.swift`](HideAndCSeek50/Views/Lobby/CreateLobbyView.swift): Lobby creation interface
+- [`LobbyView.swift`](HideAndCSeek50/Views/Lobby/LobbyView.swift): Waiting room before game starts
+- [`GameView.swift`](HideAndCSeek50/Views/Gameplay/GameView.swift): Main gameplay screen
+- [`GameMapView.swift`](HideAndCSeek50/Views/Gameplay/GameMapView.swift): Map display and location tracking
+- [`ChatView.swift`](HideAndCSeek50/Views/Gameplay/ChatView.swift): Team communication
+
+**Frameworks Used:**
+
+- **SwiftUI**: Modern declarative UI framework
+- **MapKit**: Apple's native mapping framework
+- **Core Location**: GPS and location services
+- **Firebase iOS SDK**: Backend services integration
+- **Combine**: Reactive programming for real-time updates
+
+### Data Flow
+
+1. **Location Updates**:
+   - [`LocationManager`](HideAndCSeek50/Logic/LocationManager.swift) receives GPS updates from iOS
+   - [`GameView`](HideAndCSeek50/Views/Gameplay/GameView.swift) listens for location changes
+   - Location uploaded to Firebase: `/games/{gameId}/teams/{team}/{playerUID}/location`
+   - Other players' apps receive update via Firebase listeners
+   - [`GameMapView`](HideAndCSeek50/Views/Gameplay/GameMapView.swift) displays updated positions
+
+2. **Chat Messages**:
+   - User types message in [`ChatView`](HideAndCSeek50/Views/Gameplay/ChatView.swift)
+   - Message uploaded to: `/games/{gameId}/messages/{messageId}`
+   - All players receive instant update via Firebase listener
+   - Photos uploaded to Firebase Storage, URL saved in message
+
+3. **Game State**:
+   - Host creates game → Data saved to `/lobbies/{code}` and `/games/{gameId}`
+   - Players join → Added to `/games/{gameId}/teams/{team}/{playerUID}`
+   - Ready status tracked → When all ready, game state changes to "inProgress"
+   - [`GameView`](HideAndCSeek50/Views/Gameplay/GameView.swift) observes state and updates UI
+
+---

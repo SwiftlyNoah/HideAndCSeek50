@@ -19,6 +19,30 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
 
 ---
 
+## Project Structure
+
+```
+HideAndCSeek50/
+├── ios/                          # iOS application code
+│   ├── HideAndCSeek50/          # Main app source code
+│   │   ├── Logic/               # Business logic and managers
+│   │   ├── Views/               # SwiftUI views
+│   │   ├── Models/              # Data models
+│   │   ├── Resources/           # Assets and configuration files
+│   │   └── Markdown/            # Documentation files
+│   └── HideAndCSeek50.xcodeproj # Xcode project file
+│
+├── cloud_functions/              # Firebase Cloud Functions
+│   ├── functions/               # Cloud Functions source code
+│   ├── firebase.json            # Firebase configuration
+│   └── .firebaserc              # Firebase project settings
+│
+├── README.md                     # This file
+└── DESIGN.md                     # Design documentation
+```
+
+---
+
 ## Installation & Setup
 
 ### Recommended: Download via TestFlight
@@ -54,7 +78,8 @@ If you're interested in running the project locally for development purposes, co
 
 1. **Open the Project**
    - Pull the Github repository onto your compatible mac
-   - Open the 'HideAndCSeek50' folder and run the xed . command
+   - Navigate to the `ios` folder
+   - Open the Xcode project: `open ios/HideAndCSeek50.xcodeproj`
 
 2. **Wait for Dependencies to Load**
    - Xcode will automatically download Swift Package Manager dependencies
@@ -84,7 +109,7 @@ If you're interested in running the project locally for development purposes, co
 - **Simulator Limitations**: The simulator cannot access GPS or camera. You must test on a physical device.
 - **Location Permissions**: The app will request location permissions on first launch. You must manually allow "Always" location sharing in settings for full functionality.
 - **Notification Permissions**: The app will request notification permissions on first launch. You must allow them for full functionality.
-- **Firebase Configuration**: The [`GoogleService-Info.plist`](HideAndCSeek50/Resources/GoogleService-Info.plist) file is already included and configured for the production Firebase project.
+- **Firebase Configuration**: The [`GoogleService-Info.plist`](ios/HideAndCSeek50/Resources/GoogleService-Info.plist) file is already included and configured for the production Firebase project.
 
 ---
 
@@ -187,20 +212,20 @@ If you're interested in running the project locally for development purposes, co
 - **Realtime Database**: Stores game data, player locations, chat messages
   - Structure: `/users`, `/games`, `/lobbies`, `/activeGames`
   - Real-time listeners for instant updates
-  - See [`DATABASE_SCHEMA_JSON.md`](HideAndCSeek50/Markdown/DATABASE_SCHEMA_JSON.md) for full schema
+  - See [`DATABASE_SCHEMA_JSON.md`](ios/HideAndCSeek50/Markdown/DATABASE_SCHEMA_JSON.md) for full schema
 
 - **Authentication**: Manages user accounts and sessions
   - Supports Apple, Google, Email, and Anonymous (guest) sign-in
-  - See [`AUTHENTICATION.md`](HideAndCSeek50/Markdown/AUTHENTICATION.md)
+  - See [`AUTHENTICATION.md`](ios/HideAndCSeek50/Markdown/AUTHENTICATION.md)
 
 - **Storage**: Hosts uploaded photos
   - Path: `/games/{gameId}/photos/{messageId}.jpg`
   - Security rules validate authenticated uploads
-  - See [`storage.rules`](HideAndCSeek50/Markdown/storage.rules)
+  - See [`storage.rules`](ios/HideAndCSeek50/Markdown/storage.rules)
 
-- **Cloud Functions**: Server-side notifications (deployed via admin consolve in terminal)
+- **Cloud Functions**: Server-side notifications (deployed via admin console in terminal)
   - Sends push notifications for chat messages
-  - See [`FIREBASE_FUNCTIONS_DEPLOYMENT.md`](HideAndCSeek50/Markdown/FIREBASE_FUNCTIONS_DEPLOYMENT.md)
+  - Located in `cloud_functions/` directory
 
 **Key Frameworks Used:**
 

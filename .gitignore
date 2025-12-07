@@ -26,4 +26,4 @@ firebase-debug.log
 firebase-debug.*.log
 .firebase/
 *-service-account.json
-functions/node_modules
+cloud_functions/functions/node_modules

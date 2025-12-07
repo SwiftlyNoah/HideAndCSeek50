@@ -528,8 +528,11 @@ struct ProfileView: View {
     private var upgradeAccountSection: some View {
         VStack(spacing: 16) {
             HStack {
-                Image(systemName: "star.circle.fill")
-                    .font(.title2)
+                Image("HideAndSeekIcon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 28, height: 28)
                     .foregroundColor(.yellow)
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -824,8 +827,11 @@ struct LinkAppleView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-                Image(systemName: "applelogo")
-                    .font(.system(size: 60))
+                Image("HideAndSeekIcon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 60, height: 60)
                     .foregroundColor(.primary)
                 
                 Text("Link with Apple ID")

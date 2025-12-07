@@ -31,19 +31,27 @@ struct AuthenticationView: View {
                 
                 VStack(spacing: 30) {
                     // App Logo and Title
-                    VStack(spacing: 16) {
-                        Image(systemName: "map.fill")
-                            .font(.system(size: 80))
+                    VStack(spacing: 8) {
+                        Image("HideAndSeekIcon")
+                            .renderingMode(.template)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 70, height: 70)
                             .foregroundColor(.white)
                             .shadow(radius: 10)
+                            .padding(.bottom, 8)
                         
                         Text("Hide and CSeek50")
                             .font(.largeTitle)
                             .fontWeight(.bold)
                             .foregroundColor(.white)
                         
-                        Text("Digital Hide and Seek Adventure")
-                            .font(.subheadline)
+                        Text("An IRL + Digital Hide and Seek Adventure")
+                            .font(.subheadline.bold())
+                            .foregroundColor(.white)
+                        
+                        Text("By Noah Bruaner, Jack Ploof, and Ryan Eto")
+                            .font(.caption)
                             .foregroundColor(.white.opacity(0.8))
                     }
                     .padding(.top, 40)

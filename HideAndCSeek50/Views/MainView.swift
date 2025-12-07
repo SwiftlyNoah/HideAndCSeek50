@@ -211,8 +211,11 @@ struct MainView: View {
         VStack(spacing: 16) {
             // App Icon and Title
             HStack {
-                Image(systemName: "map.fill")
-                    .font(.system(size: 40))
+                Image("HideAndSeekIcon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 40, height: 40)
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.blue, .purple],

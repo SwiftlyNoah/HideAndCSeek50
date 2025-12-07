@@ -21,6 +21,23 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
 
 ## Installation & Setup
 
+### Recommended: Download via TestFlight
+
+The easiest way to run Hide and CSeek50 is to download it directly through TestFlight:
+
+1. **Check your iOS version**: You need an iPhone running iOS 26.0 or later
+2. **Download TestFlight**: Install the [TestFlight app](https://apps.apple.com/us/app/testflight/id899247664) from the App Store if you don't already have it
+3. **Join the Beta**: Open this link on your iPhone: [https://testflight.apple.com/join/mqp9FZ9k](https://testflight.apple.com/join/mqp9FZ9k)
+4. **Install the App**: Tap "Accept" in TestFlight and then "Install"
+
+This allows you to install and run the app on your iOS device without any development setup.
+
+---
+
+### Local Development Setup
+
+If you're interested in running the project locally for development purposes, continue with the setup steps below. **Note: Running the project locally requires an Apple ID enrolled in the Apple Developer Program.**
+
 ### Prerequisites
 
 **Required:**
@@ -32,7 +49,6 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
 **Already Configured:**
 - Google Firebase project (hideandcseek50)
 - All necessary API keys and configuration files
-- Push notification certificates
 
 ### Step-by-Step Installation
 
@@ -72,9 +88,9 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
 
 ---
 
-## How to Run the App
+## How to Use the App
 
-### First Launch
+### First launch
 
 1. **Sign In**
    - You have four options:
@@ -99,9 +115,7 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
     
    - At least two players or simulators must join the game in order to start the game and use game features
 
----
-
-## Testing the App
+### Play your first game!
 
 #### 1. Lobby System
 - Create lobby with custom name and settings
@@ -159,9 +173,9 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
 
 ### Known Limitations
 
-1. **Simulator**: Camera and GPS don't work. Must use physical device.
+1. **Xcode Simulators**: Camera and GPS don't work. Must use physical device.
 2. **Network Required**: App requires internet connection for real-time features.
-3. **GPS Accuracy**: Indoor location may be inaccurate or unavailable.
+3. **GPS Accuracy**: Indoor location often inaccurate.
 
 ---
 
@@ -176,7 +190,7 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
   - See [`DATABASE_SCHEMA_JSON.md`](HideAndCSeek50/Markdown/DATABASE_SCHEMA_JSON.md) for full schema
 
 - **Authentication**: Manages user accounts and sessions
-  - Supports Apple, Google, Email, and Anonymous sign-in
+  - Supports Apple, Google, Email, and Anonymous (guest) sign-in
   - See [`AUTHENTICATION.md`](HideAndCSeek50/Markdown/AUTHENTICATION.md)
 
 - **Storage**: Hosts uploaded photos
@@ -184,29 +198,11 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
   - Security rules validate authenticated uploads
   - See [`storage.rules`](HideAndCSeek50/Markdown/storage.rules)
 
-- **Cloud Functions**: Server-side notifications (optional, deployed separately)
+- **Cloud Functions**: Server-side notifications (deployed via admin consolve in terminal)
   - Sends push notifications for chat messages
   - See [`FIREBASE_FUNCTIONS_DEPLOYMENT.md`](HideAndCSeek50/Markdown/FIREBASE_FUNCTIONS_DEPLOYMENT.md)
 
-### iOS Implementation
-
-**Key Classes:**
-
-- [`AuthenticationManager.swift`](HideAndCSeek50/Logic/AuthenticationManager.swift): Handles user sign-in/sign-out
-- [`DatabaseManager.swift`](HideAndCSeek50/Logic/DatabaseManager.swift): Firebase database operations
-- [`LocationManager.swift`](HideAndCSeek50/Logic/LocationManager.swift): GPS tracking and location updates
-- [`NotificationManager.swift`](HideAndCSeek50/Logic/NotificationManager.swift): Push notification handling
-
-**Key Views:**
-
-- [`MainView.swift`](HideAndCSeek50/Views/MainView.swift): Home screen and navigation
-- [`CreateLobbyView.swift`](HideAndCSeek50/Views/Lobby/CreateLobbyView.swift): Lobby creation interface
-- [`LobbyView.swift`](HideAndCSeek50/Views/Lobby/LobbyView.swift): Waiting room before game starts
-- [`GameView.swift`](HideAndCSeek50/Views/Gameplay/GameView.swift): Main gameplay screen
-- [`GameMapView.swift`](HideAndCSeek50/Views/Gameplay/GameMapView.swift): Map display and location tracking
-- [`ChatView.swift`](HideAndCSeek50/Views/Gameplay/ChatView.swift): Team communication
-
-**Frameworks Used:**
+**Key Frameworks Used:**
 
 - **SwiftUI**: Modern declarative UI framework
 - **MapKit**: Apple's native mapping framework
@@ -214,27 +210,6 @@ Hide and CSeek50 is a tool to condense the various apps/tools needed to properly
 - **Firebase iOS SDK**: Backend services integration
 - **Combine**: Reactive programming for real-time updates
 
-### Data Flow
-
-1. **Location Updates**:
-   - [`LocationManager`](HideAndCSeek50/Logic/LocationManager.swift) receives GPS updates from iOS
-   - [`GameView`](HideAndCSeek50/Views/Gameplay/GameView.swift) listens for location changes
-   - Location uploaded to Firebase: `/games/{gameId}/teams/{team}/{playerUID}/location`
-   - Other players' apps receive update via Firebase listeners
-   - [`GameMapView`](HideAndCSeek50/Views/Gameplay/GameMapView.swift) displays updated positions
-
-2. **Chat Messages**:
-   - User types message in [`ChatView`](HideAndCSeek50/Views/Gameplay/ChatView.swift)
-   - Message uploaded to: `/games/{gameId}/messages/{messageId}`
-   - All players receive instant update via Firebase listener
-   - Photos uploaded to Firebase Storage, URL saved in message
-
-3. **Game State**:
-   - Host creates game → Data saved to `/lobbies/{code}` and `/games/{gameId}`
-   - Players join → Added to `/games/{gameId}/teams/{team}/{playerUID}`
-   - Ready status tracked → When all ready, game state changes to "inProgress"
-   - [`GameView`](HideAndCSeek50/Views/Gameplay/GameView.swift) observes state and updates UI
-
----
-
 ## Video Recap
+
+Watch our presentation on YouTube [here](youtube.com)!

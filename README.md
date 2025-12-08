@@ -6,6 +6,12 @@ Hide and CSeek50 consolidates the various apps and tools needed to play this gam
 
 ---
 
+## Video Recap
+
+Watch our presentation on YouTube [here](https://youtu.be/h8ShkHCXOek)!
+
+---
+
 ## Project Structure
 
 ```
@@ -215,7 +221,3 @@ If you're interested in running the project locally for development purposes, co
 - **Core Location**: GPS and location services for real-time player tracking
 - **Firebase iOS SDK**: Backend services integration for database, auth, and cloud messaging
 - **Combine**: Reactive programming framework for handling real-time data updates
-
-## Video Recap
-
-Watch our presentation on YouTube [here](https://youtu.be/h8ShkHCXOek)!

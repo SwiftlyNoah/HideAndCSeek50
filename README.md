@@ -218,4 +218,4 @@ If you're interested in running the project locally for development purposes, co
 
 ## Video Recap
 
-Watch our presentation on YouTube [here](youtube.com)!
+Watch our presentation on YouTube [here](https://youtu.be/h8ShkHCXOek)!

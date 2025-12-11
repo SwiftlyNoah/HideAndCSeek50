@@ -16,6 +16,7 @@ struct Game: Codable {
     let info: GameInfo
     var teams: GameTeams
     var messages: [String: GameMessage] = [:]
+    var deck: DeckState
 }
 
 struct GameInfo: Codable {
@@ -47,7 +48,7 @@ struct GameTeams: Codable {
 struct Player: Codable {
     let uid: String
     let displayName: String
-    var isReady: Bool = false
+    var isOnline: Bool = true
     var location: PlayerLocation?
 }
 
@@ -104,10 +105,33 @@ struct LocationData: Codable {
 struct QuestionData: Codable {
     let questionId: String
     let questionText: String
-    let questionType: QuestionType
     var isAnswered: Bool = false
     var playerAnswer: String?
-    var questionCategory: QuestionCategory? = nil
+    var questionCategory: QuestionCategory
+    var reward: String
+    
+    static func parseDrawAction(from rewardText: String) -> DrawAction {
+        // Parse "Draw X, Keep Y" format
+        let components = rewardText.components(separatedBy: ", ")
+        
+        var drawCount = 1
+        var keepCount = 1
+        
+        if components.count >= 2 {
+            // Extract numbers from "Draw X" and "Keep Y"
+            if let drawString = components.first?.components(separatedBy: " ").last,
+               let draw = Int(drawString) {
+                drawCount = draw
+            }
+            
+            if let keepString = components.last?.components(separatedBy: " ").last,
+               let keep = Int(keepString) {
+                keepCount = keep
+            }
+        }
+        
+        return DrawAction(drawCount: drawCount, keepCount: keepCount)
+    }
 }
 
 struct MapArea: Codable {
@@ -300,14 +324,6 @@ enum MessageType: String, Codable {
     case location = "location"
 }
 
-enum QuestionType: String, Codable {
-    case yesNo = "yesNo"               // Yes/No questions
-    case closerFurther = "closerFurther" // Closer/Further questions
-    case hotterColder = "hotterColder" // Hotter/Colder questions
-    case photo = "photo"               // Photo questions
-    case text = "text"                 // Open text questions
-}
-
 enum EventType: String, Codable {
     case gameStarted = "gameStarted"
     case playerJoined = "playerJoined"
@@ -345,13 +361,6 @@ extension Game {
     
     var totalPlayers: Int {
         return teams.hiders.count + teams.seekers.count
-    }
-    
-    var canStart: Bool {
-        let minPlayers = 2
-        let allReady = teams.hiders.values.allSatisfy { $0.isReady } &&
-                      teams.seekers.values.allSatisfy { $0.isReady }
-        return totalPlayers >= minPlayers && allReady && info.state == .waiting
     }
 }
 

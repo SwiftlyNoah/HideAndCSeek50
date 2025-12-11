@@ -19,9 +19,7 @@ class NotificationManager: NSObject, ObservableObject {
     
     @Published var fcmToken: String?
     @Published var isAuthorized = false
-    
-    private let databaseManager = DatabaseManager.shared
-    
+        
     override init() {
         super.init()
     }
@@ -80,26 +78,8 @@ class NotificationManager: NSObject, ObservableObject {
         }
     }
     
-    /// Subscribe to notifications for a specific game
-    /// This subscribes the user to a game-specific topic so they receive notifications
-    /// for new messages in that game
-    func subscribeToGame(gameId: String) async throws {
-        guard fcmToken != nil else {
-            print("⚠️ Cannot subscribe to game - no FCM token available")
-            return
-        }
-
-        let topic = "game_\(gameId)"
-        try await Messaging.messaging().subscribe(toTopic: topic)
-    }
-    
-    /// Unsubscribe from notifications for a specific game
-    func unsubscribeFromGame(gameId: String) async throws {
-        let topic = "game_\(gameId)"
-        try await Messaging.messaging().unsubscribe(fromTopic: topic)
-    }
     // MARK: - Token Storage
-    
+
     /// Save FCM token to user's profile in Firebase
     /// This allows the backend to send targeted notifications
     func saveFCMTokenToUserProfile() async throws {
@@ -107,10 +87,9 @@ class NotificationManager: NSObject, ObservableObject {
               let currentUID = Auth.auth().currentUser?.uid else {
             return
         }
-        
-        let userRef = DatabaseReference.user(currentUID)
-        try await userRef.child("fcmToken").setValue(token)
-        try await userRef.child("fcmTokenUpdatedAt").setValue(Date().timeIntervalSince1970)
+
+        // Delegate database operations to UserManager
+        try await UserManager.shared.saveFCMToken(uid: currentUID, token: token)
     }
 }
 
@@ -144,7 +123,7 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         // Check if this is a chat message notification
         if userInfo["type"] as? String == "chat_message" {
             // Show banner and play sound even when app is in foreground
-            return [.banner, .sound, .badge]
+            return [.banner, .sound]
         }
 
         return [.banner, .sound]

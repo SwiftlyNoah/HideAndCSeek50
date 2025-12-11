@@ -8,12 +8,15 @@
 import SwiftUI
 
 struct SyncMapToolsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var gameManager: GameManager
+    
     @ObservedObject var viewModel: MapToolsViewModel
+    
     let gameId: String
     let playerTeam: Team
     let playerUID: String
 
-    @Environment(\.dismiss) private var dismiss
     @State private var teammateMapTools: [(uid: String, info: SavedMapToolsInfo)] = []
     @State private var isLoading = true
     @State private var loadError: String?
@@ -103,7 +106,7 @@ struct SyncMapToolsSheet: View {
         loadError = nil
 
         do {
-            teammateMapTools = try await DatabaseManager.shared.getAllTeammateMapTools(
+            teammateMapTools = try await gameManager.getAllTeammateMapTools(
                 gameId: gameId,
                 playerTeam: playerTeam
             )
@@ -118,7 +121,7 @@ struct SyncMapToolsSheet: View {
         isImporting = true
 
         do {
-            if let mapToolsData = try await DatabaseManager.shared.loadMapTools(gameId: gameId, playerUID: uid) {
+            if let mapToolsData = try await gameManager.loadMapTools(gameId: gameId, playerUID: uid) {
                 await MainActor.run {
                     viewModel.importMapTools(from: mapToolsData)
                     dismiss()

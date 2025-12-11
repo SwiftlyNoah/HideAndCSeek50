@@ -9,11 +9,11 @@ import SwiftUI
 import FirebaseAuth
 
 struct GameQuestionView: View {
-    let gameId: String
-    let currentUser: User?
-    
-    @StateObject private var databaseManager = DatabaseManager.shared
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var gameManager: GameManager
+    @EnvironmentObject private var authManager: AuthenticationManager
+    
+    let gameId: String
     
     @State private var selectedCategory: QuestionCategory = .matching
     @State private var selectedQuestion: String?
@@ -244,19 +244,68 @@ struct GameQuestionView: View {
     
     private func questionSelector(questions: [String]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Select a Question")
-                .font(.headline)
-                .fontWeight(.semibold)
+            HStack {
+                Text("Select a Question")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                // Legend
+                HStack(spacing: 12) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                        Text("Asked")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                        Text("2x Reward")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
             
             VStack(spacing: 8) {
                 ForEach(questions, id: \.self) { question in
+                    let fullQuestionText = selectedCategory.writeQuestion(arg: question)
+                    let hasBeenAsked = checkIfQuestionAskedBefore(fullQuestionText)
+                    
                     Button(action: { selectedQuestion = question }) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(question)
-                                    .font(.body)
-                                    .lineLimit(2)
-                                    .multilineTextAlignment(.leading)
+                                HStack(spacing: 6) {
+                                    Text(question)
+                                        .font(.body)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.leading)
+                                    
+                                    if hasBeenAsked {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.caption2)
+                                                .foregroundColor(.green)
+                                            
+                                            Image(systemName: "arrow.up.circle.fill")
+                                                .font(.caption2)
+                                                .foregroundColor(.orange)
+                                        }
+                                    }
+                                }
+                                
+                                if hasBeenAsked {
+                                    Text("Asked before — Reward will be doubled!")
+                                        .font(.caption2)
+                                        .foregroundColor(.orange)
+                                        .fontWeight(.medium)
+                                }
                             }
                             
                             Spacer()
@@ -274,7 +323,7 @@ struct GameQuestionView: View {
                         .background(
                             selectedQuestion == question ?
                             Color.red.opacity(0.05) :
-                                Color(.systemGray6)
+                                (hasBeenAsked ? Color.orange.opacity(0.05) : Color(.systemGray6))
                         )
                         .cornerRadius(12)
                         .overlay(
@@ -282,7 +331,7 @@ struct GameQuestionView: View {
                                 .stroke(
                                     selectedQuestion == question ?
                                     Color.red.opacity(0.3) :
-                                        Color.clear,
+                                        (hasBeenAsked ? Color.orange.opacity(0.2) : Color.clear),
                                     lineWidth: 1
                                 )
                         )
@@ -297,7 +346,7 @@ struct GameQuestionView: View {
     }
     
     private func sendQuestion() async {
-        guard let currentUID = currentUser?.uid,
+        guard let currentUID = authManager.currentUser?.uid,
               let selectedQuestion = selectedQuestion else {
             errorMessage = "Unable to send question"
             showingError = true
@@ -314,37 +363,49 @@ struct GameQuestionView: View {
         isLoading = true
 
         do {
-            // Compose question with reward
+            // Compose question without reward text
             let baseQuestion = selectedCategory.writeQuestion(arg: selectedQuestion)
-            let rewardText = selectedCategory.categoryReward
-            let fullQuestion = "\(baseQuestion) — Reward: \(rewardText)"
-
+            
+            // Calculate reward (double if asked before)
+            let hasBeenAskedBefore = checkIfQuestionAskedBefore(baseQuestion)
+            let drawCount = selectedCategory.drawCount * (hasBeenAskedBefore ? 2 : 1)
+            let keepCount = selectedCategory.keepCount * (hasBeenAskedBefore ? 2 : 1)
+            let reward = "Draw \(drawCount), Keep \(keepCount)"
+            
             let questionId = UUID().uuidString
 
-            // Include questionCategory so we can enforce the rule on the next turn
+            // Create question data with reward fields
+            let questionData = QuestionData(
+                questionId: questionId,
+                questionText: baseQuestion,
+                isAnswered: false,
+                playerAnswer: nil,
+                questionCategory: selectedCategory,
+                reward: reward
+            )
+            
+            print(questionData)
+            
             let message = GameMessage(
                 id: UUID().uuidString,
                 senderUID: currentUID,
                 senderName: "Seekers",
-                content: fullQuestion,
+                content: baseQuestion,  // Just the question, no reward text
                 type: .question,
                 timestamp: Date(),
                 attachments: nil,
-                questionData: QuestionData(
-                    questionId: questionId,
-                    questionText: fullQuestion,
-                    questionType: selectedCategory.questionType,
-                    isAnswered: false,
-                    playerAnswer: nil,
-                    questionCategory: selectedCategory // NEW
-                ),
+                questionData: questionData,
                 team: .seekers
             )
 
-            try await databaseManager.sendMessage(gameId: gameId, message: message)
+            try await GameManager.sendMessage(gameId: gameId, message: message)
             
             await MainActor.run {
-                successMessage = "Question sent to hiders!"
+                if hasBeenAskedBefore {
+                    successMessage = "Question sent! Reward doubled since this was asked before."
+                } else {
+                    successMessage = "Question sent to hiders!"
+                }
                 showingSuccess = true
                 isLoading = false
             }
@@ -357,8 +418,21 @@ struct GameQuestionView: View {
         }
     }
     
+    // Check if a question with the same text has been asked before
+    private func checkIfQuestionAskedBefore(_ questionText: String) -> Bool {
+        guard let messages = gameManager.currentGame?.messages.values else {
+            return false
+        }
+        
+        return messages.contains { message in
+            message.type == .question &&
+            message.questionData?.questionText == questionText &&
+            message.timestamp < Date() // Make sure it's not the current message
+        }
+    }
+    
     private var lastQuestionMessage: GameMessage? {
-        databaseManager.currentGame?
+        gameManager.currentGame?
             .messages
             .values
             .filter { $0.type == .question }
@@ -368,12 +442,8 @@ struct GameQuestionView: View {
     
     // Categories disabled for the next question
     private var restrictedCategories: Set<QuestionCategory> {
-        // Prefer explicit category, fallback to all categories sharing the same QuestionType
         if let lastCat = lastQuestionMessage?.questionData?.questionCategory {
             return [lastCat]
-        }
-        if let lastType = lastQuestionMessage?.questionData?.questionType {
-            return Set(QuestionCategory.allCases.filter { $0.questionType == lastType })
         }
         return []
     }

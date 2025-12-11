@@ -7,13 +7,10 @@
 
 import SwiftUI
 import MapKit
+import BottomSheet
 
 struct DirectionsSheetContent: View {
-    let destination: MKMapItem
-    let transportType: TransportType
     @ObservedObject var viewModel: MapSearchViewModel
-    let onDismiss: () -> Void
-    let onRecalculate: () -> Void
     
     var body: some View {
         VStack(spacing: 0) {
@@ -24,19 +21,19 @@ struct DirectionsSheetContent: View {
                         HStack {
                             // Destination info
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(destination.name ?? "Unknown")
+                                Text(viewModel.selectedDestination?.name ?? "Unknown")
                                     .font(.title3)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.primary)
                                 
-                                if let address = destination.address {
+                                if let address = viewModel.selectedDestination?.address {
                                     Text(address)
                                         .font(.caption)
                                         .foregroundColor(.primary.opacity(0.7))
                                 }
                                 
                                 HStack(spacing: 6) {
-                                    Image(systemName: transportType.iconName)
+                                    Image(systemName: viewModel.selectedTransportType.iconName)
                                         .foregroundColor(.blue)
                                     
                                     Image(systemName: "circle.fill")
@@ -59,7 +56,9 @@ struct DirectionsSheetContent: View {
                             
                             Spacer()
                             
-                            Button(action: onDismiss) {
+                            Button(action: {
+                                viewModel.directionsBottomSheetPosition = .hidden
+                            }) {
                                 Image(systemName: "xmark")
                                     .tint(.primary)
                                     .opacity(0.7)
@@ -162,7 +161,11 @@ struct DirectionsSheetContent: View {
                         .padding(.horizontal, 20)
                         
                         // Recalculate button
-                        Button(action: onRecalculate) {
+                        Button(action: {
+                            if let destination = viewModel.selectedDestination {
+                                viewModel.showTransportSelection(for: destination)
+                            }
+                        }) {
                             HStack {
                                 Image(systemName: "arrow.clockwise")
                                 Text("Change Mode of Transport")
@@ -218,6 +221,10 @@ struct DirectionsSheetContent: View {
                 .padding(.bottom, 30)
             }
         }
+    }
+    
+    private func onRecalculate() {
+        
     }
     
     private func formatDuration(_ seconds: TimeInterval) -> String {

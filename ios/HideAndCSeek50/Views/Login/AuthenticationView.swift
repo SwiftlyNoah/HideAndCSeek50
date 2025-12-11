@@ -148,6 +148,7 @@ struct AuthenticationView: View {
                 isPresented: $isShowingEmailSignIn,
                 onSignInComplete: handleEmailSignInComplete
             )
+            .environmentObject(authManager)
         }
         .alert("Authentication Error", isPresented: $showingError) {
             Button("OK") {
@@ -162,8 +163,8 @@ struct AuthenticationView: View {
     
     private func configureAppleSignInRequest(_ request: ASAuthorizationAppleIDRequest) {
         request.requestedScopes = [.fullName, .email]
-        let rawNonce = AuthenticationManager.shared.generateNonce()
-        request.nonce = AuthenticationManager.shared.sha256Hash(rawNonce)
+        let rawNonce = authManager.generateNonce()
+        request.nonce = authManager.sha256Hash(rawNonce)
     }
     
     private func handleAppleSignInResult(_ result: Result<ASAuthorization, Error>) {
@@ -172,7 +173,7 @@ struct AuthenticationView: View {
             isLoading = true
             Task {
                 do {
-                    _ = try await AuthenticationManager.shared.signInWithApple(authorization)
+                    _ = try await authManager.signInWithApple(authorization)
                     await MainActor.run {
                         self.isLoading = false
                     }
@@ -191,7 +192,7 @@ struct AuthenticationView: View {
         isLoading = true
         Task {
             do {
-                _ = try await AuthenticationManager.shared.signInWithGoogle()
+                _ = try await authManager.signInWithGoogle()
                 await MainActor.run {
                     self.isLoading = false
                 }
@@ -207,7 +208,7 @@ struct AuthenticationView: View {
         isLoading = true
         Task {
             do {
-                _ = try await AuthenticationManager.shared.signInAnonymously()
+                _ = try await authManager.signInAnonymously()
                 await MainActor.run {
                     self.isLoading = false
                 }
@@ -233,5 +234,5 @@ struct AuthenticationView: View {
 
 #Preview {
     AuthenticationView()
-        .environmentObject(AuthenticationManager.shared)
+        .environmentObject(AuthenticationManager())
 }

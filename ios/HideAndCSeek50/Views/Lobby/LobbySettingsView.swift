@@ -8,11 +8,12 @@
 import SwiftUI
 
 struct LobbySettingsView: View {
+    @EnvironmentObject private var gameManager: GameManager
+    
+    @Environment(\.dismiss) private var dismiss
+    
     let lobby: Lobby
     let lobbyCode: String
-    
-    @StateObject private var databaseManager = DatabaseManager.shared
-    @Environment(\.dismiss) private var dismiss
     
     @State private var maxHiders: Int
     @State private var maxSeekers: Int
@@ -184,7 +185,7 @@ struct LobbySettingsView: View {
         isLoading = true
         
         do {
-            try await databaseManager.updateLobbySettings(
+            try await gameManager.updateLobbySettings(
                 code: lobbyCode,
                 maxHiders: maxHiders,
                 maxSeekers: maxSeekers,

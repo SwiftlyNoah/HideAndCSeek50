@@ -9,11 +9,12 @@ import SwiftUI
 import FirebaseAuth
 
 struct CreateLobbyView: View {
-    let onLobbyCreated: (String) -> Void
-    
-    @StateObject private var databaseManager = DatabaseManager.shared
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authManager: AuthenticationManager
+    @EnvironmentObject private var gameManager: GameManager
+
+    @Environment(\.dismiss) private var dismiss
+    
+    let onLobbyCreated: (String) -> Void
     
     @State private var gameName = ""
     @State private var maxHiders = 2
@@ -198,7 +199,7 @@ struct CreateLobbyView: View {
         isLoading = true
         
         do {
-            let lobbyCode = try await databaseManager.createLobby(
+            let lobbyCode = try await gameManager.createLobby(
                 hostUID: currentUID,
                 hostName: displayName,
                 gameName: trimmedName,
@@ -224,5 +225,5 @@ struct CreateLobbyView: View {
 
 #Preview {
     CreateLobbyView { _ in }
-        .environmentObject(AuthenticationManager.shared)
+        .environmentObject(AuthenticationManager())
 }

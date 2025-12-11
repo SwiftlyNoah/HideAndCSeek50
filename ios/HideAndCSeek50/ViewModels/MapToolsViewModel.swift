@@ -730,7 +730,7 @@ class MapToolsViewModel: ObservableObject {
             showTrainLines: showTrainLines
         )
 
-        try await DatabaseManager.shared.saveMapTools(
+        try await GameManager.saveMapTools(
             gameId: gameId,
             playerUID: playerUID,
             mapToolsData: mapToolsData

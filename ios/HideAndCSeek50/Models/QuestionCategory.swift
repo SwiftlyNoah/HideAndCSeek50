@@ -52,17 +52,6 @@ enum QuestionCategory: String, CaseIterable, Codable {
         }
     }
     
-    var questionType: QuestionType {
-        switch self {
-        case .matching: .yesNo
-        case .measuring: .closerFurther
-        case .thermometer: .hotterColder
-        case .radar: .yesNo
-        case .tentacles: .text
-        case .photos: .photo
-        }
-    }
-    
     func writeQuestion(arg: String) -> String {
         switch self {
         case .matching:
@@ -80,20 +69,29 @@ enum QuestionCategory: String, CaseIterable, Codable {
         }
     }
     
-    var categoryReward: String {
+    var drawCount: Int {
         switch self {
         case .matching:
-            return "Draw 3, Keep 1"
+            return 3
         case .measuring:
-            return "Draw 3, Keep 1"
+            return 3
         case .thermometer:
-            return "Draw 2, Keep 1"
+            return 2
         case .radar:
-            return "Draw 2, Keep 1"
+            return 2
         case .tentacles:
-            return "Draw 4, Keep 2"
+            return 4
         case .photos:
-            return "Draw 1, Keep 1"
+            return 1
+        }
+    }
+    
+    var keepCount: Int {
+        switch self {
+        case .tentacles:
+            return 2
+        default:
+            return 1
         }
     }
 }

@@ -14,16 +14,14 @@ import AuthenticationServices
 import CryptoKit
 internal import Combine
 
-class AuthenticationManager: ObservableObject {
-    static let shared = AuthenticationManager()
-    
+class AuthenticationManager: ObservableObject {    
     @Published var currentUser: User?
     @Published var isAuthenticated = false
     
     private var currentNonce: String?
     private var authStateListener: AuthStateDidChangeListenerHandle?
     
-    private init() {
+    init() {
         // Listen for authentication state changes
         authStateListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             DispatchQueue.main.async {
@@ -318,9 +316,7 @@ class AuthenticationManager: ObservableObject {
     private func createUserProfileIfNeeded(user: User, fullName: PersonNameComponents? = nil) async {
         do {
             // Check if user profile already exists
-            let _ = try await DatabaseManager.shared.getUserProfile(uid: user.uid)
-            // Profile exists, just update last active
-            await updateLastActive(uid: user.uid)
+            let _ = try await UserManager.shared.getUserProfile(uid: user.uid)
         } catch DatabaseError.userNotFound {
             // Create new user profile
             let displayName = generateDisplayName(user: user, fullName: fullName)
@@ -334,20 +330,10 @@ class AuthenticationManager: ObservableObject {
                 avatarURL: user.photoURL?.absoluteString
             )
             
-            try? await DatabaseManager.shared.createUser(profile: profile)
+            try? await UserManager.shared.createUser(profile: profile)
         } catch {
             // Handle other errors silently for now
             print("Error checking user profile: \(error)")
-        }
-    }
-    
-    private func updateLastActive(uid: String) async {
-        do {
-            var profile = try await DatabaseManager.shared.getUserProfile(uid: uid)
-            profile.lastActive = Date()
-            try await DatabaseManager.shared.updateUserProfile(profile)
-        } catch {
-            print("Error updating last active: \(error)")
         }
     }
     

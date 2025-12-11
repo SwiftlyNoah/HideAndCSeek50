@@ -10,6 +10,8 @@ import Firebase
 import FirebaseAuth
 
 struct EmailSignInView: View {
+    @EnvironmentObject private var authManager: AuthenticationManager
+
     @Binding var isPresented: Bool
     let onSignInComplete: () -> Void
     
@@ -213,9 +215,9 @@ struct EmailSignInView: View {
         Task {
             do {
                 if isSignUp {
-                    _ = try await AuthenticationManager.shared.createAccount(email: email, password: password)
+                    _ = try await authManager.createAccount(email: email, password: password)
                 } else {
-                    _ = try await AuthenticationManager.shared.signInWithEmail(email: email, password: password)
+                    _ = try await authManager.signInWithEmail(email: email, password: password)
                 }
                 
                 await MainActor.run {

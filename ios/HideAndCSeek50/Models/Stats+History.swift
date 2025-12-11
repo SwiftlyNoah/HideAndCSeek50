@@ -105,7 +105,7 @@ extension GameHistoryEntry {
               let city = GameCity(rawValue: cityRaw),
               let playerCount = dictionary["playerCount"] as? Int,
               let wasHost = dictionary["wasHost"] as? Bool else {
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("GameHistoryEntry.fromDictionary")
         }
         
         let datePlayed = Date.fromFirebaseTimestamp(datePlayedInt)

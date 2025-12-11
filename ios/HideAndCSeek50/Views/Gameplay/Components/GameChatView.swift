@@ -11,12 +11,17 @@ import FirebaseStorage
 internal import _LocationEssentials
 
 struct GameChatView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var gameManager: GameManager
+
+    @ObservedObject var chatViewModel: ChatViewModel
     @ObservedObject var mapToolsViewModel: MapToolsViewModel
+    @ObservedObject var locationManager: LocationManager
+    
     let gameId: String
     let currentUser: User?
     let currentPlayerTeam: Team
     
-    @EnvironmentObject private var chatViewModel: ChatViewModel
     @State private var messageText = ""
     @State private var showingImagePicker = false
     @State private var showingImageSourceSelection = false
@@ -24,9 +29,53 @@ struct GameChatView: View {
     @State private var selectedImage: UIImage?
     @State private var showingCameraPermissionAlert = false
     
-    // Optional: if provided, allows tapping location messages to add to map
+    @Binding var pendingDrawAction: DrawAction?
     
     var body: some View {
+        NavigationStack {
+            content
+                .confirmationDialog("Choose Photo Source", isPresented: $showingImageSourceSelection, titleVisibility: .visible) {
+                    Button("Camera") {
+                        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                            imageSourceType = .camera
+                            showingImagePicker = true
+                        } else {
+                            showingCameraPermissionAlert = true
+                        }
+                    }
+                    
+                    Button("Photo Library") {
+                        imageSourceType = .photoLibrary
+                        showingImagePicker = true
+                    }
+                    
+                    Button("Cancel", role: .cancel) {}
+                }
+                .sheet(isPresented: $showingImagePicker) {
+                    ImagePicker(selectedImage: $selectedImage, sourceType: imageSourceType)
+                }
+                .onChange(of: selectedImage) { _, newImage in
+                    if let image = newImage {
+                        sendPhotoMessage(image: image)
+                        selectedImage = nil
+                    }
+                }
+                .alert("Camera Not Available", isPresented: $showingCameraPermissionAlert) {
+                    Button("OK", role: .cancel) {}
+                } message: {
+                    Text("Camera is not available on this device or permission has been denied.")
+                }
+                .navigationTitle("Game Chat")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") { dismiss() }
+                    }
+                }
+        }
+    }
+    
+    private var content: some View {
         VStack(spacing: 0) {
             // Messages list
             ScrollViewReader { proxy in
@@ -50,11 +99,13 @@ struct GameChatView: View {
                                     currentUser: currentUser
                                 )
                                 .padding(.horizontal)
-                            } else {
+                            }
+                            else {
                                 MessageBubble(
                                     message: message,
                                     isCurrentUser: message.senderUID == currentUser?.uid,
-                                    mapToolsViewModel: mapToolsViewModel
+                                    mapToolsViewModel: mapToolsViewModel,
+                                    onClaimReward: handleClaimReward(_:)
                                 )
                             }
                         }
@@ -129,37 +180,6 @@ struct GameChatView: View {
             }
             .padding()
         }
-        .confirmationDialog("Choose Photo Source", isPresented: $showingImageSourceSelection, titleVisibility: .visible) {
-            Button("Camera") {
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    imageSourceType = .camera
-                    showingImagePicker = true
-                } else {
-                    showingCameraPermissionAlert = true
-                }
-            }
-            
-            Button("Photo Library") {
-                imageSourceType = .photoLibrary
-                showingImagePicker = true
-            }
-            
-            Button("Cancel", role: .cancel) {}
-        }
-        .sheet(isPresented: $showingImagePicker) {
-            ImagePicker(selectedImage: $selectedImage, sourceType: imageSourceType)
-        }
-        .onChange(of: selectedImage) { _, newImage in
-            if let image = newImage {
-                sendPhotoMessage(image: image)
-                selectedImage = nil
-            }
-        }
-        .alert("Camera Not Available", isPresented: $showingCameraPermissionAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Camera is not available on this device or permission has been denied.")
-        }
     }
     
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool = true) {
@@ -211,7 +231,7 @@ struct GameChatView: View {
     
     private func sendLocationMessage() {
         guard let displayName = currentUser?.displayName ?? currentUser?.email,
-              let location = LocationManager.shared.location else {
+              let location = locationManager.location else {
             return
         }
         
@@ -227,12 +247,21 @@ struct GameChatView: View {
             )
         }
     }
+    
+    private func handleClaimReward(_ questionData: QuestionData) {
+        // Create draw action for selection
+        let action = QuestionData.parseDrawAction(from: questionData.reward)
+        pendingDrawAction = action
+        
+        dismiss()
+    }
 }
 
 struct MessageBubble: View {
     let message: GameMessage
     let isCurrentUser: Bool
     var mapToolsViewModel: MapToolsViewModel? = nil
+    var onClaimReward: ((QuestionData) -> Void)? = nil
     
     @State private var showFullImage = false
     
@@ -354,7 +383,7 @@ struct MessageBubble: View {
                 if let questionData = message.questionData, !questionData.isAnswered {
                     QuestionTimerView(
                         questionTimestamp: message.timestamp,
-                        questionType: questionData.questionType
+                        questionCategory: questionData.questionCategory
                     )
                 }
             } 
@@ -394,6 +423,26 @@ struct MessageBubble: View {
                                 EmptyView()
                             }
                         }
+                    }
+                    
+                    // Show reward button for hiders (who can answer)
+                    // Button only shows after question is answered
+                    if !isCurrentUser, let onClaim = onClaimReward {
+                        Button(action: {
+                            onClaim(questionData)
+                        }) {
+                            HStack {
+                                Image(systemName: "gift.fill")
+                                Text(questionData.reward)
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.white)
+                            .foregroundColor(.blue)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                        .padding(.top, 4)
                     }
                 }
                 .padding(12)
@@ -556,6 +605,8 @@ struct FullScreenImageView: View {
 }
 
 struct QuestionAnswerView: View {
+    @EnvironmentObject private var gameManager: GameManager
+    
     let gameId: String
     let message: GameMessage
     let questionData: QuestionData
@@ -615,20 +666,20 @@ struct QuestionAnswerView: View {
                 
                 // Answer options based on question type
                 Group {
-                    switch questionData.questionType {
-                    case .yesNo:
+                    switch questionData.questionCategory {
+                    case .matching, .radar:
                         yesNoButtons
                         
-                    case .closerFurther:
+                    case .measuring:
                         closerFurtherButtons
                         
-                    case .hotterColder:
+                    case .thermometer:
                         hotterColderButtons
                         
-                    case .text:
+                    case .tentacles:
                         textAnswerField
                         
-                    case .photo:
+                    case .photos:
                         photoAnswerButton
                     }
                 }
@@ -646,7 +697,7 @@ struct QuestionAnswerView: View {
                 }
                 
                 // Submit button (for text answers)
-                if questionData.questionType == .text {
+                if questionData.questionCategory == .tentacles {
                     Button(action: submitAnswer) {
                         if isSubmitting {
                             ProgressView()
@@ -734,7 +785,7 @@ struct QuestionAnswerView: View {
     
     private var questionTimeLimit: TimeInterval {
         // Photo questions: 10 minutes, all others: 5 minutes
-        return questionData.questionType == .photo ? 600 : 300
+        return questionData.questionCategory == .photos ? 600 : 300
     }
     
     private var timeRemainingText: String {
@@ -836,10 +887,10 @@ struct QuestionAnswerView: View {
     // MARK: - Helper Properties
     
     private var canSubmit: Bool {
-        switch questionData.questionType {
-        case .text:
+        switch questionData.questionCategory {
+        case .tentacles:
             return !textAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .photo:
+        case .photos:
             return selectedImage != nil
         default:
             return true
@@ -858,18 +909,18 @@ struct QuestionAnswerView: View {
         isSubmitting = true
         
         let answer: String
-        switch questionData.questionType {
-        case .yesNo, .closerFurther, .hotterColder:
-            answer = selectedAnswer ?? ""
-        case .text:
+        switch questionData.questionCategory {
+        case .tentacles:
             answer = textAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
-        case .photo:
+        case .photos:
             answer = "Photo submitted"
+        default:
+            answer = selectedAnswer ?? ""
         }
         
         Task {
             do {
-                try await DatabaseManager.shared.answerQuestion(
+                try await gameManager.answerQuestion(
                     gameId: gameId,
                     questionMessageId: message.id,
                     answer: answer,
@@ -951,7 +1002,7 @@ struct QuestionAnswerView: View {
                 }
                 
                 // Update question with photo URL
-                try await DatabaseManager.shared.answerQuestionWithPhoto(
+                try await gameManager.answerQuestionWithPhoto(
                     gameId: gameId,
                     questionMessageId: message.id,
                     photoURL: downloadURL.absoluteString,
@@ -978,7 +1029,7 @@ struct QuestionAnswerView: View {
 // MARK: - Question Timer View
 struct QuestionTimerView: View {
     let questionTimestamp: Date
-    let questionType: QuestionType
+    let questionCategory: QuestionCategory
     
     @State private var timeRemaining: TimeInterval = 0
     @State private var timer: Timer?
@@ -1010,7 +1061,7 @@ struct QuestionTimerView: View {
     
     private func updateTimeRemaining() {
         let elapsed = Date().timeIntervalSince(questionTimestamp)
-        let timeLimit = questionType == .photo ? 600.0 : 300.0 // 10 min for photo, 5 min for others
+        let timeLimit = questionCategory == .photos ? 600.0 : 300.0 // 10 min for photo, 5 min for others
         timeRemaining = max(0, timeLimit - elapsed)
     }
     

@@ -1,11 +1,12 @@
 /**
  * Firebase Cloud Functions for HideAndCSeek50
  *
- * These functions handle sending push notifications for game chat messages.
+ * These functions handle sending push notifications for game chat messages
+ * and updating player statistics when games are completed.
  */
 
 /* eslint-disable */
-const {onValueCreated, onValueDeleted} = require('firebase-functions/v2/database');
+const {onValueCreated, onValueDeleted, onValueWritten} = require('firebase-functions/v2/database');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {initializeApp} = require('firebase-admin/app');
 const {getDatabase} = require('firebase-admin/database');
@@ -291,3 +292,206 @@ exports.onPlayerLeaveGame = onValueDeleted(
         return null;
       }
     });
+
+/**
+ * Update player statistics when a game is completed
+ * Triggered when the game state changes to 'completed'
+ */
+exports.updateGameStatistics = onValueWritten(
+    '/games/{gameId}/info/state',
+    async (event) => {
+      try {
+        const gameId = event.params.gameId;
+        const newState = event.data.after.val();
+        const oldState = event.data.before.val();
+
+        // Only proceed if state changed to 'completed'
+        if (newState !== 'completed' || oldState === 'completed') {
+          console.log(`Game ${gameId}: State is ${newState}, skipping statistics update`);
+          return null;
+        }
+
+        console.log(`Game ${gameId}: Updating statistics for completed game`);
+
+        // Get the complete game data
+        const gameSnapshot = await getDatabase()
+            .ref(`/games/${gameId}`)
+            .once('value');
+
+        const gameData = gameSnapshot.val();
+        if (!gameData || !gameData.info || !gameData.teams) {
+          console.error(`Game ${gameId}: Missing game data`);
+          return null;
+        }
+
+        const {info, teams} = gameData;
+
+        // Calculate game metrics
+        const gameDuration = calculateElapsedTime(info);
+        const hidingTime = info.hidingElapsed || 0;
+        const seekingTime = info.seekingElapsed || 0;
+        const playerCount = (teams.hiders ? Object.keys(teams.hiders).length : 0) +
+                           (teams.seekers ? Object.keys(teams.seekers).length : 0);
+
+        // Update stats for hiders
+        if (teams.hiders) {
+          const hiderUIDs = Object.keys(teams.hiders);
+          await Promise.all(hiderUIDs.map(async (uid) => {
+            await updatePlayerStats(uid, {
+              gameId,
+              gameName: info.name,
+              team: 'hiders',
+              hidingTime,
+              seekingTime,
+              gameDuration,
+              playerCount,
+              city: info.settings?.city || 'boston',
+              wasHost: info.hostUID === uid,
+              endedAt: info.endedAt || Date.now() / 1000,
+            });
+          }));
+        }
+
+        // Update stats for seekers
+        if (teams.seekers) {
+          const seekerUIDs = Object.keys(teams.seekers);
+          await Promise.all(seekerUIDs.map(async (uid) => {
+            await updatePlayerStats(uid, {
+              gameId,
+              gameName: info.name,
+              team: 'seekers',
+              hidingTime,
+              seekingTime,
+              gameDuration,
+              playerCount,
+              city: info.settings?.city || 'boston',
+              wasHost: info.hostUID === uid,
+              endedAt: info.endedAt || Date.now() / 1000,
+            });
+          }));
+        }
+
+        console.log(`Game ${gameId}: Statistics updated for all players`);
+        return null;
+      } catch (error) {
+        console.error('Error in updateGameStatistics:', error);
+        return null;
+      }
+    });
+
+/**
+ * Helper function to update individual player statistics
+ * @param {string} uid - Player's user ID
+ * @param {Object} gameData - Data about the completed game
+ */
+async function updatePlayerStats(uid, gameData) {
+  try {
+    const db = getDatabase();
+    const statsRef = db.ref(`/users/${uid}/stats`);
+
+    // Get current stats or initialize new ones
+    const statsSnapshot = await statsRef.once('value');
+    let stats = statsSnapshot.val() || {
+      totalGamesPlayed: 0,
+      hiderStats: {
+        gamesPlayed: 0,
+        averageHidingTime: 0,
+        bestHidingTime: 0,
+      },
+      seekerStats: {
+        gamesPlayed: 0,
+        averageFindTime: 0,
+        bestFindTime: 0,
+      },
+      achievements: {
+        quickSeeker: false,
+        masterHider: false,
+        teamPlayer: false,
+        veteran: false,
+      },
+    };
+
+    // Update total games
+    stats.totalGamesPlayed += 1;
+
+    // Update team-specific stats
+    if (gameData.team === 'hiders') {
+      stats.hiderStats.gamesPlayed += 1;
+
+      // Update average hiding time
+      stats.hiderStats.averageHidingTime =
+        (stats.hiderStats.averageHidingTime * (stats.hiderStats.gamesPlayed - 1) +
+         gameData.hidingTime) / stats.hiderStats.gamesPlayed;
+
+      // Update best hiding time
+      if (gameData.hidingTime > stats.hiderStats.bestHidingTime) {
+        stats.hiderStats.bestHidingTime = gameData.hidingTime;
+      }
+
+      // Check for master hider achievement (hidden for over 30 minutes)
+      if (gameData.hidingTime >= 1800) {
+        stats.achievements.masterHider = true;
+      }
+    } else if (gameData.team === 'seekers') {
+      stats.seekerStats.gamesPlayed += 1;
+
+      // Update average find time
+      if (gameData.seekingTime > 0) {
+        stats.seekerStats.averageFindTime =
+          (stats.seekerStats.averageFindTime * (stats.seekerStats.gamesPlayed - 1) +
+           gameData.seekingTime) / stats.seekerStats.gamesPlayed;
+
+        // Update best find time
+        if (gameData.seekingTime < stats.seekerStats.bestFindTime ||
+            stats.seekerStats.bestFindTime === 0) {
+          stats.seekerStats.bestFindTime = gameData.seekingTime;
+        }
+
+        // Check for quick seeker achievement (found hider in under 5 minutes)
+        if (gameData.seekingTime <= 300) {
+          stats.achievements.quickSeeker = true;
+        }
+      }
+    }
+
+    // Check for veteran achievement (100+ games)
+    if (stats.totalGamesPlayed >= 100) {
+      stats.achievements.veteran = true;
+    }
+
+    // Save updated stats
+    await statsRef.set(stats);
+
+    // Save game history entry
+    const historyEntry = {
+      id: gameData.gameId,
+      gameId: gameData.gameId,
+      gameName: gameData.gameName,
+      team: gameData.team,
+      hidingTime: gameData.hidingTime,
+      seekingTime: gameData.seekingTime,
+      duration: gameData.gameDuration,
+      datePlayed: gameData.endedAt,
+      city: gameData.city,
+      playerCount: gameData.playerCount,
+      wasHost: gameData.wasHost,
+    };
+
+    await db.ref(`/users/${uid}/gameHistory/${gameData.gameId}`).set(historyEntry);
+
+    console.log(`Updated stats for player ${uid}`);
+  } catch (error) {
+    console.error(`Error updating stats for player ${uid}:`, error);
+  }
+}
+
+/**
+ * Helper function to calculate elapsed time from game info
+ * @param {Object} info - Game info object
+ * @return {number} Elapsed time in seconds
+ */
+function calculateElapsedTime(info) {
+  const hidingElapsed = info.hidingElapsed || 0;
+  const seekingElapsed = info.seekingElapsed || 0;
+  return hidingElapsed + seekingElapsed;
+}

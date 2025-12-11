@@ -9,11 +9,13 @@ import SwiftUI
 import FirebaseAuth
 
 struct LobbyView: View {
-    let lobbyCode: String
-    let isHost: Bool
-    @StateObject private var databaseManager = DatabaseManager.shared
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authManager: AuthenticationManager
+    @EnvironmentObject private var gameManager: GameManager
+
+    let lobbyCode: String
+    let isHost: Bool
+    
     @State private var showingSettings = false
     @State private var showingLeaveLobby = false
     @State private var isLoading = false
@@ -30,7 +32,7 @@ struct LobbyView: View {
     }
     
     private var lobby: Lobby? {
-        databaseManager.currentLobby
+        gameManager.currentLobby
     }
     
     private var canStartGame: Bool {
@@ -171,6 +173,7 @@ struct LobbyView: View {
             .sheet(isPresented: $showingSettings) {
                 if let lobby = lobby {
                     LobbySettingsView(lobby: lobby, lobbyCode: lobbyCode)
+                        .environmentObject(gameManager)
                 }
             }
             .confirmationDialog("Leave Lobby", isPresented: $showingLeaveLobby, titleVisibility: .visible) {
@@ -437,7 +440,7 @@ struct LobbyView: View {
                         // Host options for other players
                         Button {
                             Task {
-                                let targetTeam: Team = player.team == .hiders ? .seekers : .hiders
+                                let targetTeam: Team = player.isHider ? .seekers : .hiders
                                 await movePlayerToTeam(player.uid, team: targetTeam)
                             }
                         } label: {
@@ -544,11 +547,11 @@ struct LobbyView: View {
     }
     
     private func startListening() {
-        databaseManager.startListeningToLobby(code: lobbyCode)
+        gameManager.startListeningToLobby(code: lobbyCode)
     }
     
     private func stopListening() {
-        databaseManager.stopListeningToLobby(code: lobbyCode)
+        gameManager.stopListeningToLobby(code: lobbyCode)
     }
     
     private func leaveLobby() async {
@@ -556,7 +559,7 @@ struct LobbyView: View {
         
         isLoading = true
         do {
-            try await databaseManager.leaveLobby(code: lobbyCode, playerUID: currentUID)
+            try await gameManager.leaveLobby(code: lobbyCode, playerUID: currentUID)
             await MainActor.run {
                 dismiss()
             }
@@ -572,7 +575,7 @@ struct LobbyView: View {
         guard let currentUID = currentUser?.uid else { return }
         
         do {
-            try await databaseManager.togglePlayerReady(code: lobbyCode, playerUID: currentUID)
+            try await gameManager.togglePlayerReady(code: lobbyCode, playerUID: currentUID)
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
@@ -584,7 +587,7 @@ struct LobbyView: View {
         guard let currentUID = currentUser?.uid else { return }
         
         do {
-            try await databaseManager.switchPlayerTeam(code: lobbyCode, playerUID: currentUID, team: team)
+            try await gameManager.switchPlayerTeam(code: lobbyCode, playerUID: currentUID, team: team)
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
@@ -594,7 +597,7 @@ struct LobbyView: View {
     
     private func movePlayerToTeam(_ playerUID: String, team: Team) async {
         do {
-            try await databaseManager.switchPlayerTeam(code: lobbyCode, playerUID: playerUID, team: team)
+            try await gameManager.switchPlayerTeam(code: lobbyCode, playerUID: playerUID, team: team)
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
@@ -609,7 +612,7 @@ struct LobbyView: View {
         do {
             // Start the game - this will update the lobby's gameId and isActive status
             // All players monitoring the lobby will automatically navigate to the game
-            let _ = try await databaseManager.startGameFromLobby(lobbyCode: lobbyCode)
+            try await gameManager.startGame()
             
             await MainActor.run {
                 isLoading = false
@@ -627,7 +630,7 @@ struct LobbyView: View {
     
     private func removePlayer(_ playerUID: String) async {
         do {
-            try await databaseManager.removePlayerFromLobby(code: lobbyCode, playerUID: playerUID)
+            try await gameManager.removePlayerFromLobby(code: lobbyCode, playerUID: playerUID)
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
@@ -637,7 +640,7 @@ struct LobbyView: View {
     
     private func banPlayer(_ playerUID: String) async {
         do {
-            try await databaseManager.banPlayerFromLobby(code: lobbyCode, playerUID: playerUID)
+            try await gameManager.banPlayerFromLobby(code: lobbyCode, playerUID: playerUID)
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
@@ -686,5 +689,5 @@ struct LobbyView: View {
 
 #Preview {
     LobbyView(lobbyCode: "ABC123", isHost: true)
-        .environmentObject(AuthenticationManager.shared)
+        .environmentObject(AuthenticationManager())
 }

@@ -12,7 +12,7 @@ import FirebaseAuth
 struct MainView: View {
     let user: User?
     @EnvironmentObject private var authManager: AuthenticationManager
-    @StateObject private var databaseManager = DatabaseManager.shared
+    @StateObject private var gameManager = GameManager()
     @StateObject private var notificationManager = NotificationManager.shared
     @State private var showingSignOut = false
     @State private var showingCreateGame = false
@@ -145,6 +145,7 @@ struct MainView: View {
                 activeLobbyCode = lobbyCode
                 isLobbyHost = true
             }
+            .environmentObject(gameManager)
         }
         .sheet(isPresented: $showingJoinGame) {
             JoinLobbyView { lobbyCode in
@@ -152,6 +153,7 @@ struct MainView: View {
                 activeLobbyCode = lobbyCode
                 isLobbyHost = false
             }
+            .environmentObject(gameManager)
         }
         .sheet(isPresented: $showingQuickMatch) {
             QuickMatchView { lobbyCode in
@@ -159,12 +161,14 @@ struct MainView: View {
                 activeLobbyCode = lobbyCode
                 isLobbyHost = false
             }
+            .environmentObject(gameManager)
         }
         .sheet(isPresented: $showingProfile) {
             ProfileView(user: user, stats: nil)
         }
         .fullScreenCover(item: lobbyDestination) { destination in
             LobbyView(lobbyCode: destination.code, isHost: isLobbyHost)
+                .environmentObject(gameManager)
         }
         .fullScreenCover(item: $rejoinGameDestination) { destination in
             GameView(
@@ -176,6 +180,7 @@ struct MainView: View {
                     rejoinGameData = nil
                 }
             )
+            .environmentObject(gameManager)
         }
         .confirmationDialog("Rejoin Game?", isPresented: $showingRejoinGame, titleVisibility: .visible) {
             Button("Rejoin") {
@@ -186,7 +191,7 @@ struct MainView: View {
             Button("No thanks", role: .destructive) {
                 // Clear the rejoin data and stay on main menu
                 showingRejoinGame = false
-                databaseManager.clearGamePersistence()
+                gameManager.clearGamePersistence()
                 rejoinGameData = nil
             }
         } message: {
@@ -378,7 +383,7 @@ struct MainView: View {
     private func checkForRejoinableGame() {
         
         Task {
-            let gameData = await databaseManager.rejoinGame()
+            let gameData = await gameManager.rejoinGame()
             isCheckingForRejoin = false
             await MainActor.run {
                 if let gameData = gameData {
@@ -396,7 +401,7 @@ struct MainView: View {
         
         Task {
             do {
-                let history = try await databaseManager.getGameHistory(uid: uid, limit: 5)
+                let history = try await UserManager.shared.getGameHistory(uid: uid, limit: 5)
                 await MainActor.run {
                     recentGames = history
                     isLoadingHistory = false
@@ -535,5 +540,5 @@ struct GameHistoryCard: View {
 
 #Preview {
     MainView(user: nil)
-        .environmentObject(AuthenticationManager.shared)
+        .environmentObject(AuthenticationManager())
 }

@@ -9,11 +9,11 @@ import SwiftUI
 import FirebaseAuth
 
 struct QuickMatchView: View {
-    let onLobbyJoined: (String) -> Void
-    
-    @StateObject private var databaseManager = DatabaseManager.shared
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authManager: AuthenticationManager
+    @EnvironmentObject private var gameManager: GameManager
+    
+    let onLobbyJoined: (String) -> Void
     
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -42,12 +42,12 @@ struct QuickMatchView: View {
                 )
                 .ignoresSafeArea()
                 
-                if databaseManager.publicLobbies.isEmpty && !isLoading {
+                if gameManager.publicLobbies.isEmpty && !isLoading {
                     emptyStateView
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 16) {
-                            ForEach(databaseManager.publicLobbies, id: \.code) { lobby in
+                            ForEach(gameManager.publicLobbies, id: \.code) { lobby in
                                 lobbyCard(lobby: lobby)
                             }
                         }
@@ -234,11 +234,11 @@ struct QuickMatchView: View {
     // MARK: - Actions
     
     private func startListening() {
-        databaseManager.startListeningToPublicLobbies()
+        gameManager.startListeningToPublicLobbies()
     }
     
     private func stopListening() {
-        databaseManager.stopListeningToPublicLobbies()
+        gameManager.stopListeningToPublicLobbies()
     }
     
     private func refreshLobbies() async {
@@ -248,7 +248,7 @@ struct QuickMatchView: View {
         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
         
         do {
-            _ = try await databaseManager.getPublicLobbies()
+            _ = try await gameManager.getPublicLobbies()
             await MainActor.run {
                 // The listener will update the UI automatically
                 isLoading = false
@@ -271,7 +271,7 @@ struct QuickMatchView: View {
         
         do {
             print(lobby.code)
-            let _ = try await databaseManager.joinLobby(
+            let _ = try await gameManager.joinLobby(
                 code: lobby.code,
                 playerUID: currentUID,
                 displayName: displayName
@@ -293,5 +293,5 @@ struct QuickMatchView: View {
 
 #Preview {
     QuickMatchView { _ in }
-        .environmentObject(AuthenticationManager.shared)
+        .environmentObject(AuthenticationManager())
 }

@@ -16,7 +16,7 @@ enum DatabaseError: LocalizedError {
     case lobbyNotFound
     case gameNotFound
     case gameNotJoinable
-    case invalidData
+    case invalidData(String)
     case invalidOperation
     case networkError
     case permissionDenied
@@ -31,8 +31,8 @@ enum DatabaseError: LocalizedError {
             return "Game not found"
         case .gameNotJoinable:
             return "Game cannot be joined"
-        case .invalidData:
-            return "Invalid data received"
+        case .invalidData(let endpoint):
+            return "Invalid data received in \(endpoint)"
         case .invalidOperation:
             return "Invalid operation"
         case .networkError:
@@ -73,20 +73,7 @@ extension DatabaseReference {
     }
 }
 
-extension Date {
-    // Pure helpers – keep them nonisolated
-    nonisolated static func fromFirebaseTimestamp(_ timestamp: Int64) -> Date {
-        Date(timeIntervalSince1970: Double(timestamp))
-    }
-    
-    nonisolated func toFirebaseTimestamp() -> Int64 {
-        Int64(timeIntervalSince1970.rounded())
-    }
-}
-
-class DatabaseManager: ObservableObject {
-    static let shared = DatabaseManager()
-    
+class GameManager: ObservableObject {
     private let database = Database.database()
     private var gameListeners: [String: DatabaseHandle] = [:]
     private var lobbyListeners: [String: DatabaseHandle] = [:]
@@ -104,7 +91,7 @@ class DatabaseManager: ObservableObject {
         static let lastGameTimestamp = "lastGameTimestamp"
     }
     
-    private init() {
+    init() {
         // Monitor connection status
         let connectedRef = Database.database().reference(withPath: ".info/connected")
         connectedRef.observe(.value) { [weak self] snapshot in
@@ -112,75 +99,9 @@ class DatabaseManager: ObservableObject {
         }
     }
     
-    // MARK: - User Management
-    
-    func createUser(profile: UserProfile) async throws {
-        let userRef = DatabaseReference.user(profile.uid)
-        let userData: [String: Any] = [
-            "profile": try profile.toDictionary(),
-            "stats": try UserStats().toDictionary(),
-            "preferences": try UserPreferences().toDictionary()
-        ]
-        try await userRef.setValue(userData)
-    }
-    
-    func updateUserProfile(_ profile: UserProfile) async throws {
-        let userRef = DatabaseReference.user(profile.uid).child("profile")
-        try await userRef.setValue(try profile.toDictionary())
-    }
-    
-    func getUserProfile(uid: String) async throws -> UserProfile {
-        let snapshot = try await DatabaseReference.user(uid).child("profile").getData()
-        guard let data = snapshot.value as? [String: Any] else {
-            throw DatabaseError.userNotFound
-        }
-        return try UserProfile.fromDictionary(data)
-    }
-    
-    func updateUserStats(uid: String, stats: UserStats) async throws {
-        let statsRef = DatabaseReference.user(uid).child("stats")
-        try await statsRef.setValue(try stats.toDictionary())
-    }
-    
-    func getUserStats(uid: String) async throws -> UserStats {
-        let snapshot = try await DatabaseReference.user(uid).child("stats").getData()
-        guard let data = snapshot.value as? [String: Any] else {
-            return UserStats() // Return default stats if none exist
-        }
-        return try UserStats.fromDictionary(data)
-    }
-    
-    // MARK: - Game History Management
-    func saveGameHistory(uid: String, entry: GameHistoryEntry) async throws {
-        let historyRef = DatabaseReference.user(uid).child("gameHistory").child(entry.gameId)
-        try await historyRef.setValue(try entry.toDictionary())
-    }
-    
-    func getGameHistory(uid: String, limit: Int = 10) async throws -> [GameHistoryEntry] {
-        let historyRef = DatabaseReference.user(uid).child("gameHistory")
-        let snapshot = try await historyRef.queryOrdered(byChild: "datePlayed")
-            .queryLimited(toLast: UInt(limit))
-            .getData()
-        
-        guard let data = snapshot.value as? [String: [String: Any]] else {
-            return []
-        }
-        
-        var history: [GameHistoryEntry] = []
-        for (_, entryData) in data {
-            if let entry = try? GameHistoryEntry.fromDictionary(entryData) {
-                history.append(entry)
-            }
-        }
-        
-        // Sort by date (most recent first)
-        return history.sorted { $0.datePlayed > $1.datePlayed }
-    }
-    
     // MARK: - Lobby Management
-    
     func createLobby(hostUID: String, hostName: String, gameName: String, isPublic: Bool = true, maxHiders: Int = 2, maxSeekers: Int = 2, hidingTime: Int = 30, city: GameCity = .boston) async throws -> String {
-        let code = generateGameCode()
+        let code = generateLobbyCode()
         
         var lobby = Lobby(
             code: code,
@@ -208,22 +129,8 @@ class DatabaseManager: ObservableObject {
         
         let lobbyRef = DatabaseReference.lobby(code)
         try await lobbyRef.setValue(try lobby.toDictionary())
-        
-        // Auto-delete after expiration
-        schedulelobbyCleanup(code: code, expirationDate: lobby.expiresAt)
-        
+                
         return code
-    }
-    
-    func getLobby(code: String) async throws -> Lobby {
-        let snapshot = try await DatabaseReference.lobby(code).getData()
-        
-        guard let lobbyData = extractLobbyData(from: snapshot, code: code),
-              let lobby = try? Lobby.fromDictionary(lobbyData),
-              lobby.isActive else {
-            throw DatabaseError.lobbyNotFound
-        }
-        return lobby
     }
     
     func joinLobby(code: String, playerUID: String, displayName: String) async throws -> Lobby {
@@ -330,72 +237,17 @@ class DatabaseManager: ObservableObject {
         // Update lobby
         try await lobbyRef.setValue(try lobby.toDictionary())
     }
-    
-    func startGameFromLobby(lobbyCode: String) async throws -> String {
-        guard let lobby = currentLobby,
-              lobby.code == lobbyCode,
-              lobby.canStart else {
-            throw DatabaseError.invalidOperation
-        }
         
-        let gameId = UUID().uuidString
-        
-        let gameInfo = GameInfo(
-            gameId: gameId,
-            gameCode: lobbyCode,
-            name: lobby.name,
-            hostUID: lobby.hostUID,
-            state: .starting,
-            maxPlayers: lobby.maxPlayers,
-            currentPlayers: lobby.totalPlayers,
-            createdAt: Date(),
-            startedAt: Date(),
-            settings: GameSettings(
-                hidingTime: lobby.hidingTime,
-                city: lobby.city
-            )
-        )
-        
-        // Create game in database with initial game structure
-        let gameRef = DatabaseReference.game(gameId)
-        try await gameRef.child("info").setValue(try gameInfo.toDictionary())
-        
-        // Initialize empty teams structure
-        let teamsData: [String: Any] = [
-            "hiders": [:],
-            "seekers": [:]
-        ]
-        try await gameRef.child("teams").setValue(teamsData)
-        
-        // Add all lobby players to the game teams
-        for (uid, player) in lobby.players {
-            let teamMember: [String: Any] = [
-                "uid": uid,
-                "displayName": player.displayName,
-                "isReady": true // All players are ready when game starts
-            ]
-            
-            let teamPath = "teams/\(player.team.rawValue)/\(uid)"
-            try await gameRef.child(teamPath).setValue(teamMember)
-        }
-        
-        // Update lobby to point to game and mark as inactive
-        // This change will trigger navigation for all players monitoring the lobby
-        let lobbyRef = DatabaseReference.lobby(lobbyCode)
-        try await lobbyRef.updateChildValues([
-            "gameId": gameId,
-            "isActive": false
-        ])
-        
-        return gameId
+    func closeLobby(code: String) async throws {
+        try await DatabaseReference.lobby(code).removeValue()
     }
 
-    func sendMessage(gameId: String, message: GameMessage) async throws {
+    // MARK: - Event Messages
+
+    static func sendMessage(gameId: String, message: GameMessage) async throws {
         let messageRef = DatabaseReference.game(gameId).child("messages").child(message.id)
         try await messageRef.setValue(try message.toDictionary())
     }
-    
-    // MARK: - Event Messages
     
     /// Sends an event as a message in the game chat
     private func sendEventMessage(gameId: String, type: EventType, details: String) async throws {
@@ -411,31 +263,7 @@ class DatabaseManager: ObservableObject {
             team: .hiders, // Events are visible to both teams
             eventType: type
         )
-        try await sendMessage(gameId: gameId, message: message)
-    }
-    
-    func observeGame(gameId: String, completion: @escaping (Game?) -> Void) {
-        let gameRef = DatabaseReference.game(gameId)
-        gameRef.observe(.value) { snapshot in
-            guard let data = snapshot.value as? [String: Any] else {
-                completion(nil)
-                return
-            }
-            
-            do {
-                let game = try Game.fromDictionary(data)
-                completion(game)
-            } catch {
-                print("Error parsing game data: \(error)")
-                // Fallback if only info exists
-                if let infoDict = data["info"] as? [String: Any],
-                   let info = try? GameInfo.fromDictionary(infoDict) {
-                    completion(Game(info: info, teams: GameTeams()))
-                } else {
-                    completion(nil)
-                }
-            }
-        }
+        try await Self.sendMessage(gameId: gameId, message: message)
     }
     
     func switchPlayerTeam(code: String, playerUID: String, team: Team) async throws {
@@ -470,23 +298,54 @@ class DatabaseManager: ObservableObject {
         return lobbies.sorted { $0.createdAt > $1.createdAt }
     }
     
-    func closeLobby(code: String) async throws {
-        try await DatabaseReference.lobby(code).removeValue()
-    }
-    
-    private func schedulelobbyCleanup(code: String, expirationDate: Date) {
-        // In production, use Cloud Functions for this
-        DispatchQueue.global().asyncAfter(deadline: .now() + expirationDate.timeIntervalSinceNow) {
-            Task {
-                try? await self.closeLobby(code: code)
+    // MARK: - Game Management
+    func startGame() async throws {
+        guard let lobby = currentLobby, lobby.canStart else {
+            throw DatabaseError.invalidOperation
+        }
+        
+        let gameId = UUID().uuidString
+        let lobbyCode = lobby.code
+        
+        let info = GameInfo(
+            gameId: gameId,
+            gameCode: lobbyCode,
+            name: lobby.name,
+            hostUID: lobby.hostUID,
+            state: .starting,
+            maxPlayers: lobby.maxPlayers,
+            currentPlayers: lobby.totalPlayers,
+            createdAt: Date(),
+            startedAt: Date(),
+            settings: GameSettings(
+                hidingTime: lobby.hidingTime,
+                city: lobby.city
+            )
+        )
+        
+        // Convert lobby players to game players
+        var hiders: [String: Player] = [:]
+        var seekers: [String: Player] = [:]
+        
+        for (uid, lobbyPlayer) in lobby.players {
+            let player = Player(
+                uid: lobbyPlayer.uid,
+                displayName: lobbyPlayer.displayName,
+                location: nil
+            )
+            
+            if lobbyPlayer.isHider {
+                hiders[uid] = player
+            } else if lobbyPlayer.isSeeker {
+                seekers[uid] = player
             }
         }
-    }
-    
-    // MARK: - Game Management
-    func createGame(info: GameInfo) async throws -> String {
-        let gameRef = DatabaseReference.game(info.gameId)
-        let game = Game(info: info, teams: GameTeams())
+
+        let gameRef = DatabaseReference.game(gameId)
+        
+        // Initialize deck for the new game
+        let initialDeck = DeckState(shouldPopulate: true)
+        let game = Game(info: info, teams: GameTeams(hiders: hiders, seekers: seekers), deck: initialDeck)
         
         try await gameRef.setValue(try game.toDictionary())
         
@@ -494,47 +353,18 @@ class DatabaseManager: ObservableObject {
         let activeGame = ActiveGame(
             gameId: info.gameId,
             state: info.state,
-            playerCount: 0,
+            playerCount: lobby.totalPlayers,
             lastActivity: Date(),
             hostUID: info.hostUID
         )
+        
         try await DatabaseReference.activeGames().child(info.gameId).setValue(try activeGame.toDictionary())
         
-        return info.gameId
-    }
-    
-    func joinGame(gameId: String, playerUID: String, displayName: String, team: Team) async throws {
-        let gameRef = DatabaseReference.game(gameId)
-        
-        // Check if game exists and is joinable
-        let snapshot = try await gameRef.child("info").getData()
-        guard let infoData = snapshot.value as? [String: Any],
-              let gameInfo = try? GameInfo.fromDictionary(infoData),
-              gameInfo.state == .waiting else {
-            throw DatabaseError.gameNotJoinable
-        }
-        
-        // Add player to team
-        let member = Player(
-            uid: playerUID,
-            displayName: displayName,
-            isReady: false,
-            location: nil
-        )
-        
-        let teamPath = "teams/\(team.rawValue)/\(playerUID)"
-        try await gameRef.child(teamPath).setValue(try member.toDictionary())
-        
-        // Update player count
-        let newCount = gameInfo.currentPlayers + 1
-        try await gameRef.child("info/currentPlayers").setValue(newCount)
-        
-        // Log join event
-        try await sendEventMessage(
-            gameId: gameId,
-            type: .playerJoined,
-            details: "\(displayName) joined as \(team.playerName)"
-        )
+        let lobbyRef = DatabaseReference.lobby(lobbyCode)
+        try await lobbyRef.updateChildValues([
+            "gameId": gameId,
+            "isActive": false
+        ])
     }
     
     func leaveGame(gameId: String, playerUID: String, lobbyCode: String? = nil) async throws {
@@ -564,45 +394,6 @@ class DatabaseManager: ObservableObject {
             type: .playerLeft,
             details: "A player left the game"
         )
-    }
-    
-    func startGame(gameId: String) async throws {
-        let gameRef = DatabaseReference.game(gameId)
-        let now = Date()
-        
-        let updates: [String: Any] = [
-            "info/state": GameState.preHiding.rawValue,
-            "info/startedAt": now.toFirebaseTimestamp()
-        ]
-        
-        try await gameRef.updateChildValues(updates)
-        
-        // Log start event
-        try await sendEventMessage(
-            gameId: gameId,
-            type: .gameStarted,
-            details: "Game has started"
-        )
-    }
-    
-    // MARK: - Game Persistence
-    
-    /// Save the current game information for later rejoining
-    func saveGamePersistence(gameId: String, lobbyCode: String, playerTeam: Team) {
-        let userDefaults = UserDefaults.standard
-        userDefaults.set(gameId, forKey: PersistenceKeys.lastGameId)
-        userDefaults.set(lobbyCode, forKey: PersistenceKeys.lastLobbyCode)
-        userDefaults.set(playerTeam.rawValue, forKey: PersistenceKeys.lastPlayerTeam)
-        userDefaults.set(Date().timeIntervalSince1970, forKey: PersistenceKeys.lastGameTimestamp)
-    }
-    
-    /// Clear saved game persistence data
-    func clearGamePersistence() {
-        let userDefaults = UserDefaults.standard
-        userDefaults.removeObject(forKey: PersistenceKeys.lastGameId)
-        userDefaults.removeObject(forKey: PersistenceKeys.lastLobbyCode)
-        userDefaults.removeObject(forKey: PersistenceKeys.lastPlayerTeam)
-        userDefaults.removeObject(forKey: PersistenceKeys.lastGameTimestamp)
     }
     
     /// Attempt to rejoin the last game the user was in
@@ -682,29 +473,49 @@ class DatabaseManager: ObservableObject {
     func endGame(gameId: String) async throws {
         let gameRef = DatabaseReference.game(gameId)
         let now = Date()
-        
+
         let updates: [String: Any] = [
             "info/state": GameState.completed.rawValue,
             "info/endedAt": now.toFirebaseTimestamp()
         ]
-        
+
         try await gameRef.updateChildValues(updates)
-        
-        // Update player stats BEFORE removing the game
-        try await updateGameStatistics(gameId: gameId)
-        
+
+        // Note: Player stats are now updated automatically by Cloud Functions
+        // when the game state changes to 'completed'
+
         // Log end event
         try await sendEventMessage(
             gameId: gameId,
             type: .gameEnded,
             details: "Game has ended"
         )
-        
+
         // Remove from active games (but keep the full game data for history)
         try await DatabaseReference.activeGames().child(gameId).removeValue()
-        
+
         // Clear game persistence since the game is over
         clearGamePersistence()
+    }
+    
+    // MARK: - Game Persistence
+    
+    /// Save the current game information for later rejoining
+    func saveGamePersistence(gameId: String, lobbyCode: String, playerTeam: Team) {
+        let userDefaults = UserDefaults.standard
+        userDefaults.set(gameId, forKey: PersistenceKeys.lastGameId)
+        userDefaults.set(lobbyCode, forKey: PersistenceKeys.lastLobbyCode)
+        userDefaults.set(playerTeam.rawValue, forKey: PersistenceKeys.lastPlayerTeam)
+        userDefaults.set(Date().timeIntervalSince1970, forKey: PersistenceKeys.lastGameTimestamp)
+    }
+    
+    /// Clear saved game persistence data
+    func clearGamePersistence() {
+        let userDefaults = UserDefaults.standard
+        userDefaults.removeObject(forKey: PersistenceKeys.lastGameId)
+        userDefaults.removeObject(forKey: PersistenceKeys.lastLobbyCode)
+        userDefaults.removeObject(forKey: PersistenceKeys.lastPlayerTeam)
+        userDefaults.removeObject(forKey: PersistenceKeys.lastGameTimestamp)
     }
     
     // MARK: - Game State Management
@@ -811,7 +622,7 @@ class DatabaseManager: ObservableObject {
               let questionMessage = currentGame.messages[questionMessageId],
               questionMessage.type == .question,
               var questionData = questionMessage.questionData else {
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("answerQuestion")
         }
         
         // Update the question data
@@ -849,7 +660,7 @@ class DatabaseManager: ObservableObject {
               let questionMessage = currentGame.messages[questionMessageId],
               questionMessage.type == .question,
               var questionData = questionMessage.questionData else {
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("answerQuestionWithPhoto")
         }
         
         // Update the question data
@@ -883,6 +694,14 @@ class DatabaseManager: ObservableObject {
         try await messageRef.setValue(try updatedMessage.toDictionary())
     }
     
+    // MARK: - Deck Management
+    
+    /// Updates the deck state for a game
+    func updateDeckState(gameId: String, deckState: DeckState) async throws {
+        let deckRef = DatabaseReference.game(gameId).child("deck")
+        try await deckRef.setValue(try deckState.toDictionary())
+    }
+    
     // MARK: - Real-time Listeners
     func startListeningToGame(gameId: String) {
         stopListeningToGame(gameId: gameId)
@@ -901,12 +720,12 @@ class DatabaseManager: ObservableObject {
                     self?.currentGame = game
                 }
             } catch {
-                print("Error parsing game data: \(error)")
+                print("Error parsing game data: \(error.localizedDescription)")
                 // Fallback if only info exists
                 if let infoDict = data["info"] as? [String: Any],
                    let info = try? GameInfo.fromDictionary(infoDict) {
                     DispatchQueue.main.async {
-                        self?.currentGame = Game(info: info, teams: GameTeams())
+                        self?.currentGame = Game(info: info, teams: GameTeams(), deck: DeckState())
                     }
                 }
             }
@@ -984,33 +803,6 @@ class DatabaseManager: ObservableObject {
         }
     }
     
-    func startGameFromLobby(lobby: Lobby) async throws -> String {
-        let gameId = UUID().uuidString
-        let info = GameInfo(
-            gameId: gameId,
-            gameCode: lobby.code,
-            name: lobby.name,
-            hostUID: lobby.hostUID,
-            state: .waiting,
-            maxPlayers: lobby.maxPlayers,
-            currentPlayers: lobby.totalPlayers,
-            createdAt: lobby.createdAt,
-            settings: GameSettings(
-                hidingTime: lobby.hidingTime,
-                city: lobby.city
-            )
-        )
-        
-        _ = try await createGame(info: info)
-        
-        for (uid, player) in lobby.players {
-            try await joinGame(gameId: gameId, playerUID: uid, displayName: player.displayName, team: player.team)
-        }
-        
-        try await startGame(gameId: gameId)
-        return gameId
-    }
-    
     // MARK: - Helper Methods
     
     private func extractLobbyData(from snapshot: DataSnapshot, code: String) -> [String: Any]? {
@@ -1024,125 +816,25 @@ class DatabaseManager: ObservableObject {
         return nil
     }
     
-    private func generateGameCode() -> String {
+    private func generateLobbyCode() -> String {
         let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         return String((0..<6).map { _ in chars.randomElement()! })
     }
-    
-    private func updateGameStatistics(gameId: String) async throws {
-        // Get final game state
-        let snapshot = try await DatabaseReference.game(gameId).getData()
-        guard let gameData = snapshot.value as? [String: Any],
-              let game = try? Game.fromDictionary(gameData) else { return }
-        
-        let gameDuration = game.info.elapsedTime
-        let hidingTime = game.info.currentHidingTime
-        let seekingTime = game.info.currentSeekingTime
-        let playerCount = game.totalPlayers
-        
-        // Update stats for all players
-        for (uid, _) in game.teams.hiders {
-            var stats = try await getUserStats(uid: uid)
-            stats.totalGamesPlayed += 1
-            stats.hiderStats.gamesPlayed += 1
-            
-            // Update hider-specific stats based on hiding time
-            stats.hiderStats.averageHidingTime =
-            (stats.hiderStats.averageHidingTime * Double(stats.hiderStats.gamesPlayed - 1) + hidingTime) /
-            Double(stats.hiderStats.gamesPlayed)
-            
-            if hidingTime > stats.hiderStats.bestHidingTime {
-                stats.hiderStats.bestHidingTime = hidingTime
-            }
-            
-            // Check for master hider achievement (hidden for over 30 minutes)
-            if hidingTime >= 1800 { // 30 minutes in seconds
-                stats.achievements.masterHider = true
-            }
-            
-            try await updateUserStats(uid: uid, stats: stats)
-            
-            // Save game history entry for this player
-            let historyEntry = GameHistoryEntry(
-                id: gameId,
-                gameId: gameId,
-                gameName: game.info.name,
-                team: .hiders,
-                hidingTime: hidingTime,
-                seekingTime: seekingTime,
-                duration: gameDuration,
-                datePlayed: game.info.endedAt ?? Date(),
-                city: game.info.settings.city,
-                playerCount: playerCount,
-                wasHost: game.info.hostUID == uid
-            )
-            try await saveGameHistory(uid: uid, entry: historyEntry)
-        }
-        
-        // Similar logic for seekers
-        for (uid, _) in game.teams.seekers {
-            var stats = try await getUserStats(uid: uid)
-            stats.totalGamesPlayed += 1
-            stats.seekerStats.gamesPlayed += 1
-            
-            // Update seeker-specific stats based on seeking time
-            if seekingTime > 0 {
-                stats.seekerStats.averageFindTime =
-                (stats.seekerStats.averageFindTime * Double(stats.seekerStats.gamesPlayed - 1) + seekingTime) /
-                Double(stats.seekerStats.gamesPlayed)
-                
-                if seekingTime < stats.seekerStats.bestFindTime || stats.seekerStats.bestFindTime == 0 {
-                    stats.seekerStats.bestFindTime = seekingTime
-                }
-                
-                // Check for quick seeker achievement (found hider in under 5 minutes)
-                if seekingTime <= 300 { // 5 minutes in seconds
-                    stats.achievements.quickSeeker = true
-                }
-            }
-            
-            // Check for veteran achievement (100+ games)
-            if stats.totalGamesPlayed >= 100 {
-                stats.achievements.veteran = true
-            }
-                        
-            try await updateUserStats(uid: uid, stats: stats)
-            
-            // Save game history entry for this player
-            let historyEntry = GameHistoryEntry(
-                id: gameId,
-                gameId: gameId,
-                gameName: game.info.name,
-                team: .seekers,
-                hidingTime: hidingTime,
-                seekingTime: seekingTime,
-                duration: gameDuration,
-                datePlayed: game.info.endedAt ?? Date(),
-                city: game.info.settings.city,
-                playerCount: playerCount,
-                wasHost: game.info.hostUID == uid
-            )
-            try await saveGameHistory(uid: uid, entry: historyEntry)
-        }
-    }
-
     // MARK: - Map Tools Management
 
-    func saveMapTools(gameId: String, playerUID: String, mapToolsData: MapToolsData) async throws {
+    static func saveMapTools(gameId: String, playerUID: String, mapToolsData: MapToolsData) async throws {
         let mapToolsRef = DatabaseReference.game(gameId).child("mapTools").child(playerUID)
         try await mapToolsRef.setValue(try mapToolsData.toDictionary())
     }
 
     func loadMapTools(gameId: String, playerUID: String) async throws -> MapToolsData? {
         let mapToolsRef = DatabaseReference.game(gameId).child("mapTools").child(playerUID)
-        print(mapToolsRef)
         let snapshot = try await mapToolsRef.getData()
 
         guard snapshot.exists() else {
             return nil
         }
         
-        print("a")
         // Firebase sometimes returns the entire game object instead of just the child
         // Check if we got the entire game or just the player's mapTools
         var playerMapToolsDict: [String: Any]?
@@ -1166,7 +858,6 @@ class DatabaseManager: ObservableObject {
         guard let dict = playerMapToolsDict else {
             return nil
         }
-        print(dict)
 
         return try MapToolsData.fromDictionary(dict)
     }
@@ -1253,9 +944,15 @@ class DatabaseManager: ObservableObject {
 
 extension Encodable {
     func toDictionary() throws -> [String: Any] {
-        let data = try JSONEncoder().encode(self)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            var container = encoder.singleValueContainer()
+            try container.encode(date.toFirebaseTimestamp())
+        }
+        
+        let data = try encoder.encode(self)
         guard let dictionary = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any] else {
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("Encodable.toDictionary")
         }
         return dictionary
     }
@@ -1264,6 +961,14 @@ extension Encodable {
 extension Decodable {
     static func fromDictionary(_ dictionary: [String: Any]) throws -> Self {
         let data = try JSONSerialization.data(withJSONObject: dictionary, options: [])
-        return try JSONDecoder().decode(Self.self, from: data)
+        
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let timestamp = try container.decode(Int64.self)
+            return Date.fromFirebaseTimestamp(timestamp)
+        }
+        
+        return try decoder.decode(Self.self, from: data)
     }
 }

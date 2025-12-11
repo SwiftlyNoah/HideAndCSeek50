@@ -17,33 +17,9 @@ class ChatViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var uploadProgress: Double = 0.0
     
-    private let databaseManager = DatabaseManager.shared
     private let storage = Storage.storage()
-    private var cancellables = Set<AnyCancellable>()
-    private var lastReadMessageId: String?
-    private var isViewVisible = false
-    
-    func startMonitoring(gameId: String) {
-        // Subscribe to the unified game observation
-        databaseManager.$currentGame
-            .compactMap { $0 } // Filter out nil values
-            .map { game -> [GameMessage] in
-                return Array(game.messages.values).sorted { $0.timestamp < $1.timestamp }
-            }
-            .sink { [weak self] newMessages in
-                guard let self = self else { return }
-                
-                // Check for unread messages before updating self.messages
-                if !self.isViewVisible,
-                   let lastMessage = newMessages.last,
-                   lastMessage.id != self.lastReadMessageId {
-                    self.hasUnreadMessages = true
-                }
-                
-                self.messages = newMessages
-            }
-            .store(in: &cancellables)
-    }
+    var lastReadMessageId: String?
+    var isViewVisible = false
     
     func markAsRead() {
         hasUnreadMessages = false
@@ -85,7 +61,7 @@ class ChatViewModel: ObservableObject {
         )
         
         do {
-            try await databaseManager.sendMessage(gameId: gameId, message: message)
+            try await GameManager.sendMessage(gameId: gameId, message: message)
         } catch {
             // Handle error silently or show alert
         }
@@ -190,7 +166,7 @@ class ChatViewModel: ObservableObject {
             )
             
             // Send message to database
-            try await databaseManager.sendMessage(gameId: gameId, message: message)
+            try await GameManager.sendMessage(gameId: gameId, message: message)
             
         } catch {
             print("Error sending photo message: \(error.localizedDescription)")
@@ -241,7 +217,7 @@ class ChatViewModel: ObservableObject {
         )
         
         do {
-            try await databaseManager.sendMessage(gameId: gameId, message: message)
+            try await GameManager.sendMessage(gameId: gameId, message: message)
         } catch {
             // Handle error silently or show alert
         }

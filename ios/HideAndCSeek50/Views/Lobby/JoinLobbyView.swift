@@ -9,15 +9,16 @@ import SwiftUI
 import FirebaseAuth
 
 struct JoinLobbyView: View {
-    let onLobbyJoined: (String) -> Void
-    
-    @StateObject private var databaseManager = DatabaseManager.shared
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authManager: AuthenticationManager
+    @EnvironmentObject private var gameManager: GameManager
+
+    @Environment(\.dismiss) private var dismiss
     
     @State private var lobbyCode = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    
+    let onLobbyJoined: (String) -> Void
     
     private var currentUser: User? {
         authManager.currentUser
@@ -170,7 +171,7 @@ struct JoinLobbyView: View {
         isLoading = true
         
         do {
-            _ = try await databaseManager.joinLobby(
+            _ = try await gameManager.joinLobby(
                 code: formattedLobbyCode,
                 playerUID: currentUID,
                 displayName: displayName
@@ -182,7 +183,7 @@ struct JoinLobbyView: View {
             }
         } catch {
             await MainActor.run {
-                if error as? DatabaseError == .lobbyNotFound {
+                if case .lobbyNotFound = error as? DatabaseError {
                     errorMessage = "Game not found. Check the code and try again."
                 } else {
                     errorMessage = error.localizedDescription
@@ -195,5 +196,5 @@ struct JoinLobbyView: View {
 
 #Preview {
     JoinLobbyView { _ in }
-        .environmentObject(AuthenticationManager.shared)
+        .environmentObject(AuthenticationManager())
 }

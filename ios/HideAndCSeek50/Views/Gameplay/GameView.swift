@@ -13,21 +13,21 @@ import BottomSheet
 internal import Combine
 
 struct GameView: View {
-    static let CrosshairYOffsetFraction = 0.35
+    @Environment(\.dismiss) private var dismiss
+
+    @EnvironmentObject private var authManager: AuthenticationManager
+    @EnvironmentObject private var gameManager: GameManager
     
     let gameId: String
     let lobbyCode: String
     let playerTeam: Team
     let onReturnToMain: (() -> Void)?
     
-    @StateObject private var locationManager = LocationManager.shared
-    @StateObject private var databaseManager = DatabaseManager.shared
+    @StateObject private var locationManager = LocationManager()
     @StateObject private var chatViewModel = ChatViewModel()
     @StateObject private var notificationManager = NotificationManager.shared
     @StateObject private var mapSearchViewModel: MapSearchViewModel
     @StateObject private var mapToolsViewModel: MapToolsViewModel
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var authManager: AuthenticationManager
     
     @State private var cancellables = Set<AnyCancellable>()
     @State private var showingSearch = false
@@ -38,7 +38,13 @@ struct GameView: View {
     @State private var showingFoundConfirmation = false
     @State private var showingTimerActions = false
     @State private var showingMapToolsView = false
+    @State private var showingHandView = false
+    
+    static let CrosshairYOffsetFraction = 0.35
+    
     @State private var crosshairCoordinate = CLLocationCoordinate2D(latitude: 0, longitude: 0)
+
+    @State private var pendingDrawAction: DrawAction?
 
     @State private var didCenterOnUser = false
     @FocusState private var isSearchFieldFocused: Bool
@@ -65,7 +71,7 @@ struct GameView: View {
     }
     
     private var currentGame: Game? {
-        databaseManager.currentGame
+        gameManager.currentGame
     }
     
     private var gameState: GameState {
@@ -96,17 +102,26 @@ struct GameView: View {
             bottomActions
         }
         .navigationBarHidden(true)
-        .modifier(searchResultsSheet())
-        .modifier(transportSelectionSheet())
-        .modifier(directionsSheet())
+        .bottomSheet(bottomSheetPosition: $mapSearchViewModel.searchResultsBottomSheetPosition, switchablePositions: [.relative(0.25), .relative(0.5), .relativeTop(0.975)]) {
+            searchResultsSheet
+        }
+        .bottomSheet(bottomSheetPosition: $mapSearchViewModel.searchResultDetailBottomSheetPosition, switchablePositions: [.dynamic, .hidden]) {
+            searchResultsDetailSheet
+        }
+        .bottomSheet(bottomSheetPosition: $mapSearchViewModel.directionsBottomSheetPosition, switchablePositions: [.relative(0.4), .relativeTop(0.975)]) {
+            directionsSheet
+        }
         .modifier(mapToolsSheet())
-        .modifier(chatSheet())
+        .fullScreenCover(isPresented: $showingChat) {
+            chatView
+        }
         .onChange(of: showingChat) { _, isShowing in
             chatViewModel.setViewVisibility(isShowing)
         }
         .sheet(isPresented: $showingSettings) { settingsSheet }
         .sheet(isPresented: $showingQuestionView) { questionSheet }
         .sheet(isPresented: $showingTimerActions) { timerActionsSheet }
+        .sheet(isPresented: $showingHandView) { handSheet }
         .confirmationDialog("Skip Hiding Phase", isPresented: $showingSkipConfirmation, titleVisibility: .visible) {
             Button("Skip", role: .destructive) { skipHidingPhase() }
             Button("Cancel", role: .cancel) {}
@@ -148,33 +163,28 @@ struct GameView: View {
             requestLocationPermission()
             startLocationUpdates()
             observeGameUpdates()
-            chatViewModel.startMonitoring(gameId: gameId)
             uploadInitialLocation()
             startTimerUpdater()
-            databaseManager.saveGamePersistence(
+            gameManager.saveGamePersistence(
                 gameId: gameId,
                 lobbyCode: lobbyCode,
                 playerTeam: playerTeam
             )
-            
-            // Subscribe to notifications for this game
-            Task {
-                try? await notificationManager.subscribeToGame(gameId: gameId)
-            }
         }
         .onDisappear {
             stopTimerUpdater()
-            
-            // Unsubscribe from game notifications when leaving
-            Task {
-                try? await notificationManager.unsubscribeFromGame(gameId: gameId)
-            }
         }
         .onChange(of: locationManager.location) { _, location in
             updatePlayerLocation(location)
         }
         .onChange(of: mapSearchViewModel.results) { _, results in
             if !results.isEmpty { mapSearchViewModel.showSearchResults() }
+        }
+        .onChange(of: pendingDrawAction) { _, pendingAction in
+            // Automatically open hand view when there's a pending draw action
+            if pendingAction != nil && playerTeam == .hiders {
+                showingHandView = true
+            }
         }
     }
 
@@ -260,7 +270,29 @@ struct GameView: View {
 
     private var actionButtons: some View {
         VStack(spacing: 12) {
-            if playerTeam == .seekers {
+            if playerTeam == .hiders {
+                // Hand button for hiders
+                Button(action: { showingHandView = true }) {
+                    ZStack {
+                        Circle().fill(Color.blue.opacity(0.8)).frame(width: 56, height: 56)
+                        Image(systemName: "hand.raised.fill").font(.title2).foregroundColor(.white)
+                        
+                        // Badge showing number of cards in hand
+                        if let cardCount = gameManager.currentGame?.deck.hand.count, cardCount > 0 {
+                            Text("\(cardCount)")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .frame(width: 20, height: 20)
+                                .background(Color.red)
+                                .clipShape(Circle())
+                                .offset(x: 20, y: -20)
+                        }
+                    }
+                }
+            }
+            else {
+                // Question button for seekers
                 Button(action: { showingQuestionView = true }) {
                     ZStack {
                         Circle().fill(Color.orange.opacity(0.8)).frame(width: 56, height: 56)
@@ -317,23 +349,10 @@ struct GameView: View {
             }
         }
     }
-
-    // MARK: - Bottom sheets split into modifiers
-    private func searchResultsSheet() -> some ViewModifier {
-        struct Mod: ViewModifier {
-            @ObservedObject var vm: MapSearchViewModel
-            let userLocation: CLLocation?
-            let onItemSelected: (MKMapItem) -> Void
-            let onDismiss: () -> Void
-            func body(content: Content) -> some View {
-                content.bottomSheet(bottomSheetPosition: $vm.searchResultsBottomSheetPosition, switchablePositions: [.relative(0.25), .relative(0.5), .relativeTop(0.975)]) {
-                    SearchResultsSheetContent(viewModel: vm, userLocation: userLocation, onItemSelected: onItemSelected, onDismiss: onDismiss)
-                        .preferredColorScheme(.dark)
-                }
-            }
-        }
-        return Mod(
-            vm: mapSearchViewModel,
+    
+    private var searchResultsSheet: some View {
+        SearchResultsSheetContent(
+            viewModel: mapSearchViewModel,
             userLocation: locationManager.location,
             onItemSelected: { item in
                 mapSearchViewModel.selectItem(item)
@@ -341,65 +360,31 @@ struct GameView: View {
             },
             onDismiss: { mapSearchViewModel.searchResultsBottomSheetPosition = .hidden }
         )
+        .preferredColorScheme(.dark)
     }
-
-    private func transportSelectionSheet() -> some ViewModifier {
-        struct Mod: ViewModifier {
-            @ObservedObject var vm: MapSearchViewModel
-            let userLocation: CLLocation?
-            @ObservedObject var mapToolsVM: MapToolsViewModel
-            func body(content: Content) -> some View {
-                content.bottomSheet(
-                    bottomSheetPosition: $vm.transportSelectionBottomSheetPosition,
-                    switchablePositions: [.dynamic, .hidden]
-                ) {
-                    SearchResultDetailSheetContent(
-                        destination: vm.selectedDestination ?? MKMapItem(),
-                        userLocation: userLocation,
-                        onTransportSelected: { transportType in
-                            vm.selectTransportAndShowDirections(transportType)
-                        },
-                        onDismiss: {
-                            vm.transportSelectionBottomSheetPosition = .hidden
-                        },
-                        onOpenMapTools: {
-                            if let dest = vm.selectedDestination {
-                                vm.openMapToolsForItem(dest)
-                                mapToolsVM.mapToolsBottomSheetPosition = .relative(0.5)
-                            }
-                        },
-                        mapToolsViewModel: mapToolsVM
-                    )
-                }
-            }
-        }
-        return Mod(
-            vm: mapSearchViewModel,
+    
+    private var searchResultsDetailSheet: some View {
+        SearchResultDetailSheetContent(
+            destination: mapSearchViewModel.selectedDestination ?? MKMapItem(),
             userLocation: locationManager.location,
-            mapToolsVM: mapToolsViewModel
+            onTransportSelected: { transportType in
+                mapSearchViewModel.selectTransportAndShowDirections(transportType, currentLocation: locationManager.location)
+            },
+            onDismiss: {
+                mapSearchViewModel.searchResultDetailBottomSheetPosition = .hidden
+            },
+            onOpenMapTools: {
+                if let dest = mapSearchViewModel.selectedDestination {
+                    mapSearchViewModel.openMapToolsForItem(dest)
+                    mapToolsViewModel.mapToolsBottomSheetPosition = .relative(0.5)
+                }
+            },
+            mapToolsViewModel: mapToolsViewModel
         )
     }
-
-    private func directionsSheet() -> some ViewModifier {
-        struct Mod: ViewModifier {
-            @ObservedObject var vm: MapSearchViewModel
-            func body(content: Content) -> some View {
-                content.bottomSheet(bottomSheetPosition: $vm.directionsBottomSheetPosition, switchablePositions: [.relative(0.4), .relativeTop(0.975)]) {
-                    if let destination = vm.selectedDestination {
-                        DirectionsSheetContent(
-                            destination: destination,
-                            transportType: vm.selectedTransportType,
-                            viewModel: vm,
-                            onDismiss: { vm.directionsBottomSheetPosition = .hidden },
-                            onRecalculate: {
-                                vm.showTransportSelection(for: destination)
-                            }
-                        )
-                    }
-                }
-            }
-        }
-        return Mod(vm: mapSearchViewModel)
+    
+    private var directionsSheet: some View {
+        DirectionsSheetContent(viewModel: mapSearchViewModel)
     }
 
     private func mapToolsSheet() -> some ViewModifier {
@@ -438,89 +423,60 @@ struct GameView: View {
         }
         return Mod(vm: mapToolsViewModel, searchVM: mapSearchViewModel, crosshair: $crosshairCoordinate, gameId: gameId, playerTeam: playerTeam, currentUser: authManager.currentUser)
     }
-
-    private func chatSheet() -> some ViewModifier {
-        struct Mod: ViewModifier {
-            @ObservedObject var mapToolsViewModel: MapToolsViewModel
-            @Binding var showingChat: Bool
-            let gameId: String
-            let currentUser: User?
-            let playerTeam: Team
-            let chatVM: ChatViewModel // inject explicitly
-            func body(content: Content) -> some View {
-                content.fullScreenCover(isPresented: $showingChat) {
-                    NavigationStack {
-                        GameChatView(
-                            mapToolsViewModel: mapToolsViewModel,
-                            gameId: gameId,
-                            currentUser: currentUser,
-                            currentPlayerTeam: playerTeam,
-                        )
-                        .environmentObject(chatVM)
-                        .navigationTitle("Game Chat")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarTrailing) {
-                                Button("Done") { showingChat = false }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return Mod(
+    
+    private var chatView: some View {
+        GameChatView(
+            chatViewModel: chatViewModel,
             mapToolsViewModel: mapToolsViewModel,
-            showingChat: $showingChat,
+            locationManager: locationManager,
             gameId: gameId,
             currentUser: currentUser,
-            playerTeam: playerTeam,
-            chatVM: chatViewModel
+            currentPlayerTeam: playerTeam,
+            pendingDrawAction: $pendingDrawAction,
         )
     }
 
     // MARK: - Sheets as computed views (explicit types)
     private var settingsSheet: some View {
-        NavigationStack {
-            GameSettingsView(
-                gameId: gameId,
-                lobbyCode: lobbyCode,
-                playerTeam: playerTeam,
-                onLeaveGame: {
-                    dismiss()
-                    onReturnToMain?()
-                }
-            )
-        }
+        GameSettingsView(
+            gameId: gameId,
+            lobbyCode: lobbyCode,
+            playerTeam: playerTeam,
+            onLeaveGame: {
+                dismiss()
+                onReturnToMain?()
+            }
+        )
+        .environmentObject(gameManager)
     }
 
     private var questionSheet: some View {
-        NavigationStack {
-            GameQuestionView(
-                gameId: gameId,
-                currentUser: currentUser
-            )
-        }
+        GameQuestionView(gameId: gameId)
+            .environmentObject(gameManager)
     }
 
     private var timerActionsSheet: some View {
-        NavigationStack {
-            TimerActionsView(
-                gameState: gameState,
-                onPause: {
-                    if gameState == .hiding { pauseHidingPhase() }
-                    else if gameState == .seeking { pauseSeekingPhase() }
-                    showingTimerActions = false
-                },
-                onSkip: {
-                    showingTimerActions = false
-                    showingSkipConfirmation = true
-                },
-                onFound: {
-                    showingTimerActions = false
-                    showingFoundConfirmation = true
-                }
-            )
-        }
+        TimerActionsView(
+            gameState: gameState,
+            onPause: {
+                if gameState == .hiding { pauseHidingPhase() }
+                else if gameState == .seeking { pauseSeekingPhase() }
+                showingTimerActions = false
+            },
+            onSkip: {
+                showingTimerActions = false
+                showingSkipConfirmation = true
+            },
+            onFound: {
+                showingTimerActions = false
+                showingFoundConfirmation = true
+            }
+        )
+    }
+    
+    private var handSheet: some View {
+        HandView(pendingDrawAction: $pendingDrawAction, gameId: gameId)
+            .environmentObject(gameManager)
     }
     
     private func requestLocationPermission() {
@@ -554,7 +510,7 @@ struct GameView: View {
                 longitude: location.coordinate.longitude,
                 timestamp: Date()
             )
-            try? await databaseManager.updatePlayerLocation(
+            try? await gameManager.updatePlayerLocation(
                 gameId: gameId,
                 playerUID: currentUID,
                 team: playerTeam,
@@ -584,11 +540,11 @@ struct GameView: View {
     
     
     private func observeGameUpdates() {
-        databaseManager.startListeningToGame(gameId: gameId)
+        gameManager.startListeningToGame(gameId: gameId)
         
         // Listen to changes in currentGame - this handles all game data
         // including messages, questions, player locations, etc.
-        databaseManager.$currentGame
+        gameManager.$currentGame
             .sink { game in
                 // All UI components will automatically update when currentGame changes
                 // GameMapView gets the updated game data
@@ -603,9 +559,26 @@ struct GameView: View {
                    game.info.state == .starting,
                    game.info.hostUID == currentUser?.uid {
                     Task {
-                        try? await databaseManager.updateGameState(gameId: gameId, state: .preHiding)
+                        try? await gameManager.updateGameState(gameId: gameId, state: .preHiding)
                     }
                 }
+            }
+            .store(in: &cancellables)
+        
+        gameManager.$currentGame
+            .compactMap { $0 } // Filter out nil values
+            .map { game -> [GameMessage] in
+                return Array(game.messages.values).sorted { $0.timestamp < $1.timestamp }
+            }
+            .sink { newMessages in
+                // Check for unread messages before updating self.messages
+                if !chatViewModel.isViewVisible,
+                   let lastMessage = newMessages.last,
+                   lastMessage.id != chatViewModel.lastReadMessageId {
+                    chatViewModel.hasUnreadMessages = true
+                }
+                
+                chatViewModel.messages = newMessages
             }
             .store(in: &cancellables)
     }
@@ -835,7 +808,7 @@ extension GameView {
     
     private func startHidingPhase() {
         Task {
-            try? await databaseManager.updateGameState(
+            try? await gameManager.updateGameState(
                 gameId: gameId, 
                 state: .hiding, 
                 hidingStartedAt: Date(),
@@ -847,7 +820,7 @@ extension GameView {
     private func pauseHidingPhase() {
         Task {
             let totalElapsed = currentLocalHidingTime
-            try? await databaseManager.updateGameState(
+            try? await gameManager.updateGameState(
                 gameId: gameId, 
                 state: .hidingPaused, 
                 hidingElapsed: totalElapsed
@@ -858,7 +831,7 @@ extension GameView {
     private func resumeHidingPhase() {
         Task {
             // Keep the current elapsed time, just set new start time
-            try? await databaseManager.updateGameState(
+            try? await gameManager.updateGameState(
                 gameId: gameId, 
                 state: .hiding, 
                 hidingStartedAt: Date()
@@ -868,13 +841,13 @@ extension GameView {
     
     private func skipHidingPhase() {
         Task {
-            try? await databaseManager.updateGameState(gameId: gameId, state: .preSeeking)
+            try? await gameManager.updateGameState(gameId: gameId, state: .preSeeking)
         }
     }
     
     private func startSeekingPhase() {
         Task {
-            try? await databaseManager.updateGameState(
+            try? await gameManager.updateGameState(
                 gameId: gameId, 
                 state: .seeking, 
                 seekingStartedAt: Date(),
@@ -886,7 +859,7 @@ extension GameView {
     private func pauseSeekingPhase() {
         Task {
             let totalElapsed = currentLocalSeekingTime
-            try? await databaseManager.updateGameState(
+            try? await gameManager.updateGameState(
                 gameId: gameId, 
                 state: .seekingPaused, 
                 seekingElapsed: totalElapsed
@@ -897,7 +870,7 @@ extension GameView {
     private func resumeSeekingPhase() {
         Task {
             // Keep the current elapsed time, just set new start time
-            try? await databaseManager.updateGameState(
+            try? await gameManager.updateGameState(
                 gameId: gameId, 
                 state: .seeking, 
                 seekingStartedAt: Date()
@@ -907,7 +880,7 @@ extension GameView {
     
     private func endGame() {
         Task {
-            try? await databaseManager.endGame(gameId: gameId)
+            try? await gameManager.endGame(gameId: gameId)
         }
     }
     
@@ -928,10 +901,10 @@ extension GameView {
     
     private func handleReturnToLobby() {
         // Clear game persistence now that user is leaving the end screen
-        databaseManager.clearGamePersistence()
+        gameManager.clearGamePersistence()
         
         // Stop listening to game updates
-        databaseManager.stopListeningToGame(gameId: gameId)
+        gameManager.stopListeningToGame(gameId: gameId)
         
         // Navigate back to lobby
         dismiss()

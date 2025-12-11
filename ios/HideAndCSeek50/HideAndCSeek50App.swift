@@ -78,7 +78,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct HideAndCSeek50App: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
-    @StateObject private var authManager = AuthenticationManager.shared
+    @StateObject private var authManager = AuthenticationManager()
     
     var body: some Scene {
         WindowGroup {

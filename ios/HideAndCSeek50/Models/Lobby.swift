@@ -32,11 +32,11 @@ struct Lobby: Codable, Equatable {
     }
     
     var hidersCount: Int {
-        return players.values.filter { $0.team == .hiders }.count
+        return players.values.filter(\.isHider).count
     }
     
     var seekersCount: Int {
-        return players.values.filter { $0.team == .seekers }.count
+        return players.values.filter(\.isSeeker).count
     }
     
     var canJoin: Bool {
@@ -68,6 +68,9 @@ struct LobbyPlayer: Codable, Equatable {
     static func == (lhs: LobbyPlayer, rhs: LobbyPlayer) -> Bool {
         return lhs.uid == rhs.uid
     }
+    
+    var isHider: Bool { team == .hiders }
+    var isSeeker: Bool { team == .seekers }
 }
 
 struct ActiveGame: Codable {
@@ -96,7 +99,7 @@ extension LobbyPlayer {
               let teamString = dictionary["team"] as? String,
               let team = Team(rawValue: teamString),
               let joinedAtTimestamp = dictionary["joinedAt"] as? Int64 else {
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("LobbyPlayer.fromDictionary")
         }
         
         let isReady = dictionary["isReady"] as? Bool ?? false
@@ -152,7 +155,7 @@ extension Lobby {
               let createdAtTimestamp = dictionary["createdAt"] as? Int64,
               let expiresAtTimestamp = dictionary["expiresAt"] as? Int64 else {
             print("invalid", dictionary)
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("Lobby.fromDictionary")
         }
         
         let gameId = dictionary["gameId"] as? String // Now optional
@@ -214,7 +217,7 @@ extension ActiveGame {
               let playerCount = dictionary["playerCount"] as? Int,
               let lastActivityTimestamp = dictionary["lastActivity"] as? Int64,
               let hostUID = dictionary["hostUID"] as? String else {
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("ActiveGame.fromDictionary")
         }
         
         let lastActivity = Date.fromFirebaseTimestamp(lastActivityTimestamp)

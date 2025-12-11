@@ -10,12 +10,11 @@ import FirebaseAuth
 import PhotosUI
 
 struct ProfileView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authManager: AuthenticationManager
+    
     let user: User?
     let stats: UserStats?
-    
-    @EnvironmentObject private var authManager: AuthenticationManager
-    @StateObject private var databaseManager = DatabaseManager.shared
-    @Environment(\.dismiss) private var dismiss
     
     @State private var displayName = ""
     @State private var profileImage: Image?
@@ -667,7 +666,7 @@ struct ProfileView: View {
         
         Task {
             do {
-                let userStats = try await databaseManager.getUserStats(uid: user.uid)
+                let userStats = try await UserManager.shared.getUserStats(uid: user.uid)
                 await MainActor.run {
                     self.loadedStats = userStats
                 }
@@ -716,7 +715,7 @@ struct ProfileView: View {
                     avatarURL: nil // TODO: Upload image if selected
                 )
                 
-                try await databaseManager.updateUserProfile(profile)
+                try await UserManager.shared.updateUserProfile(profile)
             }
             
             await MainActor.run {

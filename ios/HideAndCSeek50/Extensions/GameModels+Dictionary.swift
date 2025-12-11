@@ -15,7 +15,8 @@ extension Game {
     func toDictionary() throws -> [String: Any] {
         var dict: [String: Any] = [
             "info": try info.toDictionary(),
-            "teams": try teams.toDictionary()
+            "teams": try teams.toDictionary(),
+            "deck": try deck.toDictionary()
         ]
         
         // Add messages if they exist
@@ -33,7 +34,7 @@ extension Game {
     static func fromDictionary(_ dictionary: [String: Any]) throws -> Game {
         // Parse required info
         guard let infoDict = dictionary["info"] as? [String: Any] else {
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("Game.fromDictionary: Missing 'info'")
         }
         let info = try GameInfo.fromDictionary(infoDict)
         
@@ -53,10 +54,19 @@ extension Game {
             }
         }
         
+        // Parse deck
+        let deck: DeckState
+        if let deckDict = dictionary["deck"] as? [String: Any] {
+            deck = try DeckState.fromDictionary(deckDict)
+        } else {
+            deck = DeckState()
+        }
+        
         return Game(
             info: info,
             teams: teams,
-            messages: messages
+            messages: messages,
+            deck: deck
         )
     }
 }
@@ -114,7 +124,7 @@ extension GameInfo {
               let currentPlayers = dictionary["currentPlayers"] as? Int,
               let createdAtInt = dictionary["createdAt"] as? Int64,
               let settingsDict = dictionary["settings"] as? [String: Any] else {
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("GameInfo.fromDictionary")
         }
         
         // Required timestamp
@@ -204,7 +214,7 @@ extension Player {
         var dict: [String: Any] = [
             "uid": uid,
             "displayName": displayName,
-            "isReady": isReady
+            "isOnline": isOnline
         ]
         
         if let location = location {
@@ -217,10 +227,10 @@ extension Player {
     static func fromDictionary(_ dictionary: [String: Any]) throws -> Player {
         guard let uid = dictionary["uid"] as? String,
               let displayName = dictionary["displayName"] as? String else {
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("Player.fromDictionary")
         }
         
-        let isReady = dictionary["isReady"] as? Bool ?? false
+        let isOnline = dictionary["isOnline"] as? Bool ?? false
         
         let location: PlayerLocation?
         if let locationDict = dictionary["location"] as? [String: Any] {
@@ -232,7 +242,7 @@ extension Player {
         return Player(
             uid: uid,
             displayName: displayName,
-            isReady: isReady,
+            isOnline: isOnline,
             location: location
         )
     }
@@ -251,7 +261,7 @@ extension PlayerLocation {
         guard let latitude = dictionary["latitude"] as? Double,
               let longitude = dictionary["longitude"] as? Double,
               let timestampInt = dictionary["timestamp"] as? Int64 else {
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("PlayerLocation.fromDictionary")
         }
         
         let timestamp = Date.fromFirebaseTimestamp(timestampInt)
@@ -291,14 +301,12 @@ extension GameMessage {
             var qd: [String: Any] = [
                 "questionId": q.questionId,
                 "questionText": q.questionText,
-                "questionType": q.questionType.rawValue,
-                "isAnswered": q.isAnswered
+                "isAnswered": q.isAnswered,
+                "questionCategory": q.questionCategory.rawValue,
+                "reward": q.reward
             ]
             if let ans = q.playerAnswer {
                 qd["playerAnswer"] = ans
-            }
-            if let cat = q.questionCategory {
-                qd["questionCategory"] = cat.rawValue
             }
             dict["questionData"] = qd
         }
@@ -320,7 +328,7 @@ extension GameMessage {
               let timestampInt = dict["timestamp"] as? Int64,
               let teamRaw = dict["team"] as? String,
               let team = Team(rawValue: teamRaw) else {
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("GameMessage.fromDictionary")
         }
         
         let timestamp = Date.fromFirebaseTimestamp(timestampInt)
@@ -344,18 +352,17 @@ extension GameMessage {
         if let questionDict = dict["questionData"] as? [String: Any],
            let questionId = questionDict["questionId"] as? String,
            let questionText = questionDict["questionText"] as? String,
-           let questionTypeRaw = questionDict["questionType"] as? String,
-           let questionType = QuestionType(rawValue: questionTypeRaw) {
-            let categoryRaw = questionDict["questionCategory"] as? String
-            let questionCategory = categoryRaw.flatMap { QuestionCategory(rawValue: $0) }
+           let reward = questionDict["reward"] as? String,
+           let categoryRaw = questionDict["questionCategory"] as? String,
+           let questionCategory = QuestionCategory(rawValue: categoryRaw) {
 
             questionData = QuestionData(
                 questionId: questionId,
                 questionText: questionText,
-                questionType: questionType,
                 isAnswered: questionDict["isAnswered"] as? Bool ?? false,
                 playerAnswer: questionDict["playerAnswer"] as? String,
-                questionCategory: questionCategory
+                questionCategory: questionCategory,
+                reward: reward
             )
         }
         
@@ -381,7 +388,7 @@ extension GameSettings {
         guard let hidingTime = dictionary["hidingTime"] as? Int,
               let cityRaw = dictionary["city"] as? String,
               let city = GameCity(rawValue: cityRaw) else {
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("GameSettings.fromDictionary")
         }
         
         var settings = GameSettings(hidingTime: hidingTime, city: city)
@@ -415,7 +422,7 @@ extension LocationData {
     static func fromDictionary(_ dictionary: [String: Any]) throws -> LocationData {
         guard let latitude = dictionary["latitude"] as? Double,
               let longitude = dictionary["longitude"] as? Double else {
-            throw DatabaseError.invalidData
+            throw DatabaseError.invalidData("LocationData.fromDictionary")
         }
         
         let locationName = dictionary["locationName"] as? String
@@ -427,4 +434,53 @@ extension LocationData {
         )
     }
 }
+
+// MARK: - Card Dictionary Extensions
+extension Card {
+    func toDictionary() throws -> [String: Any] {
+        return [
+            "suit": suit.rawValue,
+            "rank": rank.rawValue
+        ]
+    }
+    
+    static func fromDictionary(_ dictionary: [String: Any]) throws -> Card {
+        guard let suitRaw = dictionary["suit"] as? String,
+              let suit = Suit(rawValue: suitRaw),
+              let rankRaw = dictionary["rank"] as? String,
+              let rank = Rank(rawValue: rankRaw) else {
+            throw DatabaseError.invalidData("Card.fromDictionary")
+        }
+        
+        return Card(suit: suit, rank: rank)
+    }
+}
+
+extension DeckState {
+    func toDictionary() throws -> [String: Any] {
+        return [
+            "deck": try deck.map { try $0.toDictionary() },
+            "hand": try hand.map { try $0.toDictionary() },
+            "discardPile": try discardPile.map { try $0.toDictionary() }
+        ]
+    }
+    
+    static func fromDictionary(_ dictionary: [String: Any]) throws -> DeckState {
+        let deckArray = dictionary["deck"] as? [[String: Any]] ?? []
+        let handArray = dictionary["hand"] as? [[String: Any]] ?? []
+        let discardPileArray = dictionary["discardPile"] as? [[String: Any]] ?? []
+        
+        let deck = try deckArray.map { try Card.fromDictionary($0) }
+        let hand = try handArray.map { try Card.fromDictionary($0) }
+        let discardPile = try discardPileArray.map { try Card.fromDictionary($0) }
+        
+        var deckState = DeckState()
+        deckState.deck = deck
+        deckState.hand = hand
+        deckState.discardPile = discardPile
+                
+        return deckState
+    }
+}
+
 

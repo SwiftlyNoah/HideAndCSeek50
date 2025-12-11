@@ -10,8 +10,6 @@ import CoreLocation
 internal import Combine
 
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
-    static let shared = LocationManager()
-    
     private let locationManager = CLLocationManager()
     
     @Published var location: CLLocation?

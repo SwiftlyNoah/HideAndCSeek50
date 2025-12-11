@@ -218,9 +218,10 @@ struct StatRow: View {
                 settings: GameSettings(hidingTime: 30, city: .boston)
             ),
             teams: GameTeams(
-                hiders: ["user1": Player(uid: "user1", displayName: "Player 1", isReady: true)],
-                seekers: ["user2": Player(uid: "user2", displayName: "Player 2", isReady: true)]
-            )
+                hiders: ["user1": Player(uid: "user1", displayName: "Player 1")],
+                seekers: ["user2": Player(uid: "user2", displayName: "Player 2")]
+            ),
+            deck: DeckState(shouldPopulate: true)
         ),
         lobbyCode: "ABC123",
         onReturnToLobby: {}

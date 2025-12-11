@@ -26,7 +26,7 @@
 		1409C9E82EE62623003166E7 /* SyncMapToolsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1409C9E72EE62620003166E7 /* SyncMapToolsSheet.swift */; };
 		140B02AD2EC8791E0005EE81 /* AuthenticationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B029B2EC8791E0005EE81 /* AuthenticationManager.swift */; };
 		140B02AF2EC8791E0005EE81 /* CreateLobbyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B029D2EC8791E0005EE81 /* CreateLobbyView.swift */; };
-		140B02B02EC8791E0005EE81 /* DatabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B029E2EC8791E0005EE81 /* DatabaseManager.swift */; };
+		140B02B02EC8791E0005EE81 /* GameManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B029E2EC8791E0005EE81 /* GameManager.swift */; };
 		140B02B22EC8791E0005EE81 /* Game.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B02A02EC8791E0005EE81 /* Game.swift */; };
 		140B02B32EC8791E0005EE81 /* ActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B02A22EC8791E0005EE81 /* ActionButton.swift */; };
 		140B02B52EC8791E0005EE81 /* HideAndCSeek50App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140B02A42EC8791E0005EE81 /* HideAndCSeek50App.swift */; };
@@ -54,6 +54,12 @@
 		1474BE7F2ED5165200568A90 /* EmailSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE7B2ED5165200568A90 /* EmailSignInView.swift */; };
 		1474BE802ED5165200568A90 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE7C2ED5165200568A90 /* ProfileView.swift */; };
 		1474BE862ED65F8200568A90 /* MapSearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1474BE852ED65F8200568A90 /* MapSearchViewModel.swift */; };
+		147A95082EE902FF00BD3CA9 /* Card.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147A95072EE902FF00BD3CA9 /* Card.swift */; };
+		147A950C2EE9033B00BD3CA9 /* HandView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147A950B2EE9033B00BD3CA9 /* HandView.swift */; };
+		147A95122EE9067900BD3CA9 /* QUESTION_REWARD_UPDATES.md in Resources */ = {isa = PBXBuildFile; fileRef = 147A95112EE9067900BD3CA9 /* QUESTION_REWARD_UPDATES.md */; };
+		147A95182EE9498300BD3CA9 /* DECK_MIGRATION_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = 147A95172EE9498300BD3CA9 /* DECK_MIGRATION_SUMMARY.md */; };
+		147A951A2EEB478200BD3CA9 /* UserManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147A95192EEB478000BD3CA9 /* UserManager.swift */; };
+		147A951C2EEB4A9200BD3CA9 /* Date+FirebaseTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147A951B2EEB4A8900BD3CA9 /* Date+FirebaseTimestamp.swift */; };
 		14990EE92ED93DEA00DFD3E5 /* SearchResultsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990EE82ED93DEA00DFD3E5 /* SearchResultsSheet.swift */; };
 		14990EEC2ED9425700DFD3E5 /* BottomSheet in Frameworks */ = {isa = PBXBuildFile; productRef = 14990EEB2ED9425700DFD3E5 /* BottomSheet */; };
 		14990EEE2ED94C2F00DFD3E5 /* TransportSelectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14990EED2ED94C2F00DFD3E5 /* TransportSelectionSheet.swift */; };
@@ -109,7 +115,7 @@
 		140B029A2EC8791E0005EE81 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		140B029B2EC8791E0005EE81 /* AuthenticationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationManager.swift; sourceTree = "<group>"; };
 		140B029D2EC8791E0005EE81 /* CreateLobbyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateLobbyView.swift; sourceTree = "<group>"; };
-		140B029E2EC8791E0005EE81 /* DatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager.swift; sourceTree = "<group>"; };
+		140B029E2EC8791E0005EE81 /* GameManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameManager.swift; sourceTree = "<group>"; };
 		140B02A02EC8791E0005EE81 /* Game.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game.swift; sourceTree = "<group>"; };
 		140B02A12EC8791E0005EE81 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		140B02A22EC8791E0005EE81 /* ActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButton.swift; sourceTree = "<group>"; };
@@ -140,6 +146,12 @@
 		1474BE7B2ED5165200568A90 /* EmailSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailSignInView.swift; sourceTree = "<group>"; };
 		1474BE7C2ED5165200568A90 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		1474BE852ED65F8200568A90 /* MapSearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSearchViewModel.swift; sourceTree = "<group>"; };
+		147A95072EE902FF00BD3CA9 /* Card.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Card.swift; sourceTree = "<group>"; };
+		147A950B2EE9033B00BD3CA9 /* HandView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandView.swift; sourceTree = "<group>"; };
+		147A95112EE9067900BD3CA9 /* QUESTION_REWARD_UPDATES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = QUESTION_REWARD_UPDATES.md; sourceTree = "<group>"; };
+		147A95172EE9498300BD3CA9 /* DECK_MIGRATION_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DECK_MIGRATION_SUMMARY.md; sourceTree = "<group>"; };
+		147A95192EEB478000BD3CA9 /* UserManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserManager.swift; sourceTree = "<group>"; };
+		147A951B2EEB4A8900BD3CA9 /* Date+FirebaseTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+FirebaseTimestamp.swift"; sourceTree = "<group>"; };
 		14990EE82ED93DEA00DFD3E5 /* SearchResultsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsSheet.swift; sourceTree = "<group>"; };
 		14990EED2ED94C2F00DFD3E5 /* TransportSelectionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportSelectionSheet.swift; sourceTree = "<group>"; };
 		14990EEF2ED94E0700DFD3E5 /* TransportType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportType.swift; sourceTree = "<group>"; };
@@ -231,6 +243,8 @@
 		140B02992EC8791E0005EE81 /* Markdown */ = {
 			isa = PBXGroup;
 			children = (
+				147A95172EE9498300BD3CA9 /* DECK_MIGRATION_SUMMARY.md */,
+				147A95112EE9067900BD3CA9 /* QUESTION_REWARD_UPDATES.md */,
 				14CD28782EDADC8400EEB66F /* storage.rules */,
 				14513F9E2EDFF028003FF3EA /* FIREBASE_FUNCTIONS_DEPLOYMENT.md */,
 				14513FA02EDFF056003FF3EA /* NOTIFICATION_SETUP_CHECKLIST.md */,
@@ -289,6 +303,7 @@
 			isa = PBXGroup;
 			children = (
 				143B7FE22EDAD1070093A0C6 /* UIImage+Compression.swift */,
+				147A951B2EEB4A8900BD3CA9 /* Date+FirebaseTimestamp.swift */,
 				14990EFF2ED984F200DFD3E5 /* GameModels+Dictionary.swift */,
 				14990EF32ED9654A00DFD3E5 /* MKMapItem+Address.swift */,
 				1409C9C12EE62045003166E7 /* MKCoordinateRegion+Equality.swift */,
@@ -335,6 +350,8 @@
 				14E268F22EC9653800FBCF90 /* Lobby */,
 				1474BE732ED5164B00568A90 /* Gameplay */,
 				14990EF22ED95A3700DFD3E5 /* Components */,
+				147A95072EE902FF00BD3CA9 /* Card.swift */,
+				147A950B2EE9033B00BD3CA9 /* HandView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -342,9 +359,10 @@
 		14E268EC2EC9642F00FBCF90 /* Logic */ = {
 			isa = PBXGroup;
 			children = (
+				140B029E2EC8791E0005EE81 /* GameManager.swift */,
+				147A95192EEB478000BD3CA9 /* UserManager.swift */,
 				142066B92ECBDFF50084F53C /* LocationManager.swift */,
 				140B029B2EC8791E0005EE81 /* AuthenticationManager.swift */,
-				140B029E2EC8791E0005EE81 /* DatabaseManager.swift */,
 				14513F902EDFEE30003FF3EA /* NotificationManager.swift */,
 			);
 			path = Logic;
@@ -472,6 +490,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				14513F9F2EDFF028003FF3EA /* FIREBASE_FUNCTIONS_DEPLOYMENT.md in Resources */,
+				147A95122EE9067900BD3CA9 /* QUESTION_REWARD_UPDATES.md in Resources */,
 				14990EF62ED9735B00DFD3E5 /* Rapid_Transit_Routes.geojson in Resources */,
 				14990EFC2ED973E300DFD3E5 /* ma.json in Resources */,
 				14513FA32EDFF078003FF3EA /* FIREBASE_CONSOLE_ACTIONS.md in Resources */,
@@ -480,6 +499,7 @@
 				140B02BF2EC8791E0005EE81 /* Assets.xcassets in Resources */,
 				14513FA52EDFF099003FF3EA /* FIREBASE_COMMANDS.md in Resources */,
 				140B02C02EC8791E0005EE81 /* GoogleService-Info.plist in Resources */,
+				147A95182EE9498300BD3CA9 /* DECK_MIGRATION_SUMMARY.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -496,10 +516,12 @@
 				140B02AD2EC8791E0005EE81 /* AuthenticationManager.swift in Sources */,
 				1409C9D22EE622A2003166E7 /* BisectorPointAnnotation.swift in Sources */,
 				140B02AF2EC8791E0005EE81 /* CreateLobbyView.swift in Sources */,
-				140B02B02EC8791E0005EE81 /* DatabaseManager.swift in Sources */,
+				140B02B02EC8791E0005EE81 /* GameManager.swift in Sources */,
 				149AB4C42EE2A3EE005F7D7E /* MapToolsData.swift in Sources */,
 				140B02B22EC8791E0005EE81 /* Game.swift in Sources */,
+				147A951A2EEB478200BD3CA9 /* UserManager.swift in Sources */,
 				14990EFE2ED97BA500DFD3E5 /* MapToolsSheet.swift in Sources */,
+				147A95082EE902FF00BD3CA9 /* Card.swift in Sources */,
 				1409C9DE2EE6246D003166E7 /* TimerActionsView.swift in Sources */,
 				1409C9D42EE622BF003166E7 /* MeasurePointAnnotation.swift in Sources */,
 				14513F912EDFEE30003FF3EA /* NotificationManager.swift in Sources */,
@@ -510,6 +532,7 @@
 				1474BE862ED65F8200568A90 /* MapSearchViewModel.swift in Sources */,
 				1474BE7F2ED5165200568A90 /* EmailSignInView.swift in Sources */,
 				1474BE802ED5165200568A90 /* ProfileView.swift in Sources */,
+				147A950C2EE9033B00BD3CA9 /* HandView.swift in Sources */,
 				14990F002ED984F200DFD3E5 /* GameModels+Dictionary.swift in Sources */,
 				1409C9CE2EE6221E003166E7 /* PlayerAnnotation.swift in Sources */,
 				149AB4C82EE2DA05005F7D7E /* PointToolView.swift in Sources */,
@@ -540,6 +563,7 @@
 				142066BA2ECBDFF50084F53C /* LocationManager.swift in Sources */,
 				14990EEE2ED94C2F00DFD3E5 /* TransportSelectionSheet.swift in Sources */,
 				14E268EE2EC9648000FBCF90 /* Stats+History.swift in Sources */,
+				147A951C2EEB4A9200BD3CA9 /* Date+FirebaseTimestamp.swift in Sources */,
 				140B02B72EC8791E0005EE81 /* LobbySettingsView.swift in Sources */,
 				140B02B82EC8791E0005EE81 /* LobbyView.swift in Sources */,
 				1409C9C72EE6213C003166E7 /* TrainLinesView.swift in Sources */,

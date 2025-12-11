@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct ExportSyncSectionView: View {
+    @EnvironmentObject private var gameManager: GameManager
+
     @ObservedObject var viewModel: MapToolsViewModel
     let gameId: String
     let playerTeam: Team
@@ -86,6 +88,7 @@ struct ExportSyncSectionView: View {
                 playerTeam: playerTeam,
                 playerUID: playerUID
             )
+            .environmentObject(gameManager)
         }
     }
 

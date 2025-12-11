@@ -9,14 +9,15 @@ import SwiftUI
 import FirebaseAuth
 
 struct GameSettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authManager: AuthenticationManager
+    @EnvironmentObject private var gameManager: GameManager
+    
     let gameId: String
     let lobbyCode: String
     let playerTeam: Team
     let onLeaveGame: () -> Void
     
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var authManager: AuthenticationManager
-    @StateObject private var databaseManager = DatabaseManager.shared
     @State private var isLeavingGame = false
     
     var body: some View {
@@ -82,7 +83,7 @@ struct GameSettingsView: View {
         Task {
             do {
                 // Leave both game and lobby
-                try await databaseManager.leaveGame(
+                try await gameManager.leaveGame(
                     gameId: gameId,
                     playerUID: currentUser.uid,
                     lobbyCode: lobbyCode

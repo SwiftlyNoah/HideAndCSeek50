@@ -21,7 +21,7 @@ class MapSearchViewModel: ObservableObject {
     @Published var region: MKCoordinateRegion
     
     @Published var searchResultsBottomSheetPosition: BottomSheetPosition = .hidden
-    @Published var transportSelectionBottomSheetPosition: BottomSheetPosition = .hidden
+    @Published var searchResultDetailBottomSheetPosition: BottomSheetPosition = .hidden
     @Published var directionsBottomSheetPosition: BottomSheetPosition = .hidden
     @Published var selectedDestination: MKMapItem?
     @Published var selectedTransportType: TransportType = .automobile
@@ -46,6 +46,7 @@ class MapSearchViewModel: ObservableObject {
 
     func getDirections(
         to destination: MKMapItem,
+        userLocation: CLLocationCoordinate2D,
         transportType: MKDirectionsTransportType,
         departureType: DepartureType
     ) {
@@ -53,21 +54,11 @@ class MapSearchViewModel: ObservableObject {
         directionsError = nil
 
         let request = MKDirections.Request()
-
-        // Prefer user location; fallback to current map center
-        if let userLoc = LocationManager.shared.location?.coordinate,
-           [.authorizedAlways, .authorizedWhenInUse].contains(LocationManager.shared.authorizationStatus) {
-            if #available(iOS 26.0, *) {
-                request.source = MKMapItem(location: CLLocation(latitude: userLoc.latitude, longitude: userLoc.longitude), address: nil)
-            } else {
-                request.source = MKMapItem(placemark: MKPlacemark(coordinate: userLoc))
-            }
+        
+        if #available(iOS 26.0, *) {
+            request.source = MKMapItem(location: CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude), address: nil)
         } else {
-            if #available(iOS 26.0, *) {
-                request.source = MKMapItem(location: CLLocation(latitude: region.center.latitude, longitude: region.center.longitude), address: nil)
-            } else {
-                request.source = MKMapItem(placemark: MKPlacemark(coordinate: region.center))
-            }
+            request.source = MKMapItem(placemark: MKPlacemark(coordinate: userLocation))
         }
 
         request.destination = destination
@@ -163,7 +154,7 @@ class MapSearchViewModel: ObservableObject {
     
     func clearSearch() {
         searchResultsBottomSheetPosition = .hidden
-        transportSelectionBottomSheetPosition = .hidden
+        searchResultDetailBottomSheetPosition = .hidden
         directionsBottomSheetPosition = .hidden
         selectedDestination = nil
         contextItemForMapTools = nil
@@ -193,13 +184,13 @@ class MapSearchViewModel: ObservableObject {
     func showTransportSelection(for destination: MKMapItem) {
         selectedDestination = destination
         searchResultsBottomSheetPosition = .hidden
-        transportSelectionBottomSheetPosition = .dynamic
+        searchResultDetailBottomSheetPosition = .dynamic
     }
     
     func openMapToolsForItem(_ item: MKMapItem) {
         // Clear all search results except the selected item, close all sheets
         searchResultsBottomSheetPosition = .hidden
-        transportSelectionBottomSheetPosition = .hidden
+        searchResultDetailBottomSheetPosition = .hidden
         directionsBottomSheetPosition = .hidden
         selectedDestination = nil
         contextItemForMapTools = nil
@@ -217,22 +208,23 @@ class MapSearchViewModel: ObservableObject {
     }
     
     func showDirections() {
-        transportSelectionBottomSheetPosition = .hidden
+        searchResultDetailBottomSheetPosition = .hidden
         directionsBottomSheetPosition = .relative(0.5)
     }
     
     func hideAllBottomSheets() {
         searchResultsBottomSheetPosition = .hidden
-        transportSelectionBottomSheetPosition = .hidden
+        searchResultDetailBottomSheetPosition = .hidden
         directionsBottomSheetPosition = .hidden
     }
     
-    func selectTransportAndShowDirections(_ transportType: TransportType) {
+    func selectTransportAndShowDirections(_ transportType: TransportType, currentLocation: CLLocation?) {
         selectedTransportType = transportType
         
-        if let destination = selectedDestination {
+        if let destination = selectedDestination, let userLocation = currentLocation?.coordinate {
             getDirections(
                 to: destination,
+                userLocation: userLocation,
                 transportType: transportType.mkDirectionsType,
                 departureType: .leaveNow
             )

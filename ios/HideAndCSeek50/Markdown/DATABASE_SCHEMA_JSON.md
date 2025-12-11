@@ -178,7 +178,6 @@ games: {
     "questionData": {
       "questionId": "string",
       "questionText": "string",
-      "questionType": "yesNo|closerFurther|hotterColder|photo|text",
       "isAnswered": true,
       "playerAnswer": "string"
     },

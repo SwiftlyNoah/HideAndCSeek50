@@ -91,6 +91,12 @@ struct DeckState: Codable {
     var hand: [Card]
     var discardPile: [Card]
     
+    init(deck: [Card], hand: [Card], discardPile: [Card]) {
+        self.deck = deck
+        self.hand = hand
+        self.discardPile = discardPile
+    }
+    
     init(shouldPopulate: Bool = false) {
         if shouldPopulate {
             // Create a standard 52-card deck

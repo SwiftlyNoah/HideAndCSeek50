@@ -6,23 +6,31 @@
 //
 
 import SwiftUI
+internal import Combine
 
 struct HandView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var gameManager: GameManager
         
-    @Binding var pendingDrawAction: DrawAction?
+    @Binding var pendingQuestionWithReward: QuestionData?
     
     let gameId: String
     
     @State private var selectedCards: Set<String> = []
     @State private var isProcessing = false
+    @State private var gameObserver: AnyCancellable?
+    
+    // Compute the draw action from the question data
+    private var pendingDrawAction: DrawAction? {
+        guard let question = pendingQuestionWithReward else { return nil }
+        return QuestionData.parseDrawAction(from: question.reward)
+    }
     
     var deckState: DeckState? {
         gameManager.currentGame?.deck
     }
     var isInDrawMode: Bool {
-        pendingDrawAction != nil
+        pendingQuestionWithReward != nil
     }
     
     var body: some View {
@@ -80,7 +88,38 @@ struct HandView: View {
                     .disabled(isInDrawMode)
                 }
             }
+            .onAppear {
+                setupGameObserver()
+            }
+            .onDisappear {
+                gameObserver?.cancel()
+            }
         }
+    }
+    
+    // MARK: - Observer Setup
+    
+    private func setupGameObserver() {
+        guard pendingQuestionWithReward != nil else { return }
+        
+        // Observe the currentGame for changes to the question's isRewarded status
+        gameObserver = gameManager.$currentGame
+            .sink { game in
+                guard let game = game,
+                      let questionId = pendingQuestionWithReward?.questionId else { return }
+                
+                // Check if the question has been rewarded by looking through messages
+                for message in game.messages.values {
+                    if let questionData = message.questionData,
+                       questionData.questionId == questionId,
+                       questionData.isRewarded {
+                        // Clear the pending question and stop observing
+                        pendingQuestionWithReward = nil
+                        gameObserver?.cancel()
+                        break
+                    }
+                }
+            }
     }
     
     // MARK: - Headers
@@ -296,6 +335,7 @@ struct HandView: View {
     private func confirmSelection() {
         guard let state = deckState,
               let action = pendingDrawAction,
+              let questionWithReward = pendingQuestionWithReward,
               canConfirmSelection else { return }
         
         isProcessing = true
@@ -306,14 +346,31 @@ struct HandView: View {
                 let drawnCards = Array(state.deck.prefix(action.drawCount))
                 
                 // Determine which cards to discard
-                let cardsToDiscard = drawnCards.filter { !selectedCards.contains($0.id) }
                 let cardsToKeep = drawnCards.filter { selectedCards.contains($0.id) }
+                let cardsToDiscard = drawnCards.filter { !selectedCards.contains($0.id) }
                 
-                // Clear the pending action
+                let newDeckState = DeckState(
+                    deck: Array(state.deck.suffix(state.deck.count - action.drawCount)),
+                    hand: state.hand + cardsToKeep,
+                    discardPile: state.discardPile + cardsToDiscard
+                )
+                
+                // Update deck state in database
+                try await gameManager.updateDeckState(gameId: gameId, deckState: newDeckState)
+                
+                // Find the message ID for this question
+                if let messageId = gameManager.currentGame?.messages.first(where: {
+                    $0.value.questionData?.questionId == questionWithReward.questionId
+                })?.key {
+                    try await gameManager.markQuestionRewarded(gameId: gameId, questionMessageId: messageId)
+                }
+                
+                // Clear the pending question and action
                 await MainActor.run {
-                    pendingDrawAction = nil
+                    pendingQuestionWithReward = nil
                     selectedCards.removeAll()
                     isProcessing = false
+                    gameObserver?.cancel()
                     dismiss()
                 }
             } catch {
@@ -415,5 +472,5 @@ struct CardView: View {
 }
 
 #Preview {
-    HandView(pendingDrawAction: .constant(nil), gameId: "")
+    HandView(pendingQuestionWithReward: .constant(nil), gameId: "")
 }

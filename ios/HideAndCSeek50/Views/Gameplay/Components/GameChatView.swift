@@ -29,7 +29,7 @@ struct GameChatView: View {
     @State private var selectedImage: UIImage?
     @State private var showingCameraPermissionAlert = false
     
-    @Binding var pendingDrawAction: DrawAction?
+    @Binding var pendingQuetionWithReward: QuestionData?
     
     var body: some View {
         NavigationStack {
@@ -249,10 +249,7 @@ struct GameChatView: View {
     }
     
     private func handleClaimReward(_ questionData: QuestionData) {
-        // Create draw action for selection
-        let action = QuestionData.parseDrawAction(from: questionData.reward)
-        pendingDrawAction = action
-        
+        pendingQuetionWithReward = questionData
         dismiss()
     }
 }
@@ -426,8 +423,8 @@ struct MessageBubble: View {
                     }
                     
                     // Show reward button for hiders (who can answer)
-                    // Button only shows after question is answered
-                    if !isCurrentUser, let onClaim = onClaimReward {
+                    // Button only shows after question is answered and hasn't been rewarded yet
+                    if !isCurrentUser, let onClaim = onClaimReward, !questionData.isRewarded {
                         Button(action: {
                             onClaim(questionData)
                         }) {

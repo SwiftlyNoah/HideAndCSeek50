@@ -694,6 +694,12 @@ class GameManager: ObservableObject {
         try await messageRef.setValue(try updatedMessage.toDictionary())
     }
     
+    /// Marks a question as rewarded
+    func markQuestionRewarded(gameId: String, questionMessageId: String) async throws {
+        let messageRef = DatabaseReference.game(gameId).child("messages").child(questionMessageId).child("questionData/isRewarded")
+        try await messageRef.setValue(true)
+    }
+    
     // MARK: - Deck Management
     
     /// Updates the deck state for a game

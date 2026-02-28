@@ -303,7 +303,8 @@ extension GameMessage {
                 "questionText": q.questionText,
                 "isAnswered": q.isAnswered,
                 "questionCategory": q.questionCategory.rawValue,
-                "reward": q.reward
+                "reward": q.reward,
+                "isRewarded": q.isRewarded
             ]
             if let ans = q.playerAnswer {
                 qd["playerAnswer"] = ans
@@ -362,7 +363,8 @@ extension GameMessage {
                 isAnswered: questionDict["isAnswered"] as? Bool ?? false,
                 playerAnswer: questionDict["playerAnswer"] as? String,
                 questionCategory: questionCategory,
-                reward: reward
+                reward: reward,
+                isRewarded: questionDict["isRewarded"] as? Bool ?? false,
             )
         }
         

@@ -102,13 +102,14 @@ struct LocationData: Codable {
     let locationName: String?
 }
 
-struct QuestionData: Codable {
+struct QuestionData: Codable, Equatable {
     let questionId: String
     let questionText: String
     var isAnswered: Bool = false
     var playerAnswer: String?
     var questionCategory: QuestionCategory
     var reward: String
+    var isRewarded: Bool = false
     
     static func parseDrawAction(from rewardText: String) -> DrawAction {
         // Parse "Draw X, Keep Y" format

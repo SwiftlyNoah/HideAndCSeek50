@@ -44,7 +44,7 @@ struct GameView: View {
     
     @State private var crosshairCoordinate = CLLocationCoordinate2D(latitude: 0, longitude: 0)
 
-    @State private var pendingDrawAction: DrawAction?
+    @State private var pendingQuetionWithReward: QuestionData?
 
     @State private var didCenterOnUser = false
     @FocusState private var isSearchFieldFocused: Bool
@@ -180,7 +180,7 @@ struct GameView: View {
         .onChange(of: mapSearchViewModel.results) { _, results in
             if !results.isEmpty { mapSearchViewModel.showSearchResults() }
         }
-        .onChange(of: pendingDrawAction) { _, pendingAction in
+        .onChange(of: pendingQuetionWithReward) { _, pendingAction in
             // Automatically open hand view when there's a pending draw action
             if pendingAction != nil && playerTeam == .hiders {
                 showingHandView = true
@@ -432,7 +432,7 @@ struct GameView: View {
             gameId: gameId,
             currentUser: currentUser,
             currentPlayerTeam: playerTeam,
-            pendingDrawAction: $pendingDrawAction,
+            pendingQuetionWithReward: $pendingQuetionWithReward,
         )
     }
 
@@ -475,7 +475,7 @@ struct GameView: View {
     }
     
     private var handSheet: some View {
-        HandView(pendingDrawAction: $pendingDrawAction, gameId: gameId)
+        HandView(pendingQuestionWithReward: $pendingQuetionWithReward, gameId: gameId)
             .environmentObject(gameManager)
     }
     

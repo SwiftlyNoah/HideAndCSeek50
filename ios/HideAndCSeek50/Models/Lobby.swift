@@ -22,6 +22,8 @@ struct Lobby: Codable, Equatable {
     var isActive: Bool = true
     var players: [String: LobbyPlayer] = [:]
     var bannedUsers: [String] = [] // List of banned user IDs
+    var questionSetId: String? = nil
+    var questionSetName: String? = nil
     
     var totalPlayers: Int {
         return players.count
@@ -137,7 +139,14 @@ extension Lobby {
         if let gameId = gameId {
             dict["gameId"] = gameId
         }
-        
+
+        if let questionSetId = questionSetId {
+            dict["questionSetId"] = questionSetId
+        }
+        if let questionSetName = questionSetName {
+            dict["questionSetName"] = questionSetName
+        }
+
         // Convert players dictionary
         var playersDict: [String: [String: Any]] = [:]
         for (uid, player) in players {
@@ -180,6 +189,9 @@ extension Lobby {
             }
         }
         
+        let questionSetId = dictionary["questionSetId"] as? String
+        let questionSetName = dictionary["questionSetName"] as? String
+
         return Lobby(
             code: code,
             hostUID: hostUID,
@@ -194,7 +206,9 @@ extension Lobby {
             expiresAt: expiresAt,
             isActive: isActive,
             players: players,
-            bannedUsers: bannedUsers
+            bannedUsers: bannedUsers,
+            questionSetId: questionSetId,
+            questionSetName: questionSetName
         )
     }
 }

@@ -9,7 +9,8 @@ import Foundation
 import CoreLocation
 internal import Combine
 
-class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+@MainActor
+class LocationManager: NSObject, ObservableObject {
     private let locationManager = CLLocationManager()
     
     @Published var location: CLLocation?
@@ -48,29 +49,37 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     func stopLocationUpdates() {
         locationManager.stopUpdatingLocation()
     }
-    
-    // MARK: - CLLocationManagerDelegate
-    
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+}
+
+// MARK: - CLLocationManagerDelegate
+
+extension LocationManager: CLLocationManagerDelegate {
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let newLocation = locations.last else { return }
-        location = newLocation
-        locationError = nil
+        Task { @MainActor in
+            self.location = newLocation
+            self.locationError = nil
+        }
     }
     
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        locationError = error
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        Task { @MainActor in
+            self.locationError = error
+        }
     }
     
-    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        authorizationStatus = status
-        
-        switch status {
-        case .authorizedWhenInUse, .authorizedAlways:
-            startLocationUpdates()
-        case .denied, .restricted:
-            locationError = LocationError.permissionDenied
-        default:
-            break
+    nonisolated func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        Task { @MainActor in
+            self.authorizationStatus = status
+            
+            switch status {
+            case .authorizedWhenInUse, .authorizedAlways:
+                self.startLocationUpdates()
+            case .denied, .restricted:
+                self.locationError = LocationError.permissionDenied
+            default:
+                break
+            }
         }
     }
 }

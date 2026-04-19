@@ -14,6 +14,7 @@ import AuthenticationServices
 import CryptoKit
 internal import Combine
 
+@MainActor
 class AuthenticationManager: ObservableObject {    
     @Published var currentUser: User?
     @Published var isAuthenticated = false
@@ -24,7 +25,7 @@ class AuthenticationManager: ObservableObject {
     init() {
         // Listen for authentication state changes
         authStateListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.currentUser = user
                 self?.isAuthenticated = user != nil
             }
@@ -329,12 +330,15 @@ class AuthenticationManager: ObservableObject {
                 lastActive: Date(),
                 avatarURL: user.photoURL?.absoluteString
             )
-            
+
             try? await UserManager.shared.createUser(profile: profile)
         } catch {
             // Handle other errors silently for now
             print("Error checking user profile: \(error)")
         }
+
+        // Idempotent — backfills existing accounts that pre-date the question-sets feature.
+        try? await UserManager.shared.seedDefaultQuestionSetIfNeeded(uid: user.uid)
     }
     
     private func generateDisplayName(user: User, fullName: PersonNameComponents? = nil) -> String {

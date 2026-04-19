@@ -83,18 +83,7 @@ extension GameInfo {
             "currentPlayers": currentPlayers,
             "createdAt": createdAt.toFirebaseTimestamp(),
             "duration": duration,
-            "settings": [
-                "hidingTime": settings.hidingTime,
-                "city": settings.city.rawValue,
-                "timeLimit": settings.timeLimit,
-                "boundaryRadius": settings.boundaryRadius,
-                "centerLatitude": settings.centerLatitude,
-                "centerLongitude": settings.centerLongitude,
-                "allowPhotos": settings.allowPhotos,
-                "allowVoiceChat": settings.allowVoiceChat,
-                "questionCategories": settings.questionCategories,
-                "bonusPoints": settings.bonusPoints
-            ],
+            "settings": try settings.toDictionary(),
             "hidingElapsed": hidingElapsed,
             "seekingElapsed": seekingElapsed
         ]
@@ -302,7 +291,11 @@ extension GameMessage {
                 "questionId": q.questionId,
                 "questionText": q.questionText,
                 "isAnswered": q.isAnswered,
-                "questionCategory": q.questionCategory.rawValue,
+                "categoryId": q.categoryId,
+                "categoryName": q.categoryName,
+                "questionType": q.questionType.rawValue,
+                "choices": q.choices,
+                "timeLimitSeconds": q.timeLimitSeconds,
                 "reward": q.reward,
                 "isRewarded": q.isRewarded
             ]
@@ -353,19 +346,47 @@ extension GameMessage {
         if let questionDict = dict["questionData"] as? [String: Any],
            let questionId = questionDict["questionId"] as? String,
            let questionText = questionDict["questionText"] as? String,
-           let reward = questionDict["reward"] as? String,
-           let categoryRaw = questionDict["questionCategory"] as? String,
-           let questionCategory = QuestionCategory(rawValue: categoryRaw) {
+           let reward = questionDict["reward"] as? String {
 
-            questionData = QuestionData(
-                questionId: questionId,
-                questionText: questionText,
-                isAnswered: questionDict["isAnswered"] as? Bool ?? false,
-                playerAnswer: questionDict["playerAnswer"] as? String,
-                questionCategory: questionCategory,
-                reward: reward,
-                isRewarded: questionDict["isRewarded"] as? Bool ?? false,
-            )
+            var categoryId: String?
+            var categoryName: String?
+            var questionType: QuestionType?
+            var choices: [String] = []
+            var timeLimitSeconds: Int = 300
+
+            if let cid = questionDict["categoryId"] as? String,
+               let typeRaw = questionDict["questionType"] as? String,
+               let type = QuestionType(rawValue: typeRaw) {
+                categoryId = cid
+                categoryName = questionDict["categoryName"] as? String ?? cid.capitalized
+                questionType = type
+                choices = questionDict["choices"] as? [String] ?? []
+                timeLimitSeconds = questionDict["timeLimitSeconds"] as? Int ?? 300
+            } else if let legacyRaw = questionDict["questionCategory"] as? String,
+                      let legacyCategory = QuestionCategory(rawValue: legacyRaw) {
+                // Legacy fallback — games started before the snapshot refactor.
+                categoryId = legacyRaw
+                categoryName = legacyCategory.displayName
+                questionType = legacyQuestionType(for: legacyCategory)
+                choices = legacyChoices(for: legacyCategory)
+                timeLimitSeconds = legacyCategory == .photos ? 600 : 300
+            }
+
+            if let categoryId, let categoryName, let questionType {
+                questionData = QuestionData(
+                    questionId: questionId,
+                    questionText: questionText,
+                    isAnswered: questionDict["isAnswered"] as? Bool ?? false,
+                    playerAnswer: questionDict["playerAnswer"] as? String,
+                    categoryId: categoryId,
+                    categoryName: categoryName,
+                    questionType: questionType,
+                    choices: choices,
+                    timeLimitSeconds: timeLimitSeconds,
+                    reward: reward,
+                    isRewarded: questionDict["isRewarded"] as? Bool ?? false
+                )
+            }
         }
         
         let eventType: EventType? = (dict["eventType"] as? String).flatMap(EventType.init(rawValue:))
@@ -386,15 +407,37 @@ extension GameMessage {
 }
 
 extension GameSettings {
+    func toDictionary() throws -> [String: Any] {
+        var dict: [String: Any] = [
+            "hidingTime": hidingTime,
+            "city": city.rawValue,
+            "timeLimit": timeLimit,
+            "boundaryRadius": boundaryRadius,
+            "centerLatitude": centerLatitude,
+            "centerLongitude": centerLongitude,
+            "allowPhotos": allowPhotos,
+            "allowVoiceChat": allowVoiceChat,
+            "questionCategories": questionCategories,
+            "bonusPoints": bonusPoints
+        ]
+        if let questionSetId {
+            dict["questionSetId"] = questionSetId
+        }
+        if let questionSet {
+            dict["questionSet"] = try questionSet.toDictionary()
+        }
+        return dict
+    }
+
     static func fromDictionary(_ dictionary: [String: Any]) throws -> GameSettings {
         guard let hidingTime = dictionary["hidingTime"] as? Int,
               let cityRaw = dictionary["city"] as? String,
               let city = GameCity(rawValue: cityRaw) else {
             throw DatabaseError.invalidData("GameSettings.fromDictionary")
         }
-        
+
         var settings = GameSettings(hidingTime: hidingTime, city: city)
-        
+
         settings.timeLimit = dictionary["timeLimit"] as? TimeInterval ?? 0
         settings.boundaryRadius = dictionary["boundaryRadius"] as? Double ?? 1000
         settings.centerLatitude = dictionary["centerLatitude"] as? Double ?? 0
@@ -403,7 +446,12 @@ extension GameSettings {
         settings.allowVoiceChat = dictionary["allowVoiceChat"] as? Bool ?? true
         settings.questionCategories = dictionary["questionCategories"] as? [String] ?? []
         settings.bonusPoints = dictionary["bonusPoints"] as? Bool ?? false
-        
+
+        settings.questionSetId = dictionary["questionSetId"] as? String
+        if let setData = dictionary["questionSet"] as? [String: Any] {
+            settings.questionSet = try? QuestionSet.fromDictionary(setData)
+        }
+
         return settings
     }
 }
@@ -475,13 +523,33 @@ extension DeckState {
         let deck = try deckArray.map { try Card.fromDictionary($0) }
         let hand = try handArray.map { try Card.fromDictionary($0) }
         let discardPile = try discardPileArray.map { try Card.fromDictionary($0) }
-        
+
         var deckState = DeckState()
         deckState.deck = deck
         deckState.hand = hand
         deckState.discardPile = discardPile
-                
+
         return deckState
+    }
+}
+
+// MARK: - Legacy question-category fallback helpers
+// Only hit while decoding games started before the snapshot refactor landed.
+
+private func legacyQuestionType(for category: QuestionCategory) -> QuestionType {
+    switch category {
+    case .matching, .measuring, .thermometer, .radar: return .multipleChoice
+    case .tentacles: return .shortAnswer
+    case .photos: return .photo
+    }
+}
+
+private func legacyChoices(for category: QuestionCategory) -> [String] {
+    switch category {
+    case .matching, .radar: return ["Yes", "No"]
+    case .measuring: return ["Closer", "Further"]
+    case .thermometer: return ["Hotter", "Colder"]
+    case .tentacles, .photos: return []
     }
 }
 

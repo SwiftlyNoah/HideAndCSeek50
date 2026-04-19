@@ -380,7 +380,7 @@ struct MessageBubble: View {
                 if let questionData = message.questionData, !questionData.isAnswered {
                     QuestionTimerView(
                         questionTimestamp: message.timestamp,
-                        questionCategory: questionData.questionCategory
+                        timeLimitSeconds: questionData.timeLimitSeconds
                     )
                 }
             } 
@@ -663,24 +663,16 @@ struct QuestionAnswerView: View {
                 
                 // Answer options based on question type
                 Group {
-                    switch questionData.questionCategory {
-                    case .matching, .radar:
-                        yesNoButtons
-                        
-                    case .measuring:
-                        closerFurtherButtons
-                        
-                    case .thermometer:
-                        hotterColderButtons
-                        
-                    case .tentacles:
+                    switch questionData.questionType {
+                    case .multipleChoice:
+                        multipleChoiceButtons
+                    case .shortAnswer:
                         textAnswerField
-                        
-                    case .photos:
+                    case .photo:
                         photoAnswerButton
                     }
                 }
-                
+
                 // Upload progress for photos
                 if isSubmitting && uploadProgress > 0 {
                     VStack(spacing: 4) {
@@ -692,9 +684,9 @@ struct QuestionAnswerView: View {
                             .foregroundColor(.white.opacity(0.9))
                     }
                 }
-                
+
                 // Submit button (for text answers)
-                if questionData.questionCategory == .tentacles {
+                if questionData.questionType == .shortAnswer {
                     Button(action: submitAnswer) {
                         if isSubmitting {
                             ProgressView()
@@ -781,8 +773,7 @@ struct QuestionAnswerView: View {
     }
     
     private var questionTimeLimit: TimeInterval {
-        // Photo questions: 10 minutes, all others: 5 minutes
-        return questionData.questionCategory == .photos ? 600 : 300
+        return TimeInterval(questionData.timeLimitSeconds)
     }
     
     private var timeRemainingText: String {
@@ -799,32 +790,35 @@ struct QuestionAnswerView: View {
     }
     
     // MARK: - Answer Type Views
-    
-    private var yesNoButtons: some View {
-        HStack(spacing: 12) {
-            // Yes = green, No = red for stronger contrast on white
-            answerButton(
-                title: "Yes",
-                icon: "checkmark.circle.fill",
-            )
-            answerButton(
-                title: "No",
-                icon: "xmark.circle.fill",
-            )
+
+    private var multipleChoiceButtons: some View {
+        let choices = questionData.choices
+        return Group {
+            if choices.count <= 3 {
+                HStack(spacing: 12) {
+                    ForEach(choices, id: \.self) { choice in
+                        answerButton(title: choice, icon: icon(for: choice))
+                    }
+                }
+            } else {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(choices, id: \.self) { choice in
+                        answerButton(title: choice, icon: icon(for: choice))
+                    }
+                }
+            }
         }
     }
-    
-    private var closerFurtherButtons: some View {
-        HStack(spacing: 12) {
-            answerButton(title: "Hotter", icon: "arrow.down.circle.fill")
-            answerButton(title: "Colder", icon: "arrow.up.circle.fill")
-        }
-    }
-    
-    private var hotterColderButtons: some View {
-        HStack(spacing: 12) {
-            answerButton(title: "Hotter", icon: "flame.fill")
-            answerButton(title: "Colder", icon: "snowflake")
+
+    private func icon(for choice: String) -> String {
+        switch choice.lowercased() {
+        case "yes": return "checkmark.circle.fill"
+        case "no": return "xmark.circle.fill"
+        case "closer": return "arrow.down.circle.fill"
+        case "further", "farther": return "arrow.up.circle.fill"
+        case "hotter": return "flame.fill"
+        case "colder": return "snowflake"
+        default: return "circle.fill"
         }
     }
     
@@ -884,12 +878,12 @@ struct QuestionAnswerView: View {
     // MARK: - Helper Properties
     
     private var canSubmit: Bool {
-        switch questionData.questionCategory {
-        case .tentacles:
+        switch questionData.questionType {
+        case .shortAnswer:
             return !textAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .photos:
+        case .photo:
             return selectedImage != nil
-        default:
+        case .multipleChoice:
             return true
         }
     }
@@ -906,12 +900,12 @@ struct QuestionAnswerView: View {
         isSubmitting = true
         
         let answer: String
-        switch questionData.questionCategory {
-        case .tentacles:
+        switch questionData.questionType {
+        case .shortAnswer:
             answer = textAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
-        case .photos:
+        case .photo:
             answer = "Photo submitted"
-        default:
+        case .multipleChoice:
             answer = selectedAnswer ?? ""
         }
         
@@ -1026,8 +1020,8 @@ struct QuestionAnswerView: View {
 // MARK: - Question Timer View
 struct QuestionTimerView: View {
     let questionTimestamp: Date
-    let questionCategory: QuestionCategory
-    
+    let timeLimitSeconds: Int
+
     @State private var timeRemaining: TimeInterval = 0
     @State private var timer: Timer?
     
@@ -1058,7 +1052,7 @@ struct QuestionTimerView: View {
     
     private func updateTimeRemaining() {
         let elapsed = Date().timeIntervalSince(questionTimestamp)
-        let timeLimit = questionCategory == .photos ? 600.0 : 300.0 // 10 min for photo, 5 min for others
+        let timeLimit = TimeInterval(timeLimitSeconds)
         timeRemaining = max(0, timeLimit - elapsed)
     }
     

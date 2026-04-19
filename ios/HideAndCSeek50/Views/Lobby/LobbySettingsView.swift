@@ -6,23 +6,26 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct LobbySettingsView: View {
     @EnvironmentObject private var gameManager: GameManager
-    
+
     @Environment(\.dismiss) private var dismiss
-    
+
     let lobby: Lobby
     let lobbyCode: String
-    
+
     @State private var maxHiders: Int
     @State private var maxSeekers: Int
     @State private var isPublic: Bool
     @State private var hidingTime: Int
     @State private var selectedCity: GameCity
+    @State private var selectedQuestionSetId: String
+    @State private var availableSets: [QuestionSet] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
-    
+
     init(lobby: Lobby, lobbyCode: String) {
         self.lobby = lobby
         self.lobbyCode = lobbyCode
@@ -31,6 +34,11 @@ struct LobbySettingsView: View {
         self._isPublic = State(initialValue: lobby.isPublic)
         self._hidingTime = State(initialValue: lobby.hidingTime)
         self._selectedCity = State(initialValue: lobby.city)
+        self._selectedQuestionSetId = State(initialValue: lobby.questionSetId ?? QuestionSet.defaultId)
+    }
+
+    private var selectedSetName: String {
+        availableSets.first { $0.id == selectedQuestionSetId }?.name ?? QuestionSet.defaultName
     }
     
     var body: some View {
@@ -118,6 +126,15 @@ struct LobbySettingsView: View {
                     }
                 }
                 
+                Section("Questions") {
+                    Picker("Question Set", selection: $selectedQuestionSetId) {
+                        ForEach(availableSets) { set in
+                            Text(set.name).tag(set.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
                 Section("Privacy") {
                     Toggle(isOn: $isPublic) {
                         VStack(alignment: .leading, spacing: 4) {
@@ -162,6 +179,7 @@ struct LobbySettingsView: View {
                 }
             }
             .disabled(isLoading)
+            .onAppear { loadQuestionSets() }
             .alert("Error", isPresented: .constant(errorMessage != nil)) {
                 Button("OK") {
                     errorMessage = nil
@@ -179,11 +197,31 @@ struct LobbySettingsView: View {
                maxSeekers != lobby.maxSeekers ||
                isPublic != lobby.isPublic ||
                hidingTime != lobby.hidingTime ||
-               selectedCity != lobby.city
+               selectedCity != lobby.city ||
+               selectedQuestionSetId != (lobby.questionSetId ?? QuestionSet.defaultId)
     }
+
+    private func loadQuestionSets() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        Task {
+            try? await UserManager.shared.seedDefaultQuestionSetIfNeeded(uid: uid)
+            let sets = (try? await UserManager.shared.getQuestionSets(uid: uid)) ?? []
+            await MainActor.run {
+                if sets.contains(where: { $0.id == QuestionSet.defaultId }) {
+                    availableSets = sets
+                } else {
+                    availableSets = [QuestionSet.makeDefault()] + sets
+                }
+                if !availableSets.contains(where: { $0.id == selectedQuestionSetId }) {
+                    selectedQuestionSetId = availableSets.first?.id ?? QuestionSet.defaultId
+                }
+            }
+        }
+    }
+
     private func saveSettings() async {
         isLoading = true
-        
+
         do {
             try await gameManager.updateLobbySettings(
                 code: lobbyCode,
@@ -191,9 +229,11 @@ struct LobbySettingsView: View {
                 maxSeekers: maxSeekers,
                 isPublic: isPublic,
                 hidingTime: hidingTime,
-                city: selectedCity
+                city: selectedCity,
+                questionSetId: selectedQuestionSetId,
+                questionSetName: selectedSetName
             )
-            
+
             await MainActor.run {
                 dismiss()
             }

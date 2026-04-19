@@ -22,9 +22,15 @@ struct CreateLobbyView: View {
     @State private var isPublic = true
     @State private var hidingTime: Int = 30 // 30 minutes
     @State private var selectedCity: GameCity = .boston
+    @State private var availableSets: [QuestionSet] = []
+    @State private var selectedQuestionSetId: String = QuestionSet.defaultId
     @State private var isLoading = false
     @State private var errorMessage: String?
     @FocusState private var isHidingTimeFieldFocused: Bool
+
+    private var selectedSetName: String {
+        availableSets.first { $0.id == selectedQuestionSetId }?.name ?? QuestionSet.defaultName
+    }
     
     private var currentUser: User? {
         authManager.currentUser
@@ -115,6 +121,15 @@ struct CreateLobbyView: View {
                     }
                 }
                 
+                Section("Questions") {
+                    Picker("Question Set", selection: $selectedQuestionSetId) {
+                        ForEach(availableSets) { set in
+                            Text(set.name).tag(set.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
                 Section("Privacy") {
                     Toggle(isOn: $isPublic) {
                         VStack(alignment: .leading, spacing: 4) {
@@ -181,6 +196,27 @@ struct CreateLobbyView: View {
             if gameName.isEmpty {
                 gameName = "\(displayName)'s Game"
             }
+            loadQuestionSets()
+        }
+    }
+
+    private func loadQuestionSets() {
+        guard let uid = currentUser?.uid else { return }
+        Task {
+            // Make sure the default exists before we read.
+            try? await UserManager.shared.seedDefaultQuestionSetIfNeeded(uid: uid)
+            let sets = (try? await UserManager.shared.getQuestionSets(uid: uid)) ?? []
+            await MainActor.run {
+                // Guarantee the default set always appears even if the fetch returned empty.
+                if sets.contains(where: { $0.id == QuestionSet.defaultId }) {
+                    availableSets = sets
+                } else {
+                    availableSets = [QuestionSet.makeDefault()] + sets
+                }
+                if !availableSets.contains(where: { $0.id == selectedQuestionSetId }) {
+                    selectedQuestionSetId = availableSets.first?.id ?? QuestionSet.defaultId
+                }
+            }
         }
     }
     
@@ -207,7 +243,9 @@ struct CreateLobbyView: View {
                 maxHiders: maxHiders,
                 maxSeekers: maxSeekers,
                 hidingTime: hidingTime,
-                city: selectedCity
+                city: selectedCity,
+                questionSetId: selectedQuestionSetId,
+                questionSetName: selectedSetName
             )
             
             await MainActor.run {

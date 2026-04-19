@@ -5,6 +5,7 @@
 //  Created by Noah Brauner on 12/11/25.
 //
 
+import Firebase
 import FirebaseDatabase
 
 final class UserManager {
@@ -64,25 +65,95 @@ final class UserManager {
         let historyRef = DatabaseReference.user(uid).child("gameHistory").child(entry.gameId)
         try await historyRef.setValue(try entry.toDictionary())
     }
-    
+
     func getGameHistory(uid: String, limit: Int = 10) async throws -> [GameHistoryEntry] {
         let historyRef = DatabaseReference.user(uid).child("gameHistory")
         let snapshot = try await historyRef.queryOrdered(byChild: "datePlayed")
             .queryLimited(toLast: UInt(limit))
             .getData()
-        
+
         guard let data = snapshot.value as? [String: [String: Any]] else {
             return []
         }
-        
+
         var history: [GameHistoryEntry] = []
         for (_, entryData) in data {
             if let entry = try? GameHistoryEntry.fromDictionary(entryData) {
                 history.append(entry)
             }
         }
-        
+
         // Sort by date (most recent first)
         return history.sorted { $0.datePlayed > $1.datePlayed }
+    }
+
+    // MARK: - Question Sets
+
+    private func questionSetsRef(uid: String) -> DatabaseReference {
+        return DatabaseReference.user(uid).child("questionSets")
+    }
+
+    /// Creates the seeded "Default" question set if it doesn't already exist for this user.
+    /// Idempotent — safe to call on every app launch.
+    func seedDefaultQuestionSetIfNeeded(uid: String) async throws {
+        let ref = questionSetsRef(uid: uid).child(QuestionSet.defaultId)
+        let snapshot = try await ref.getData()
+        if snapshot.exists() {
+            return
+        }
+        let defaultSet = QuestionSet.makeDefault()
+        try await ref.setValue(try defaultSet.toDictionary())
+    }
+
+    func getQuestionSets(uid: String) async throws -> [QuestionSet] {
+        let snapshot = try await questionSetsRef(uid: uid).getData()
+        guard let data = snapshot.value as? [String: [String: Any]] else {
+            return []
+        }
+        var sets: [QuestionSet] = []
+        for (_, setData) in data {
+            if let set = try? QuestionSet.fromDictionary(setData) {
+                sets.append(set)
+            }
+        }
+        return sets.sorted { lhs, rhs in
+            // Default first, then most recently updated
+            if lhs.isDefault != rhs.isDefault { return lhs.isDefault }
+            return lhs.updatedAt > rhs.updatedAt
+        }
+    }
+
+    func getQuestionSet(uid: String, id: String) async throws -> QuestionSet {
+        let snapshot = try await questionSetsRef(uid: uid).child(id).getData()
+        guard let data = snapshot.value as? [String: Any] else {
+            throw DatabaseError.invalidData("getQuestionSet")
+        }
+        return try QuestionSet.fromDictionary(data)
+    }
+
+    /// Saves (creates or replaces) a question set. Bumps `updatedAt`.
+    func saveQuestionSet(uid: String, set: QuestionSet) async throws {
+        var stamped = set
+        stamped.updatedAt = Date()
+        let ref = questionSetsRef(uid: uid).child(stamped.id)
+        try await ref.setValue(try stamped.toDictionary())
+    }
+
+    func deleteQuestionSet(uid: String, id: String) async throws {
+        guard id != QuestionSet.defaultId else {
+            throw DatabaseError.invalidOperation
+        }
+        try await questionSetsRef(uid: uid).child(id).removeValue()
+    }
+
+    func renameQuestionSet(uid: String, id: String, to newName: String) async throws {
+        guard id != QuestionSet.defaultId else {
+            throw DatabaseError.invalidOperation
+        }
+        let ref = questionSetsRef(uid: uid).child(id)
+        try await ref.updateChildValues([
+            "name": newName,
+            "updatedAt": Date().toFirebaseTimestamp()
+        ])
     }
 }

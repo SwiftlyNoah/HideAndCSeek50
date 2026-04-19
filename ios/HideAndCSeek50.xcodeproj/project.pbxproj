@@ -83,6 +83,13 @@
 		DA0A67902EDA434D00F5A00D /* BisectorOverlayItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0A678F2EDA434800F5A00D /* BisectorOverlayItem.swift */; };
 		DA0A67932EDA4E1D00F5A00D /* DistanceOverlayItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0A67922EDA4E1900F5A00D /* DistanceOverlayItem.swift */; };
 		DAE3F4C42ED695680055DBAB /* DirectionsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */; };
+		FF00020000000000000000B1 /* QuestionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000A1 /* QuestionSet.swift */; };
+		FF00020000000000000000B2 /* QuestionSetsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000A2 /* QuestionSetsViewModel.swift */; };
+		FF00020000000000000000B3 /* CategoryEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000A3 /* CategoryEditorView.swift */; };
+		FF00020000000000000000B4 /* CategoryIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000A4 /* CategoryIcon.swift */; };
+		FF00020000000000000000B5 /* QuestionEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000A5 /* QuestionEditorView.swift */; };
+		FF00020000000000000000B6 /* QuestionSetEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000A6 /* QuestionSetEditorView.swift */; };
+		FF00020000000000000000B7 /* QuestionSetsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000A7 /* QuestionSetsListView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -171,6 +178,13 @@
 		DA0A678F2EDA434800F5A00D /* BisectorOverlayItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BisectorOverlayItem.swift; sourceTree = "<group>"; };
 		DA0A67922EDA4E1900F5A00D /* DistanceOverlayItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DistanceOverlayItem.swift; sourceTree = "<group>"; };
 		DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectionsSheet.swift; sourceTree = "<group>"; };
+		FF00010000000000000000A1 /* QuestionSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionSet.swift; sourceTree = "<group>"; };
+		FF00010000000000000000A2 /* QuestionSetsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionSetsViewModel.swift; sourceTree = "<group>"; };
+		FF00010000000000000000A3 /* CategoryEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryEditorView.swift; sourceTree = "<group>"; };
+		FF00010000000000000000A4 /* CategoryIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryIcon.swift; sourceTree = "<group>"; };
+		FF00010000000000000000A5 /* QuestionEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionEditorView.swift; sourceTree = "<group>"; };
+		FF00010000000000000000A6 /* QuestionSetEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionSetEditorView.swift; sourceTree = "<group>"; };
+		FF00010000000000000000A7 /* QuestionSetsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionSetsListView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -320,6 +334,7 @@
 				14990F062ED988FC00DFD3E5 /* ChatViewModel.swift */,
 				1474BE852ED65F8200568A90 /* MapSearchViewModel.swift */,
 				14990F012ED9878100DFD3E5 /* MapToolsViewModel.swift */,
+				FF00010000000000000000A2 /* QuestionSetsViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -344,6 +359,7 @@
 				14E268F22EC9653800FBCF90 /* Lobby */,
 				1474BE732ED5164B00568A90 /* Gameplay */,
 				14990EF22ED95A3700DFD3E5 /* Components */,
+				FF00030000000000000000C1 /* QuestionSets */,
 				147A95072EE902FF00BD3CA9 /* Card.swift */,
 				147A950B2EE9033B00BD3CA9 /* HandView.swift */,
 			);
@@ -368,6 +384,7 @@
 				140B02A02EC8791E0005EE81 /* Game.swift */,
 				14E268EF2EC9649300FBCF90 /* Lobby.swift */,
 				1409C9DF2EE624E6003166E7 /* QuestionCategory.swift */,
+				FF00010000000000000000A1 /* QuestionSet.swift */,
 				14990EEF2ED94E0700DFD3E5 /* TransportType.swift */,
 				149AB4C32EE2A3EE005F7D7E /* MapToolsData.swift */,
 				142066B52ECBDE200084F53C /* CityRegions.swift */,
@@ -408,6 +425,18 @@
 				149AB4C52EE2D99A005F7D7E /* PointOverlayItem.swift */,
 			);
 			path = "Map Tool Items";
+			sourceTree = "<group>";
+		};
+		FF00030000000000000000C1 /* QuestionSets */ = {
+			isa = PBXGroup;
+			children = (
+				FF00010000000000000000A7 /* QuestionSetsListView.swift */,
+				FF00010000000000000000A6 /* QuestionSetEditorView.swift */,
+				FF00010000000000000000A3 /* CategoryEditorView.swift */,
+				FF00010000000000000000A5 /* QuestionEditorView.swift */,
+				FF00010000000000000000A4 /* CategoryIcon.swift */,
+			);
+			path = QuestionSets;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -562,6 +591,13 @@
 				1409C9CB2EE6218C003166E7 /* RadiusToolView.swift in Sources */,
 				140B02BB2EC8791E0005EE81 /* QuickMatchView.swift in Sources */,
 				1409C9D82EE62416003166E7 /* GameSettingsView.swift in Sources */,
+				FF00020000000000000000B1 /* QuestionSet.swift in Sources */,
+				FF00020000000000000000B2 /* QuestionSetsViewModel.swift in Sources */,
+				FF00020000000000000000B3 /* CategoryEditorView.swift in Sources */,
+				FF00020000000000000000B4 /* CategoryIcon.swift in Sources */,
+				FF00020000000000000000B5 /* QuestionEditorView.swift in Sources */,
+				FF00020000000000000000B6 /* QuestionSetEditorView.swift in Sources */,
+				FF00020000000000000000B7 /* QuestionSetsListView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -305,6 +305,18 @@ struct LobbyView: View {
                     Text("\(lobby.hidingTime) minutes")
                         .fontWeight(.medium)
                 }
+
+                HStack {
+                    Image(systemName: "list.bullet.rectangle.fill")
+                        .foregroundColor(.purple)
+                        .frame(width: 24)
+                    Text("Questions:")
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(lobby.questionSetName ?? QuestionSet.defaultName)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                }
             }
             .font(.subheadline)
         }

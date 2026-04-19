@@ -20,7 +20,8 @@ enum DatabaseError: LocalizedError {
     case invalidOperation
     case networkError
     case permissionDenied
-    
+    case emptyQuestionSet
+
     var errorDescription: String? {
         switch self {
         case .userNotFound:
@@ -39,6 +40,8 @@ enum DatabaseError: LocalizedError {
             return "Network error occurred"
         case .permissionDenied:
             return "Permission denied"
+        case .emptyQuestionSet:
+            return "The selected question set has no questions. Add at least one category with one question before starting."
         }
     }
 }
@@ -73,6 +76,7 @@ extension DatabaseReference {
     }
 }
 
+@MainActor
 class GameManager: ObservableObject {
     private let database = Database.database()
     private var gameListeners: [String: DatabaseHandle] = [:]
@@ -95,14 +99,16 @@ class GameManager: ObservableObject {
         // Monitor connection status
         let connectedRef = Database.database().reference(withPath: ".info/connected")
         connectedRef.observe(.value) { [weak self] snapshot in
-            self?.isConnected = snapshot.value as? Bool ?? false
+            Task { @MainActor in
+                self?.isConnected = snapshot.value as? Bool ?? false
+            }
         }
     }
     
     // MARK: - Lobby Management
-    func createLobby(hostUID: String, hostName: String, gameName: String, isPublic: Bool = true, maxHiders: Int = 2, maxSeekers: Int = 2, hidingTime: Int = 30, city: GameCity = .boston) async throws -> String {
+    func createLobby(hostUID: String, hostName: String, gameName: String, isPublic: Bool = true, maxHiders: Int = 2, maxSeekers: Int = 2, hidingTime: Int = 30, city: GameCity = .boston, questionSetId: String? = nil, questionSetName: String? = nil) async throws -> String {
         let code = generateLobbyCode()
-        
+
         var lobby = Lobby(
             code: code,
             hostUID: hostUID,
@@ -114,7 +120,9 @@ class GameManager: ObservableObject {
             hidingTime: hidingTime,
             city: city,
             createdAt: Date(),
-            expiresAt: Date().addingTimeInterval(3600) // Expire in 1 hour
+            expiresAt: Date().addingTimeInterval(3600), // Expire in 1 hour
+            questionSetId: questionSetId,
+            questionSetName: questionSetName
         )
         
         // Add host as first player (default to hiders)
@@ -187,7 +195,10 @@ class GameManager: ObservableObject {
                     createdAt: lobby.createdAt,
                     expiresAt: lobby.expiresAt,
                     isActive: lobby.isActive,
-                    players: lobby.players
+                    players: lobby.players,
+                    bannedUsers: lobby.bannedUsers,
+                    questionSetId: lobby.questionSetId,
+                    questionSetName: lobby.questionSetName
                 )
                 try await lobbyRef.setValue(try updatedLobby.toDictionary())
             } else {
@@ -200,15 +211,21 @@ class GameManager: ObservableObject {
         }
     }
     
-    func updateLobbySettings(code: String, maxHiders: Int, maxSeekers: Int, isPublic: Bool, hidingTime: Int, city: GameCity) async throws {
+    func updateLobbySettings(code: String, maxHiders: Int, maxSeekers: Int, isPublic: Bool, hidingTime: Int, city: GameCity, questionSetId: String? = nil, questionSetName: String? = nil) async throws {
         let lobbyRef = DatabaseReference.lobby(code)
-        let updates: [String: Any] = [
+        var updates: [String: Any] = [
             "maxHiders": maxHiders,
             "maxSeekers": maxSeekers,
             "isPublic": isPublic,
             "hidingTime": hidingTime,
             "city": city.rawValue
         ]
+        if let questionSetId {
+            updates["questionSetId"] = questionSetId
+        }
+        if let questionSetName {
+            updates["questionSetName"] = questionSetName
+        }
         try await lobbyRef.updateChildValues(updates)
     }
     
@@ -303,10 +320,35 @@ class GameManager: ObservableObject {
         guard let lobby = currentLobby, lobby.canStart else {
             throw DatabaseError.invalidOperation
         }
-        
+
         let gameId = UUID().uuidString
         let lobbyCode = lobby.code
-        
+
+        // Snapshot the host's chosen question set onto the game so every
+        // player reads from a stable copy and mid-game source edits don't
+        // bleed in. Only the host has read access to their own questionSets
+        // node, and startGame runs on the host's device.
+        let questionSetId = lobby.questionSetId ?? QuestionSet.defaultId
+        try? await UserManager.shared.seedDefaultQuestionSetIfNeeded(uid: lobby.hostUID)
+        let snapshotSet: QuestionSet
+        do {
+            snapshotSet = try await UserManager.shared.getQuestionSet(uid: lobby.hostUID, id: questionSetId)
+        } catch {
+            snapshotSet = QuestionSet.makeDefault()
+        }
+
+        let hasQuestions = snapshotSet.categories.contains { !$0.questions.isEmpty }
+        guard !snapshotSet.categories.isEmpty, hasQuestions else {
+            throw DatabaseError.emptyQuestionSet
+        }
+
+        var settings = GameSettings(
+            hidingTime: lobby.hidingTime,
+            city: lobby.city
+        )
+        settings.questionSetId = questionSetId
+        settings.questionSet = snapshotSet
+
         let info = GameInfo(
             gameId: gameId,
             gameCode: lobbyCode,
@@ -317,10 +359,7 @@ class GameManager: ObservableObject {
             currentPlayers: lobby.totalPlayers,
             createdAt: Date(),
             startedAt: Date(),
-            settings: GameSettings(
-                hidingTime: lobby.hidingTime,
-                city: lobby.city
-            )
+            settings: settings
         )
         
         // Convert lobby players to game players
@@ -714,7 +753,7 @@ class GameManager: ObservableObject {
         let ref = DatabaseReference.game(gameId)
         let handle = ref.observe(.value) { [weak self] snapshot in
             guard let data = snapshot.value as? [String: Any] else {
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self?.currentGame = nil
                 }
                 return
@@ -722,7 +761,7 @@ class GameManager: ObservableObject {
             
             do {
                 let game = try Game.fromDictionary(data)
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self?.currentGame = game
                 }
             } catch {
@@ -730,7 +769,7 @@ class GameManager: ObservableObject {
                 // Fallback if only info exists
                 if let infoDict = data["info"] as? [String: Any],
                    let info = try? GameInfo.fromDictionary(infoDict) {
-                    DispatchQueue.main.async {
+                    Task { @MainActor in
                         self?.currentGame = Game(info: info, teams: GameTeams(), deck: DeckState())
                     }
                 }
@@ -753,16 +792,14 @@ class GameManager: ObservableObject {
         
         let lobbyRef = DatabaseReference.lobby(code)
         let handle = lobbyRef.observe(.value) { [weak self] snapshot in
-            guard let lobbyData = self?.extractLobbyData(from: snapshot, code: code),
-                  let lobby = try? Lobby.fromDictionary(lobbyData) else {
-                DispatchQueue.main.async {
+            Task { @MainActor in
+                guard let self,
+                      let lobbyData = self.extractLobbyData(from: snapshot, code: code),
+                      let lobby = try? Lobby.fromDictionary(lobbyData) else {
                     self?.currentLobby = nil
+                    return
                 }
-                return
-            }
-            
-            DispatchQueue.main.async {
-                self?.currentLobby = lobby
+                self.currentLobby = lobby
             }
         }
         
@@ -780,7 +817,7 @@ class GameManager: ObservableObject {
         let lobbiesRef = DatabaseReference.lobbies()
         let handle = lobbiesRef.observe(.value) { [weak self] snapshot in
             guard let data = snapshot.value as? [String: [String: Any]] else {
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     self?.publicLobbies = []
                 }
                 return
@@ -794,7 +831,7 @@ class GameManager: ObservableObject {
                 }
             }
             
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.publicLobbies = lobbies.sorted { $0.createdAt > $1.createdAt }
             }
         }

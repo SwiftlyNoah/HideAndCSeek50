@@ -13,11 +13,12 @@ struct MainView: View {
     let user: User?
     @EnvironmentObject private var authManager: AuthenticationManager
     @StateObject private var gameManager = GameManager()
-    @StateObject private var notificationManager = NotificationManager.shared
+    @ObservedObject private var notificationManager = NotificationManager.shared
     @State private var showingSignOut = false
     @State private var showingCreateGame = false
     @State private var showingJoinGame = false
     @State private var showingQuickMatch = false
+    @State private var showingQuestionSets = false
     @State private var showingProfile = false
     @State private var activeLobbyCode: String?
     @State private var isLobbyHost = false
@@ -112,6 +113,7 @@ struct MainView: View {
                 }
                 loadRecentGames()
                 requestNotificationPermission()
+                seedDefaultQuestionSet()
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -165,6 +167,9 @@ struct MainView: View {
         }
         .sheet(isPresented: $showingProfile) {
             ProfileView(user: user, stats: nil)
+        }
+        .sheet(isPresented: $showingQuestionSets) {
+            QuestionSetsListView()
         }
         .fullScreenCover(item: lobbyDestination) { destination in
             LobbyView(lobbyCode: destination.code, isHost: isLobbyHost)
@@ -309,6 +314,16 @@ struct MainView: View {
                 ) {
                     showingQuickMatch = true
                 }
+
+                ActionButton(
+                    title: "Question Sets",
+                    subtitle: "Create your own questions",
+                    icon: "list.bullet.rectangle.fill",
+                    color: .purple,
+                    isPrimary: false
+                ) {
+                    showingQuestionSets = true
+                }
             }
         }
     }
@@ -415,6 +430,13 @@ struct MainView: View {
         }
     }
     
+    private func seedDefaultQuestionSet() {
+        guard let uid = user?.uid else { return }
+        Task {
+            try? await UserManager.shared.seedDefaultQuestionSetIfNeeded(uid: uid)
+        }
+    }
+
     private func requestNotificationPermission() {
         Task {
             do {

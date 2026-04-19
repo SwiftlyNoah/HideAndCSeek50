@@ -80,9 +80,11 @@ struct GameSettings: Codable {
     var centerLongitude: Double = 0
     var allowPhotos: Bool = true
     var allowVoiceChat: Bool = true
-    var questionCategories: [String] = []
+    var questionCategories: [String] = []  // legacy — unused by the new snapshot flow
     var bonusPoints: Bool = false
-    
+    var questionSetId: String? = nil
+    var questionSet: QuestionSet? = nil
+
     init(hidingTime: Int, city: GameCity) {
         self.hidingTime = hidingTime
         self.city = city
@@ -107,7 +109,11 @@ struct QuestionData: Codable, Equatable {
     let questionText: String
     var isAnswered: Bool = false
     var playerAnswer: String?
-    var questionCategory: QuestionCategory
+    var categoryId: String
+    var categoryName: String
+    var questionType: QuestionType
+    var choices: [String]
+    var timeLimitSeconds: Int
     var reward: String
     var isRewarded: Bool = false
     

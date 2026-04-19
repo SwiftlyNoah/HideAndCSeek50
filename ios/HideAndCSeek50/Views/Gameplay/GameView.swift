@@ -25,7 +25,6 @@ struct GameView: View {
     
     @StateObject private var locationManager = LocationManager()
     @StateObject private var chatViewModel = ChatViewModel()
-    @StateObject private var notificationManager = NotificationManager.shared
     @StateObject private var mapSearchViewModel: MapSearchViewModel
     @StateObject private var mapToolsViewModel: MapToolsViewModel
     

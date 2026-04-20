@@ -69,6 +69,41 @@ class ChatViewModel: ObservableObject {
         isLoading = false
     }
     
+    // MARK: - Card Sharing
+    
+    func sendCardMessage(
+        gameId: String,
+        card: CustomCard,
+        currentUser: User?,
+        currentUserName: String,
+        currentPlayerTeam: Team
+    ) async {
+        guard let currentUID = currentUser?.uid else { return }
+        
+        isLoading = true
+        
+        let message = GameMessage(
+            id: UUID().uuidString,
+            senderUID: currentUID,
+            senderName: currentUserName,
+            content: card.displayTitle,
+            type: .card,
+            timestamp: Date(),
+            attachments: nil,
+            questionData: nil,
+            team: currentPlayerTeam,
+            cardData: card
+        )
+        
+        do {
+            try await GameManager.sendMessage(gameId: gameId, message: message)
+        } catch {
+            // Handle error silently
+        }
+        
+        isLoading = false
+    }
+    
     // MARK: - Photo Sending
     
     /// Uploads an image to Firebase Storage and sends it as a message

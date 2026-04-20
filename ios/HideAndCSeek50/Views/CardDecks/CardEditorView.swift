@@ -62,7 +62,7 @@ struct CardEditorView: View {
         )
     }
 
-    private var canSave: Bool { builtCard.isValid() && multiplier >= 1 && multiplier <= 20 }
+    private var canSave: Bool { builtCard.isValid() && multiplier >= 1 && multiplier <= 50 }
 
     private var curseFieldsError: String? {
         guard type == .curse else { return nil }
@@ -143,7 +143,7 @@ struct CardEditorView: View {
                 }
 
                 Section {
-                    Stepper(value: $multiplier, in: 1...20) {
+                    Stepper(value: $multiplier, in: 1...50) {
                         HStack {
                             Text("Copies in Deck")
                             Spacer()

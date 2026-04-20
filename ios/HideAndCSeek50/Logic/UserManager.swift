@@ -166,11 +166,16 @@ final class UserManager {
     func seedDefaultCardDeckIfNeeded(uid: String) async throws {
         let ref = cardDecksRef(uid: uid).child(CardDeck.defaultId)
         let snapshot = try await ref.getData()
-        if snapshot.exists() {
+        if snapshot.exists(),
+           let data = snapshot.value as? [String: Any],
+           let storedVersion = data["defaultVersion"] as? Int,
+           storedVersion >= CardDeck.defaultVersion {
             return
         }
         let defaultDeck = CardDeck.makeDefault()
-        try await ref.setValue(try defaultDeck.toDictionary())
+        var dict = try defaultDeck.toDictionary()
+        dict["defaultVersion"] = CardDeck.defaultVersion
+        try await ref.setValue(dict)
     }
 
     func getCardDecks(uid: String) async throws -> [CardDeck] {

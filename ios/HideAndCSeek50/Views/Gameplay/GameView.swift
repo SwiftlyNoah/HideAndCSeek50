@@ -474,8 +474,14 @@ struct GameView: View {
     }
     
     private var handSheet: some View {
-        HandView(pendingQuestionWithReward: $pendingQuetionWithReward, gameId: gameId)
-            .environmentObject(gameManager)
+        HandView(
+            pendingQuestionWithReward: $pendingQuetionWithReward,
+            gameId: gameId,
+            chatViewModel: chatViewModel,
+            currentUser: authManager.currentUser,
+            currentPlayerTeam: playerTeam
+        )
+        .environmentObject(gameManager)
     }
     
     private func requestLocationPermission() {

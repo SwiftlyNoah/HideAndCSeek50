@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 internal import Combine
 
 struct HandView: View {
@@ -13,10 +14,15 @@ struct HandView: View {
     @Binding var pendingQuestionWithReward: QuestionData?
 
     let gameId: String
+    let chatViewModel: ChatViewModel
+    let currentUser: User?
+    let currentPlayerTeam: Team
 
     @State private var selectedCards: Set<String> = []
     @State private var isProcessing = false
     @State private var gameObserver: AnyCancellable?
+    @State private var sharedCardId: String?
+    @State private var isDrawingCard = false
 
     private var pendingDrawAction: DrawAction? {
         guard let question = pendingQuestionWithReward else { return nil }
@@ -155,6 +161,33 @@ struct HandView: View {
                             .foregroundColor(.secondary)
                     }
                 }
+
+                // Draw card button
+                Button {
+                    drawCardManually()
+                } label: {
+                    HStack {
+                        if isDrawingCard {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle())
+                        } else {
+                            Image(systemName: "plus.rectangle.on.rectangle")
+                            Text("Draw Card")
+                        }
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        (state.deck.isEmpty && state.discardPile.isEmpty)
+                            ? Color.gray
+                            : Color.indigo
+                    )
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                }
+                .disabled(isDrawingCard || (state.deck.isEmpty && state.discardPile.isEmpty))
             }
         }
         .padding()
@@ -195,11 +228,41 @@ struct HandView: View {
     // MARK: - Content
 
     private func normalHandContent(state: DeckState) -> some View {
-        LazyVGrid(columns: [
-            GridItem(.adaptive(minimum: 140, maximum: 180), spacing: 16)
-        ], spacing: 16) {
-            ForEach(state.hand) { card in
-                CardView(card: card, isSelected: false, isInteractive: false)
+        VStack(spacing: 12) {
+            if !state.hand.isEmpty {
+                Text("Use the ··· menu on a card to share or delete it")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            LazyVGrid(columns: [
+                GridItem(.adaptive(minimum: 140, maximum: 180), spacing: 16)
+            ], spacing: 16) {
+                ForEach(state.hand) { card in
+                    CardView(
+                        card: card,
+                        isSelected: sharedCardId == card.id,
+                        isInteractive: true
+                    )
+                    .overlay(alignment: .topTrailing) {
+                        cardMenuButton(for: card)
+                    }
+                }
+            }
+
+            if state.hand.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "rectangle.on.rectangle.slash")
+                        .font(.largeTitle)
+                        .foregroundColor(.secondary)
+                    Text("No cards in hand")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    Text("Draw a card using the button above")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 40)
             }
         }
         .padding()
@@ -356,6 +419,90 @@ struct HandView: View {
             }
         }
     }
+
+    // MARK: - Card Menu
+
+    private func cardMenuButton(for card: Card) -> some View {
+        Menu {
+            Button {
+                shareCardInChat(card)
+            } label: {
+                Label("Send to Other Team", systemImage: "paperplane")
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                discardCard(card)
+            } label: {
+                Label("Discard", systemImage: "trash")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(.secondary)
+                .frame(width: 28, height: 28)
+                .background(.ultraThinMaterial, in: Circle())
+        }
+        .padding(6)
+    }
+
+    // MARK: - Share Card in Chat
+
+    private func shareCardInChat(_ card: Card) {
+        sharedCardId = card.id
+
+        guard let displayName = currentUser?.displayName ?? currentUser?.email else { return }
+
+        Task {
+            await chatViewModel.sendCardMessage(
+                gameId: gameId,
+                card: card.definition,
+                currentUser: currentUser,
+                currentUserName: displayName,
+                currentPlayerTeam: currentPlayerTeam
+            )
+            try? await Task.sleep(for: .seconds(0.6))
+            sharedCardId = nil
+        }
+    }
+
+    // MARK: - Manual Draw
+
+    private func drawCardManually() {
+        guard var state = deckState else { return }
+        isDrawingCard = true
+
+        let drawn = state.drawCards(1)
+        state.addToHand(drawn)
+
+        Task {
+            do {
+                try await gameManager.updateDeckState(gameId: gameId, deckState: state)
+            } catch {
+                print("Error drawing card: \(error)")
+            }
+            isDrawingCard = false
+        }
+    }
+
+    // MARK: - Discard Card
+
+    private func discardCard(_ card: Card) {
+        guard var state = deckState else { return }
+
+        state.removeFromHand([card])
+        state.discardCards([card])
+
+        Task {
+            do {
+                try await gameManager.updateDeckState(gameId: gameId, deckState: state)
+            } catch {
+                print("Error discarding card: \(error)")
+            }
+        }
+    }
 }
 
 // MARK: - Card View
@@ -424,5 +571,11 @@ struct CardView: View {
 }
 
 #Preview {
-    HandView(pendingQuestionWithReward: .constant(nil), gameId: "")
+    HandView(
+        pendingQuestionWithReward: .constant(nil),
+        gameId: "",
+        chatViewModel: ChatViewModel(),
+        currentUser: nil,
+        currentPlayerTeam: .hiders
+    )
 }

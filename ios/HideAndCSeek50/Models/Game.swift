@@ -69,6 +69,7 @@ struct GameMessage: Codable, Identifiable {
     let questionData: QuestionData?
     let team: Team
     var eventType: EventType? = nil
+    var cardData: CustomCard? = nil
 }
 
 struct GameSettings: Codable {
@@ -331,6 +332,7 @@ enum MessageType: String, Codable {
     case question = "question"
     case event = "event"
     case location = "location"
+    case card = "card"
 }
 
 enum EventType: String, Codable {

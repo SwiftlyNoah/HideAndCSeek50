@@ -288,6 +288,13 @@ struct MessageBubble: View {
                     
                 case .location:
                     locationMessageView
+
+                case .card:
+                    if let cardData = message.cardData {
+                        chatCardView(cardData)
+                    } else {
+                        textMessageView
+                    }
                     
                 default:
                     textMessageView
@@ -313,6 +320,56 @@ struct MessageBubble: View {
             .background(isCurrentUser ? Color.blue : Color.gray.opacity(0.2))
             .foregroundColor(isCurrentUser ? .white : .primary)
             .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func chatCardView(_ def: CustomCard) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // "Shared a card" label
+            HStack(spacing: 4) {
+                Image(systemName: "hand.raised.fill")
+                    .font(.caption2)
+                Text("Shared a card")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+            }
+            .foregroundColor(isCurrentUser ? .white.opacity(0.8) : .secondary)
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+
+            // Card visual — mirrors CardView from HandView
+            VStack(alignment: .leading, spacing: 6) {
+                CardTypeBadge(type: def.type)
+
+                Text(def.displayTitle)
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .lineLimit(2)
+                    .foregroundColor(.primary)
+
+                Text(def.displaySubtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(3)
+
+                if def.type == .curse, let cost = def.castingCost {
+                    Divider()
+                    Label(cost, systemImage: "creditcard.fill")
+                        .font(.caption2)
+                        .foregroundColor(CardType.curse.themeColor)
+                        .lineLimit(2)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: 200, alignment: .leading)
+            .background(Color(.systemBackground))
+            .cornerRadius(10)
+            .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 2)
+            .padding(.horizontal, 8)
+            .padding(.bottom, 8)
+        }
+        .background(isCurrentUser ? Color.blue : Color.gray.opacity(0.2))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
     
     private var locationMessageView: some View {

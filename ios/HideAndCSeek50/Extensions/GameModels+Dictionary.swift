@@ -309,6 +309,10 @@ extension GameMessage {
             dict["eventType"] = eventType.rawValue
         }
 
+        if let cardData = cardData {
+            dict["cardData"] = try cardData.toDictionary()
+        }
+
         return dict
     }
     
@@ -390,6 +394,11 @@ extension GameMessage {
         }
         
         let eventType: EventType? = (dict["eventType"] as? String).flatMap(EventType.init(rawValue:))
+
+        var cardData: CustomCard?
+        if let cardDict = dict["cardData"] as? [String: Any] {
+            cardData = try? CustomCard.fromDictionary(cardDict)
+        }
         
         return GameMessage(
             id: id,
@@ -401,7 +410,8 @@ extension GameMessage {
             attachments: attachments,
             questionData: questionData,
             team: team,
-            eventType: eventType
+            eventType: eventType,
+            cardData: cardData
         )
     }
 }

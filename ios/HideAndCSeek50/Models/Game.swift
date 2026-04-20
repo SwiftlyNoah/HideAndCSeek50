@@ -84,6 +84,8 @@ struct GameSettings: Codable {
     var bonusPoints: Bool = false
     var questionSetId: String? = nil
     var questionSet: QuestionSet? = nil
+    var cardDeckId: String? = nil
+    var cardDeck: CardDeck? = nil
 
     init(hidingTime: Int, city: GameCity) {
         self.hidingTime = hidingTime

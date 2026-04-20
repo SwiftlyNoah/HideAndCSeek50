@@ -23,6 +23,8 @@ struct LobbySettingsView: View {
     @State private var selectedCity: GameCity
     @State private var selectedQuestionSetId: String
     @State private var availableSets: [QuestionSet] = []
+    @State private var selectedCardDeckId: String
+    @State private var availableDecks: [CardDeck] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -35,10 +37,15 @@ struct LobbySettingsView: View {
         self._hidingTime = State(initialValue: lobby.hidingTime)
         self._selectedCity = State(initialValue: lobby.city)
         self._selectedQuestionSetId = State(initialValue: lobby.questionSetId ?? QuestionSet.defaultId)
+        self._selectedCardDeckId = State(initialValue: lobby.cardDeckId ?? CardDeck.defaultId)
     }
 
     private var selectedSetName: String {
         availableSets.first { $0.id == selectedQuestionSetId }?.name ?? QuestionSet.defaultName
+    }
+
+    private var selectedDeckName: String {
+        availableDecks.first { $0.id == selectedCardDeckId }?.name ?? CardDeck.defaultName
     }
     
     var body: some View {
@@ -135,6 +142,15 @@ struct LobbySettingsView: View {
                     .pickerStyle(.menu)
                 }
 
+                Section("Cards") {
+                    Picker("Card Deck", selection: $selectedCardDeckId) {
+                        ForEach(availableDecks) { deck in
+                            Text(deck.name).tag(deck.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
                 Section("Privacy") {
                     Toggle(isOn: $isPublic) {
                         VStack(alignment: .leading, spacing: 4) {
@@ -179,7 +195,10 @@ struct LobbySettingsView: View {
                 }
             }
             .disabled(isLoading)
-            .onAppear { loadQuestionSets() }
+            .onAppear {
+                loadQuestionSets()
+                loadCardDecks()
+            }
             .alert("Error", isPresented: .constant(errorMessage != nil)) {
                 Button("OK") {
                     errorMessage = nil
@@ -198,7 +217,8 @@ struct LobbySettingsView: View {
                isPublic != lobby.isPublic ||
                hidingTime != lobby.hidingTime ||
                selectedCity != lobby.city ||
-               selectedQuestionSetId != (lobby.questionSetId ?? QuestionSet.defaultId)
+               selectedQuestionSetId != (lobby.questionSetId ?? QuestionSet.defaultId) ||
+               selectedCardDeckId != (lobby.cardDeckId ?? CardDeck.defaultId)
     }
 
     private func loadQuestionSets() {
@@ -219,6 +239,24 @@ struct LobbySettingsView: View {
         }
     }
 
+    private func loadCardDecks() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        Task {
+            try? await UserManager.shared.seedDefaultCardDeckIfNeeded(uid: uid)
+            let decks = (try? await UserManager.shared.getCardDecks(uid: uid)) ?? []
+            await MainActor.run {
+                if decks.contains(where: { $0.id == CardDeck.defaultId }) {
+                    availableDecks = decks
+                } else {
+                    availableDecks = [CardDeck.makeDefault()] + decks
+                }
+                if !availableDecks.contains(where: { $0.id == selectedCardDeckId }) {
+                    selectedCardDeckId = availableDecks.first?.id ?? CardDeck.defaultId
+                }
+            }
+        }
+    }
+
     private func saveSettings() async {
         isLoading = true
 
@@ -231,7 +269,9 @@ struct LobbySettingsView: View {
                 hidingTime: hidingTime,
                 city: selectedCity,
                 questionSetId: selectedQuestionSetId,
-                questionSetName: selectedSetName
+                questionSetName: selectedSetName,
+                cardDeckId: selectedCardDeckId,
+                cardDeckName: selectedDeckName
             )
 
             await MainActor.run {

@@ -426,6 +426,12 @@ extension GameSettings {
         if let questionSet {
             dict["questionSet"] = try questionSet.toDictionary()
         }
+        if let cardDeckId {
+            dict["cardDeckId"] = cardDeckId
+        }
+        if let cardDeck {
+            dict["cardDeck"] = try cardDeck.toDictionary()
+        }
         return dict
     }
 
@@ -450,6 +456,11 @@ extension GameSettings {
         settings.questionSetId = dictionary["questionSetId"] as? String
         if let setData = dictionary["questionSet"] as? [String: Any] {
             settings.questionSet = try? QuestionSet.fromDictionary(setData)
+        }
+
+        settings.cardDeckId = dictionary["cardDeckId"] as? String
+        if let deckData = dictionary["cardDeck"] as? [String: Any] {
+            settings.cardDeck = try? CardDeck.fromDictionary(deckData)
         }
 
         return settings
@@ -489,20 +500,35 @@ extension LocationData {
 extension Card {
     func toDictionary() throws -> [String: Any] {
         return [
-            "suit": suit.rawValue,
-            "rank": rank.rawValue
+            "instanceId": instanceId,
+            "definition": try definition.toDictionary()
         ]
     }
-    
+
     static func fromDictionary(_ dictionary: [String: Any]) throws -> Card {
-        guard let suitRaw = dictionary["suit"] as? String,
-              let suit = Suit(rawValue: suitRaw),
-              let rankRaw = dictionary["rank"] as? String,
-              let rank = Rank(rawValue: rankRaw) else {
-            throw DatabaseError.invalidData("Card.fromDictionary")
+        // Current format: {instanceId, definition}
+        if let instanceId = dictionary["instanceId"] as? String,
+           let defDict = dictionary["definition"] as? [String: Any],
+           let definition = try? CustomCard.fromDictionary(defDict) {
+            return Card(instanceId: instanceId, definition: definition)
         }
-        
-        return Card(suit: suit, rank: rank)
+
+        // Legacy fallback: {suit, rank} from poker-card era
+        if let suitRaw = dictionary["suit"] as? String,
+           let rankRaw = dictionary["rank"] as? String {
+            print("⚠️ Legacy card decoded (suit=\(suitRaw), rank=\(rankRaw)) — will appear as placeholder Powerup")
+            let legacyCard = CustomCard(
+                id: "legacy-\(suitRaw)-\(rankRaw)",
+                type: .powerup,
+                curseTitle: nil, curseDescription: nil, castingCost: nil,
+                powerupTitle: "\(rankRaw) of \(suitRaw.capitalized)",
+                powerupDescription: "Legacy card from a previous game.",
+                timeBonusMinutes: nil
+            )
+            return Card(instanceId: "legacy-\(suitRaw)-\(rankRaw)", definition: legacyCard)
+        }
+
+        throw DatabaseError.invalidData("Card.fromDictionary: unrecognized format (keys=\(dictionary.keys.sorted()))")
     }
 }
 

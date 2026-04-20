@@ -221,7 +221,7 @@ struct StatRow: View {
                 hiders: ["user1": Player(uid: "user1", displayName: "Player 1")],
                 seekers: ["user2": Player(uid: "user2", displayName: "Player 2")]
             ),
-            deck: DeckState(shouldPopulate: true)
+            deck: DeckState()
         ),
         lobbyCode: "ABC123",
         onReturnToLobby: {}

@@ -21,6 +21,7 @@ enum DatabaseError: LocalizedError {
     case networkError
     case permissionDenied
     case emptyQuestionSet
+    case emptyCardDeck
 
     var errorDescription: String? {
         switch self {
@@ -42,6 +43,8 @@ enum DatabaseError: LocalizedError {
             return "Permission denied"
         case .emptyQuestionSet:
             return "The selected question set has no questions. Add at least one category with one question before starting."
+        case .emptyCardDeck:
+            return "The selected card deck has no valid cards. Add at least one card before starting."
         }
     }
 }
@@ -106,13 +109,13 @@ class GameManager: ObservableObject {
     }
     
     // MARK: - Lobby Management
-    func createLobby(hostUID: String, hostName: String, gameName: String, isPublic: Bool = true, maxHiders: Int = 2, maxSeekers: Int = 2, hidingTime: Int = 30, city: GameCity = .boston, questionSetId: String? = nil, questionSetName: String? = nil) async throws -> String {
+    func createLobby(hostUID: String, hostName: String, gameName: String, isPublic: Bool = true, maxHiders: Int = 2, maxSeekers: Int = 2, hidingTime: Int = 30, city: GameCity = .boston, questionSetId: String? = nil, questionSetName: String? = nil, cardDeckId: String? = nil, cardDeckName: String? = nil) async throws -> String {
         let code = generateLobbyCode()
 
         var lobby = Lobby(
             code: code,
             hostUID: hostUID,
-            gameId: nil, // No gameId until game is started
+            gameId: nil,
             name: gameName,
             isPublic: isPublic,
             maxHiders: maxHiders,
@@ -120,9 +123,11 @@ class GameManager: ObservableObject {
             hidingTime: hidingTime,
             city: city,
             createdAt: Date(),
-            expiresAt: Date().addingTimeInterval(3600), // Expire in 1 hour
+            expiresAt: Date().addingTimeInterval(3600),
             questionSetId: questionSetId,
-            questionSetName: questionSetName
+            questionSetName: questionSetName,
+            cardDeckId: cardDeckId,
+            cardDeckName: cardDeckName
         )
         
         // Add host as first player (default to hiders)
@@ -198,7 +203,9 @@ class GameManager: ObservableObject {
                     players: lobby.players,
                     bannedUsers: lobby.bannedUsers,
                     questionSetId: lobby.questionSetId,
-                    questionSetName: lobby.questionSetName
+                    questionSetName: lobby.questionSetName,
+                    cardDeckId: lobby.cardDeckId,
+                    cardDeckName: lobby.cardDeckName
                 )
                 try await lobbyRef.setValue(try updatedLobby.toDictionary())
             } else {
@@ -211,7 +218,7 @@ class GameManager: ObservableObject {
         }
     }
     
-    func updateLobbySettings(code: String, maxHiders: Int, maxSeekers: Int, isPublic: Bool, hidingTime: Int, city: GameCity, questionSetId: String? = nil, questionSetName: String? = nil) async throws {
+    func updateLobbySettings(code: String, maxHiders: Int, maxSeekers: Int, isPublic: Bool, hidingTime: Int, city: GameCity, questionSetId: String? = nil, questionSetName: String? = nil, cardDeckId: String? = nil, cardDeckName: String? = nil) async throws {
         let lobbyRef = DatabaseReference.lobby(code)
         var updates: [String: Any] = [
             "maxHiders": maxHiders,
@@ -225,6 +232,12 @@ class GameManager: ObservableObject {
         }
         if let questionSetName {
             updates["questionSetName"] = questionSetName
+        }
+        if let cardDeckId {
+            updates["cardDeckId"] = cardDeckId
+        }
+        if let cardDeckName {
+            updates["cardDeckName"] = cardDeckName
         }
         try await lobbyRef.updateChildValues(updates)
     }
@@ -342,12 +355,27 @@ class GameManager: ObservableObject {
             throw DatabaseError.emptyQuestionSet
         }
 
+        // Snapshot the host's chosen card deck onto the game.
+        let cardDeckId = lobby.cardDeckId ?? CardDeck.defaultId
+        try? await UserManager.shared.seedDefaultCardDeckIfNeeded(uid: lobby.hostUID)
+        let snapshotDeck: CardDeck
+        do {
+            snapshotDeck = try await UserManager.shared.getCardDeck(uid: lobby.hostUID, id: cardDeckId)
+        } catch {
+            snapshotDeck = CardDeck.makeDefault()
+        }
+        guard snapshotDeck.isValidForGame() else {
+            throw DatabaseError.emptyCardDeck
+        }
+
         var settings = GameSettings(
             hidingTime: lobby.hidingTime,
             city: lobby.city
         )
         settings.questionSetId = questionSetId
         settings.questionSet = snapshotSet
+        settings.cardDeckId = cardDeckId
+        settings.cardDeck = snapshotDeck
 
         let info = GameInfo(
             gameId: gameId,
@@ -382,8 +410,8 @@ class GameManager: ObservableObject {
 
         let gameRef = DatabaseReference.game(gameId)
         
-        // Initialize deck for the new game
-        let initialDeck = DeckState(shouldPopulate: true)
+        // Initialize deck from the snapshotted card deck
+        let initialDeck = DeckState.makeShuffled(from: snapshotDeck)
         let game = Game(info: info, teams: GameTeams(hiders: hiders, seekers: seekers), deck: initialDeck)
         
         try await gameRef.setValue(try game.toDictionary())

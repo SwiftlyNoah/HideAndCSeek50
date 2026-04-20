@@ -24,7 +24,9 @@ struct Lobby: Codable, Equatable {
     var bannedUsers: [String] = [] // List of banned user IDs
     var questionSetId: String? = nil
     var questionSetName: String? = nil
-    
+    var cardDeckId: String? = nil
+    var cardDeckName: String? = nil
+
     var totalPlayers: Int {
         return players.count
     }
@@ -146,6 +148,12 @@ extension Lobby {
         if let questionSetName = questionSetName {
             dict["questionSetName"] = questionSetName
         }
+        if let cardDeckId = cardDeckId {
+            dict["cardDeckId"] = cardDeckId
+        }
+        if let cardDeckName = cardDeckName {
+            dict["cardDeckName"] = cardDeckName
+        }
 
         // Convert players dictionary
         var playersDict: [String: [String: Any]] = [:]
@@ -191,6 +199,8 @@ extension Lobby {
         
         let questionSetId = dictionary["questionSetId"] as? String
         let questionSetName = dictionary["questionSetName"] as? String
+        let cardDeckId = dictionary["cardDeckId"] as? String
+        let cardDeckName = dictionary["cardDeckName"] as? String
 
         return Lobby(
             code: code,
@@ -208,7 +218,9 @@ extension Lobby {
             players: players,
             bannedUsers: bannedUsers,
             questionSetId: questionSetId,
-            questionSetName: questionSetName
+            questionSetName: questionSetName,
+            cardDeckId: cardDeckId,
+            cardDeckName: cardDeckName
         )
     }
 }

@@ -24,12 +24,18 @@ struct CreateLobbyView: View {
     @State private var selectedCity: GameCity = .boston
     @State private var availableSets: [QuestionSet] = []
     @State private var selectedQuestionSetId: String = QuestionSet.defaultId
+    @State private var availableDecks: [CardDeck] = []
+    @State private var selectedCardDeckId: String = CardDeck.defaultId
     @State private var isLoading = false
     @State private var errorMessage: String?
     @FocusState private var isHidingTimeFieldFocused: Bool
 
     private var selectedSetName: String {
         availableSets.first { $0.id == selectedQuestionSetId }?.name ?? QuestionSet.defaultName
+    }
+
+    private var selectedDeckName: String {
+        availableDecks.first { $0.id == selectedCardDeckId }?.name ?? CardDeck.defaultName
     }
     
     private var currentUser: User? {
@@ -130,6 +136,15 @@ struct CreateLobbyView: View {
                     .pickerStyle(.menu)
                 }
 
+                Section("Cards") {
+                    Picker("Card Deck", selection: $selectedCardDeckId) {
+                        ForEach(availableDecks) { deck in
+                            Text(deck.name).tag(deck.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
                 Section("Privacy") {
                     Toggle(isOn: $isPublic) {
                         VStack(alignment: .leading, spacing: 4) {
@@ -192,22 +207,20 @@ struct CreateLobbyView: View {
             }
         }
         .onAppear {
-            // Set default game name
             if gameName.isEmpty {
                 gameName = "\(displayName)'s Game"
             }
             loadQuestionSets()
+            loadCardDecks()
         }
     }
 
     private func loadQuestionSets() {
         guard let uid = currentUser?.uid else { return }
         Task {
-            // Make sure the default exists before we read.
             try? await UserManager.shared.seedDefaultQuestionSetIfNeeded(uid: uid)
             let sets = (try? await UserManager.shared.getQuestionSets(uid: uid)) ?? []
             await MainActor.run {
-                // Guarantee the default set always appears even if the fetch returned empty.
                 if sets.contains(where: { $0.id == QuestionSet.defaultId }) {
                     availableSets = sets
                 } else {
@@ -215,6 +228,24 @@ struct CreateLobbyView: View {
                 }
                 if !availableSets.contains(where: { $0.id == selectedQuestionSetId }) {
                     selectedQuestionSetId = availableSets.first?.id ?? QuestionSet.defaultId
+                }
+            }
+        }
+    }
+
+    private func loadCardDecks() {
+        guard let uid = currentUser?.uid else { return }
+        Task {
+            try? await UserManager.shared.seedDefaultCardDeckIfNeeded(uid: uid)
+            let decks = (try? await UserManager.shared.getCardDecks(uid: uid)) ?? []
+            await MainActor.run {
+                if decks.contains(where: { $0.id == CardDeck.defaultId }) {
+                    availableDecks = decks
+                } else {
+                    availableDecks = [CardDeck.makeDefault()] + decks
+                }
+                if !availableDecks.contains(where: { $0.id == selectedCardDeckId }) {
+                    selectedCardDeckId = availableDecks.first?.id ?? CardDeck.defaultId
                 }
             }
         }
@@ -245,7 +276,9 @@ struct CreateLobbyView: View {
                 hidingTime: hidingTime,
                 city: selectedCity,
                 questionSetId: selectedQuestionSetId,
-                questionSetName: selectedSetName
+                questionSetName: selectedSetName,
+                cardDeckId: selectedCardDeckId,
+                cardDeckName: selectedDeckName
             )
             
             await MainActor.run {

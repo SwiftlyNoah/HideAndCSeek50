@@ -317,6 +317,18 @@ struct LobbyView: View {
                         .fontWeight(.medium)
                         .lineLimit(1)
                 }
+
+                HStack {
+                    Image(systemName: "rectangle.stack.fill")
+                        .foregroundColor(.indigo)
+                        .frame(width: 24)
+                    Text("Card Deck:")
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(lobby.cardDeckName ?? CardDeck.defaultName)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                }
             }
             .font(.subheadline)
         }

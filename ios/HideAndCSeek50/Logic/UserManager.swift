@@ -156,4 +156,70 @@ final class UserManager {
             "updatedAt": Date().toFirebaseTimestamp()
         ])
     }
+
+    // MARK: - Card Decks
+
+    private func cardDecksRef(uid: String) -> DatabaseReference {
+        return DatabaseReference.user(uid).child("cardDecks")
+    }
+
+    func seedDefaultCardDeckIfNeeded(uid: String) async throws {
+        let ref = cardDecksRef(uid: uid).child(CardDeck.defaultId)
+        let snapshot = try await ref.getData()
+        if snapshot.exists() {
+            return
+        }
+        let defaultDeck = CardDeck.makeDefault()
+        try await ref.setValue(try defaultDeck.toDictionary())
+    }
+
+    func getCardDecks(uid: String) async throws -> [CardDeck] {
+        let snapshot = try await cardDecksRef(uid: uid).getData()
+        guard let data = snapshot.value as? [String: [String: Any]] else {
+            return []
+        }
+        var decks: [CardDeck] = []
+        for (_, deckData) in data {
+            if let deck = try? CardDeck.fromDictionary(deckData) {
+                decks.append(deck)
+            }
+        }
+        return decks.sorted { lhs, rhs in
+            if lhs.isDefault != rhs.isDefault { return lhs.isDefault }
+            return lhs.updatedAt > rhs.updatedAt
+        }
+    }
+
+    func getCardDeck(uid: String, id: String) async throws -> CardDeck {
+        let snapshot = try await cardDecksRef(uid: uid).child(id).getData()
+        guard let data = snapshot.value as? [String: Any] else {
+            throw DatabaseError.invalidData("getCardDeck(\(id)): not found")
+        }
+        return try CardDeck.fromDictionary(data)
+    }
+
+    func saveCardDeck(uid: String, deck: CardDeck) async throws {
+        var stamped = deck
+        stamped.updatedAt = Date()
+        let ref = cardDecksRef(uid: uid).child(stamped.id)
+        try await ref.setValue(try stamped.toDictionary())
+    }
+
+    func deleteCardDeck(uid: String, id: String) async throws {
+        guard id != CardDeck.defaultId else {
+            throw DatabaseError.invalidOperation
+        }
+        try await cardDecksRef(uid: uid).child(id).removeValue()
+    }
+
+    func renameCardDeck(uid: String, id: String, to newName: String) async throws {
+        guard id != CardDeck.defaultId else {
+            throw DatabaseError.invalidOperation
+        }
+        let ref = cardDecksRef(uid: uid).child(id)
+        try await ref.updateChildValues([
+            "name": newName,
+            "updatedAt": Date().toFirebaseTimestamp()
+        ])
+    }
 }

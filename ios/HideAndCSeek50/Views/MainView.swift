@@ -19,6 +19,7 @@ struct MainView: View {
     @State private var showingJoinGame = false
     @State private var showingQuickMatch = false
     @State private var showingQuestionSets = false
+    @State private var showingCardDecks = false
     @State private var showingProfile = false
     @State private var activeLobbyCode: String?
     @State private var isLobbyHost = false
@@ -113,7 +114,7 @@ struct MainView: View {
                 }
                 loadRecentGames()
                 requestNotificationPermission()
-                seedDefaultQuestionSet()
+                seedDefaults()
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -170,6 +171,9 @@ struct MainView: View {
         }
         .sheet(isPresented: $showingQuestionSets) {
             QuestionSetsListView()
+        }
+        .sheet(isPresented: $showingCardDecks) {
+            CardDecksListView()
         }
         .fullScreenCover(item: lobbyDestination) { destination in
             LobbyView(lobbyCode: destination.code, isHost: isLobbyHost)
@@ -325,6 +329,22 @@ struct MainView: View {
                     showingQuestionSets = true
                 }
             }
+
+            // Tertiary Actions
+            HStack(spacing: 16) {
+                ActionButton(
+                    title: "Card Decks",
+                    subtitle: "Design your own cards",
+                    icon: "rectangle.stack.fill",
+                    color: .indigo,
+                    isPrimary: false
+                ) {
+                    showingCardDecks = true
+                }
+
+                Spacer()
+                    .frame(maxWidth: .infinity)
+            }
         }
     }
     
@@ -430,10 +450,11 @@ struct MainView: View {
         }
     }
     
-    private func seedDefaultQuestionSet() {
+    private func seedDefaults() {
         guard let uid = user?.uid else { return }
         Task {
             try? await UserManager.shared.seedDefaultQuestionSetIfNeeded(uid: uid)
+            try? await UserManager.shared.seedDefaultCardDeckIfNeeded(uid: uid)
         }
     }
 

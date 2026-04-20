@@ -339,6 +339,7 @@ class AuthenticationManager: ObservableObject {
 
         // Idempotent — backfills existing accounts that pre-date the question-sets feature.
         try? await UserManager.shared.seedDefaultQuestionSetIfNeeded(uid: user.uid)
+        try? await UserManager.shared.seedDefaultCardDeckIfNeeded(uid: user.uid)
     }
     
     private func generateDisplayName(user: User, fullName: PersonNameComponents? = nil) -> String {

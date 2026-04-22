@@ -801,7 +801,7 @@ extension GameMapView {
         ]
         
         // Create interior polygon (hole) from vertices
-        let hole = vertices.withUnsafeBufferPointer { 
+        let hole = vertices.withUnsafeBufferPointer {
             MKPolygon(coordinates: $0.baseAddress!, count: vertices.count)
         }
         let inverse = MKPolygon(coordinates: outerCoords, count: outerCoords.count, interiorPolygons: [hole])

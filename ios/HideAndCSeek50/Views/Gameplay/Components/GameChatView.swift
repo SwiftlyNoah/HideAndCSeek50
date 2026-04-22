@@ -261,6 +261,7 @@ struct MessageBubble: View {
     var onClaimReward: ((QuestionData) -> Void)? = nil
     
     @State private var showFullImage = false
+    @State private var cardDetailToShow: CustomCard?
     
     var body: some View {
         HStack {
@@ -292,6 +293,9 @@ struct MessageBubble: View {
                 case .card:
                     if let cardData = message.cardData {
                         chatCardView(cardData)
+                            .onTapGesture {
+                                cardDetailToShow = cardData
+                            }
                     } else {
                         textMessageView
                     }
@@ -309,6 +313,10 @@ struct MessageBubble: View {
             if !isCurrentUser {
                 Spacer()
             }
+        }
+        .sheet(item: $cardDetailToShow) { def in
+            CardDetailSheet(definition: def)
+                .presentationDetents([.medium, .large])
         }
     }
     

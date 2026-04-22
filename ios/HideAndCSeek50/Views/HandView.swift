@@ -23,6 +23,7 @@ struct HandView: View {
     @State private var gameObserver: AnyCancellable?
     @State private var sharedCardId: String?
     @State private var isDrawingCard = false
+    @State private var cardDetailToShow: CustomCard?
 
     private var pendingDrawAction: DrawAction? {
         guard let question = pendingQuestionWithReward else { return nil }
@@ -92,6 +93,10 @@ struct HandView: View {
             }
             .onDisappear {
                 gameObserver?.cancel()
+            }
+            .sheet(item: $cardDetailToShow) { def in
+                CardDetailSheet(definition: def)
+                    .presentationDetents([.medium, .large])
             }
         }
     }
@@ -230,7 +235,7 @@ struct HandView: View {
     private func normalHandContent(state: DeckState) -> some View {
         VStack(spacing: 12) {
             if !state.hand.isEmpty {
-                Text("Use the ··· menu on a card to share or delete it")
+                Text("Tap a card for details. Use the ··· menu to share or discard.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -244,6 +249,9 @@ struct HandView: View {
                         isSelected: sharedCardId == card.id,
                         isInteractive: true
                     )
+                    .onTapGesture {
+                        cardDetailToShow = card.definition
+                    }
                     .overlay(alignment: .topTrailing) {
                         cardMenuButton(for: card)
                     }
@@ -567,6 +575,56 @@ struct CardView: View {
         .scaleEffect(isSelected ? 1.04 : 1.0)
         .animation(.spring(response: 0.3), value: isSelected)
         .opacity(isInteractive ? 1.0 : 0.9)
+    }
+}
+
+// MARK: - Card Detail Sheet
+
+struct CardDetailSheet: View {
+    let definition: CustomCard
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Type badge + title
+                    CardTypeBadge(type: definition.type)
+
+                    Text(definition.displayTitle)
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    // Full description
+                    Text(definition.displaySubtitle)
+                        .font(.body)
+                        .foregroundColor(.secondary)
+
+                    // Casting cost for curses
+                    if definition.type == .curse, let cost = definition.castingCost {
+                        Divider()
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Casting Cost")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(CardType.curse.themeColor)
+                            Label(cost, systemImage: "creditcard.fill")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle("Card Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 

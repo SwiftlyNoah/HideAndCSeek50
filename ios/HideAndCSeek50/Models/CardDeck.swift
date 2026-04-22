@@ -36,7 +36,7 @@ struct CardDeckEntry: Codable, Identifiable, Equatable {
     var multiplier: Int
 }
 
-struct CustomCard: Codable, Equatable {
+struct CustomCard: Codable, Equatable, Identifiable {
     let id: String
     var type: CardType
 

@@ -87,7 +87,7 @@ struct BisectorOverlayItem: Identifiable, Equatable, Codable {
         let perpDx = -dy
         let perpDy = dx
 
-        let extendFactor = 10.0
+        let extendFactor = 500.0
         let bisectorStart = CLLocationCoordinate2D(
             latitude: midpoint.latitude - perpDy * extendFactor,
             longitude: midpoint.longitude - perpDx * extendFactor
@@ -100,10 +100,10 @@ struct BisectorOverlayItem: Identifiable, Equatable, Codable {
         let bisectorPolyline = MKPolyline(coordinates: [bisectorStart, bisectorEnd], count: 2)
 
         let bounds = [pointA, pointB, bisectorStart, bisectorEnd]
-        let minLat = bounds.map { $0.latitude }.min()! - 1.0
-        let maxLat = bounds.map { $0.latitude }.max()! + 1.0
-        let minLon = bounds.map { $0.longitude }.min()! - 1.0
-        let maxLon = bounds.map { $0.longitude }.max()! + 1.0
+        let minLat = bounds.map { $0.latitude }.min()! - 5.0
+        let maxLat = bounds.map { $0.latitude }.max()! + 5.0
+        let minLon = bounds.map { $0.longitude }.min()! - 5.0
+        let maxLon = bounds.map { $0.longitude }.max()! + 5.0
 
         var halfPlaneCoords: [CLLocationCoordinate2D]
         if fillPositiveSide {

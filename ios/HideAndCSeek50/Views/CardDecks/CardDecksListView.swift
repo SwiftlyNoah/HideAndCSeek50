@@ -29,6 +29,37 @@ struct CardDecksListView: View {
                 } else {
                     List {
                         Section {
+                            ForEach(viewModel.decks) { deck in
+                                deckRow(deck)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { selectedDeck = deck }
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        if !deck.isDefault {
+                                            Button(role: .destructive) {
+                                                deletingDeckId = deck.id
+                                            } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
+                                            
+                                            Button {
+                                                renamingDeck = deck
+                                                renameText = deck.name
+                                            } label: {
+                                                Label("Rename", systemImage: "pencil")
+                                            }
+                                            .tint(.blue)
+                                        }
+                                    }
+                                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                        Button {
+                                            Task { await duplicateDeck(deck) }
+                                        } label: {
+                                            Label("Duplicate", systemImage: "doc.on.doc")
+                                        }
+                                        .tint(.green)
+                                    }
+                            }
+                        } footer: {
                             HStack(spacing: 8) {
                                 Image(systemName: "hand.draw")
                                     .foregroundColor(.secondary)
@@ -36,39 +67,6 @@ struct CardDecksListView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
-                            .padding(.vertical, 6)
-                            .listRowBackground(Color(.systemGroupedBackground))
-                        }
-
-                        ForEach(viewModel.decks) { deck in
-                            deckRow(deck)
-                                .contentShape(Rectangle())
-                                .onTapGesture { selectedDeck = deck }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    if !deck.isDefault {
-                                        Button(role: .destructive) {
-                                            deletingDeckId = deck.id
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-
-                                        Button {
-                                            renamingDeck = deck
-                                            renameText = deck.name
-                                        } label: {
-                                            Label("Rename", systemImage: "pencil")
-                                        }
-                                        .tint(.blue)
-                                    }
-                                }
-                                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                                    Button {
-                                        Task { await duplicateDeck(deck) }
-                                    } label: {
-                                        Label("Duplicate", systemImage: "doc.on.doc")
-                                    }
-                                    .tint(.green)
-                                }
                         }
                     }
                 }

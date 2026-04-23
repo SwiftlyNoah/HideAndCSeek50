@@ -12,20 +12,20 @@ import FirebaseAuth
 struct QuestionSetsListView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = QuestionSetsViewModel()
-
+    
     @State private var setToRename: QuestionSet?
     @State private var renameText: String = ""
-
+    
     @State private var setToDuplicate: QuestionSet?
     @State private var duplicateText: String = ""
-
+    
     @State private var showingCreateSheet = false
     @State private var newSetName: String = ""
-
+    
     @State private var setPendingDelete: QuestionSet?
-
+    
     @State private var editorTarget: QuestionSet?
-
+    
     var body: some View {
         NavigationStack {
             content
@@ -121,7 +121,7 @@ struct QuestionSetsListView: View {
                 }
         }
     }
-
+    
     @ViewBuilder
     private var content: some View {
         if viewModel.isLoading && viewModel.sets.isEmpty {
@@ -135,6 +135,35 @@ struct QuestionSetsListView: View {
         } else {
             List {
                 Section {
+                    ForEach(viewModel.sets) { set in
+                        Button {
+                            editorTarget = set
+                        } label: {
+                            QuestionSetRow(set: set)
+                        }
+                        .buttonStyle(.plain)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if !set.isDefault {
+                                Button(role: .destructive) {
+                                    setPendingDelete = set
+                                } label: { Label("Delete", systemImage: "trash") }
+                                
+                                Button {
+                                    renameText = set.name
+                                    setToRename = set
+                                } label: { Label("Rename", systemImage: "pencil") }
+                                    .tint(.blue)
+                            }
+                        }
+                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                            Button {
+                                duplicateText = "\(set.name) Copy"
+                                setToDuplicate = set
+                            } label: { Label("Duplicate", systemImage: "doc.on.doc") }
+                                .tint(.green)
+                        }
+                    }
+                } footer: {
                     HStack(spacing: 8) {
                         Image(systemName: "hand.draw")
                             .foregroundColor(.secondary)
@@ -143,36 +172,6 @@ struct QuestionSetsListView: View {
                             .foregroundColor(.secondary)
                     }
                     .padding(.vertical, 6)
-                    .listRowBackground(Color(.systemGroupedBackground))
-                }
-
-                ForEach(viewModel.sets) { set in
-                    Button {
-                        editorTarget = set
-                    } label: {
-                        QuestionSetRow(set: set)
-                    }
-                    .buttonStyle(.plain)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        if !set.isDefault {
-                            Button(role: .destructive) {
-                                setPendingDelete = set
-                            } label: { Label("Delete", systemImage: "trash") }
-
-                            Button {
-                                renameText = set.name
-                                setToRename = set
-                            } label: { Label("Rename", systemImage: "pencil") }
-                            .tint(.blue)
-                        }
-                    }
-                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                        Button {
-                            duplicateText = "\(set.name) Copy"
-                            setToDuplicate = set
-                        } label: { Label("Duplicate", systemImage: "doc.on.doc") }
-                        .tint(.green)
-                    }
                 }
             }
             .listStyle(.insetGrouped)
@@ -182,13 +181,13 @@ struct QuestionSetsListView: View {
 
 private struct QuestionSetRow: View {
     let set: QuestionSet
-
+    
     private var lastEditedText: String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
         return formatter.localizedString(for: set.updatedAt, relativeTo: Date())
     }
-
+    
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
@@ -198,7 +197,7 @@ private struct QuestionSetRow: View {
                 Image(systemName: "list.bullet.rectangle.fill")
                     .foregroundColor(.purple)
             }
-
+            
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(set.name)
@@ -215,7 +214,7 @@ private struct QuestionSetRow: View {
                             .cornerRadius(4)
                     }
                 }
-
+                
                 HStack(spacing: 8) {
                     Label("\(set.categories.count) categories", systemImage: "folder.fill")
                     Text("•")
@@ -223,14 +222,14 @@ private struct QuestionSetRow: View {
                 }
                 .font(.caption)
                 .foregroundColor(.secondary)
-
+                
                 Text("Edited \(lastEditedText)")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
-
+            
             Spacer()
-
+            
             Image(systemName: "chevron.right")
                 .font(.caption)
                 .foregroundColor(.secondary.opacity(0.5))

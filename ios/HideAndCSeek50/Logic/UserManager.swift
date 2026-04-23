@@ -93,16 +93,23 @@ final class UserManager {
         return DatabaseReference.user(uid).child("questionSets")
     }
 
-    /// Creates the seeded "Default" question set if it doesn't already exist for this user.
-    /// Idempotent — safe to call on every app launch.
+    /// Creates or re-seeds the "Default" question set for this user.
+    /// Overwrites stale data if the stored defaultVersion is behind the current one.
+    /// This also migrates any data written in the old Codable/array format to the
+    /// new keyed-dictionary format that survives Firebase RTDB round-trips correctly.
     func seedDefaultQuestionSetIfNeeded(uid: String) async throws {
         let ref = questionSetsRef(uid: uid).child(QuestionSet.defaultId)
         let snapshot = try await ref.getData()
-        if snapshot.exists() {
+        if snapshot.exists(),
+           let data = snapshot.value as? [String: Any],
+           let storedVersion = data["defaultVersion"] as? Int,
+           storedVersion >= QuestionSet.defaultVersion {
             return
         }
         let defaultSet = QuestionSet.makeDefault()
-        try await ref.setValue(try defaultSet.toDictionary())
+        var dict = try defaultSet.toDictionary()
+        dict["defaultVersion"] = QuestionSet.defaultVersion
+        try await ref.setValue(dict)
     }
 
     func getQuestionSets(uid: String) async throws -> [QuestionSet] {

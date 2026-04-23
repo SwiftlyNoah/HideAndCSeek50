@@ -28,6 +28,18 @@ struct CardDecksListView: View {
                     emptyState
                 } else {
                     List {
+                        Section {
+                            HStack(spacing: 8) {
+                                Image(systemName: "hand.draw")
+                                    .foregroundColor(.secondary)
+                                Text("Swipe left to delete or rename. Swipe right to duplicate.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.vertical, 6)
+                            .listRowBackground(Color(.systemGroupedBackground))
+                        }
+
                         ForEach(viewModel.decks) { deck in
                             deckRow(deck)
                                 .contentShape(Rectangle())
@@ -62,7 +74,6 @@ struct CardDecksListView: View {
                 }
             }
             .navigationTitle("Card Decks")
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Done") { dismiss() }

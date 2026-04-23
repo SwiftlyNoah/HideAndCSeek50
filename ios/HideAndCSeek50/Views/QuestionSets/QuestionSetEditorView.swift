@@ -55,16 +55,16 @@ struct QuestionSetEditorView: View {
                         addCategory(named: trimmed)
                     }
                 }
-                .alert("Duplicate Default Set", isPresented: $showingDuplicatePrompt) {
-                    TextField("New name", text: $duplicateName)
-                    Button("Cancel", role: .cancel) {}
+                .alert("Duplicate Set", isPresented: $showingDuplicatePrompt) {
+                    TextField("New set name", text: $duplicateName)
                     Button("Duplicate") {
                         let trimmed = duplicateName.trimmingCharacters(in: .whitespaces)
                         guard !trimmed.isEmpty else { return }
                         duplicateIntoEditableCopy(name: trimmed)
                     }
+                    Button("Cancel", role: .cancel) {}
                 } message: {
-                    Text("The default set is locked. Duplicate it to create an editable copy.")
+                    Text("Name your duplicate set:")
                 }
         }
     }
@@ -74,7 +74,28 @@ struct QuestionSetEditorView: View {
     private var formContent: some View {
         Form {
             if isLocked {
-                lockedBanner
+                Section {
+                    HStack(spacing: 12) {
+                        Image(systemName: "lock.fill")
+                            .foregroundColor(.orange)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Default Set — Read Only")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Text("Duplicate to create an editable copy.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Button("Duplicate") {
+                            duplicateName = "\(draft.name) Copy"
+                            showingDuplicatePrompt = true
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.orange)
+                    }
+                    .padding(.vertical, 4)
+                }
             }
 
             Section("Name") {
@@ -156,33 +177,6 @@ struct QuestionSetEditorView: View {
         }
     }
 
-    // MARK: - Locked banner
-
-    private var lockedBanner: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Image(systemName: "lock.fill")
-                    Text("Default set")
-                        .fontWeight(.semibold)
-                }
-                Text("The default set can't be edited. Duplicate it to make changes.")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                Button {
-                    duplicateName = "\(draft.name) Copy"
-                    showingDuplicatePrompt = true
-                } label: {
-                    Label("Duplicate to edit", systemImage: "doc.on.doc")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.purple)
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
     // MARK: - Mutations
 
     private func addCategory(named name: String) {
@@ -226,9 +220,8 @@ struct QuestionSetEditorView: View {
     private func duplicateIntoEditableCopy(name: String) {
         Task {
             do {
-                let copy = try await viewModel.duplicateSet(draft, newName: name)
-                // Swap the editor onto the new editable copy in place.
-                draft = copy
+                let _ = try await viewModel.duplicateSet(draft, newName: name)
+                dismiss()
             } catch {
                 errorMessage = "Couldn't duplicate: \(error.localizedDescription)"
             }

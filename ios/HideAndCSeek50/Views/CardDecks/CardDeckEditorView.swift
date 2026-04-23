@@ -84,19 +84,15 @@ struct CardDeckEditorView: View {
                                 .onTapGesture {
                                     if !isDefault { editingEntry = entry }
                                 }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    if !isDefault {
-                                        Button(role: .destructive) {
-                                            removeEntry(id: entry.id)
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-                                    }
-                                }
+                        }
+                        .onDelete { offsets in
+                            if !isDefault { entries.remove(atOffsets: offsets) }
                         }
                         .onMove { from, to in
                             if !isDefault { entries.move(fromOffsets: from, toOffset: to) }
                         }
+                        .deleteDisabled(isDefault)
+                        .moveDisabled(isDefault)
                     }
                 } header: {
                     HStack {
@@ -116,6 +112,15 @@ struct CardDeckEditorView: View {
                             Label("Add Card", systemImage: "plus.circle.fill")
                         }
                         .disabled(totalCardCount >= maxTotalCards)
+                    }
+
+                    Section {
+                        Button(role: .destructive) {
+                            showingDeleteConfirm = true
+                        } label: {
+                            Label("Delete Deck", systemImage: "trash")
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        }
                     }
                 }
 
@@ -137,13 +142,15 @@ struct CardDeckEditorView: View {
 
                 if !isDefault {
                     ToolbarItem(placement: .navigationBarTrailing) {
+                        EditButton()
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Save") { Task { await saveDeck() } }
                             .fontWeight(.semibold)
                             .disabled(!hasChanges || isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
             }
-            .environment(\.editMode, isDefault ? .constant(.inactive) : .constant(.active))
             .sheet(isPresented: $showingAddCard) {
                 CardEditorView { card, multiplier in
                     let entry = CardDeckEntry(id: UUID().uuidString, card: card, multiplier: multiplier)
@@ -168,6 +175,12 @@ struct CardDeckEditorView: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("Name your duplicate deck:")
+            }
+            .alert("Delete Deck?", isPresented: $showingDeleteConfirm) {
+                Button("Delete", role: .destructive) { Task { await deleteDeck() } }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("\"\(name)\" will be permanently deleted. This cannot be undone.")
             }
         }
     }
@@ -220,6 +233,22 @@ struct CardDeckEditorView: View {
         updated.entries = entries
         do {
             try await viewModel.updateDeck(updated)
+            await MainActor.run {
+                isSaving = false
+                dismiss()
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+                isSaving = false
+            }
+        }
+    }
+
+    private func deleteDeck() async {
+        isSaving = true
+        do {
+            try await viewModel.deleteDeck(id: sourceDeck.id)
             await MainActor.run {
                 isSaving = false
                 dismiss()

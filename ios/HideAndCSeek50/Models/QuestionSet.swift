@@ -19,6 +19,9 @@ struct QuestionSet: Codable, Identifiable, Equatable {
 
     static let defaultId = "default"
     static let defaultName = "Default"
+    /// Bump this whenever the default set content or storage format changes.
+    /// Mirrors the pattern used by CardDeck so the seed logic can detect stale data.
+    static let defaultVersion = 2
 
     var questionCount: Int {
         categories.reduce(0) { $0 + $1.questions.count }

@@ -80,6 +80,7 @@
 		14F2BEEA2EC844D400B5F06B /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 14F2BEE92EC844D400B5F06B /* GoogleSignIn */; };
 		14F2BEEC2EC844D400B5F06B /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 14F2BEEB2EC844D400B5F06B /* GoogleSignInSwift */; };
 		294366612EDFE95600269F24 /* PolygonOverlayItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 294366602EDFE95600269F24 /* PolygonOverlayItem.swift */; };
+		71330F0C2F9AC7A2003D1292 /* DiceRollerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71330F0B2F9AC7A2003D1292 /* DiceRollerView.swift */; };
 		DA0A67902EDA434D00F5A00D /* BisectorOverlayItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0A678F2EDA434800F5A00D /* BisectorOverlayItem.swift */; };
 		DA0A67932EDA4E1D00F5A00D /* DistanceOverlayItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0A67922EDA4E1900F5A00D /* DistanceOverlayItem.swift */; };
 		DAE3F4C42ED695680055DBAB /* DirectionsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */; };
@@ -90,6 +91,13 @@
 		FF00020000000000000000B5 /* QuestionEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000A5 /* QuestionEditorView.swift */; };
 		FF00020000000000000000B6 /* QuestionSetEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000A6 /* QuestionSetEditorView.swift */; };
 		FF00020000000000000000B7 /* QuestionSetsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000A7 /* QuestionSetsListView.swift */; };
+		FF00020000000000000000B8 /* CardDeck.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000A8 /* CardDeck.swift */; };
+		FF00020000000000000000B9 /* CardDeck+Dictionary.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000A9 /* CardDeck+Dictionary.swift */; };
+		FF00020000000000000000BA /* CardDecksViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000AA /* CardDecksViewModel.swift */; };
+		FF00020000000000000000BB /* CardDecksListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000AB /* CardDecksListView.swift */; };
+		FF00020000000000000000BC /* CardDeckEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000AC /* CardDeckEditorView.swift */; };
+		FF00020000000000000000BD /* CardEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000AD /* CardEditorView.swift */; };
+		FF00020000000000000000BE /* CardTypeBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF00010000000000000000AE /* CardTypeBadge.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -175,6 +183,7 @@
 		14E268ED2EC9647900FBCF90 /* Stats+History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Stats+History.swift"; sourceTree = "<group>"; };
 		14E268EF2EC9649300FBCF90 /* Lobby.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lobby.swift; sourceTree = "<group>"; };
 		294366602EDFE95600269F24 /* PolygonOverlayItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolygonOverlayItem.swift; sourceTree = "<group>"; };
+		71330F0B2F9AC7A2003D1292 /* DiceRollerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiceRollerView.swift; sourceTree = "<group>"; };
 		DA0A678F2EDA434800F5A00D /* BisectorOverlayItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BisectorOverlayItem.swift; sourceTree = "<group>"; };
 		DA0A67922EDA4E1900F5A00D /* DistanceOverlayItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DistanceOverlayItem.swift; sourceTree = "<group>"; };
 		DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectionsSheet.swift; sourceTree = "<group>"; };
@@ -185,6 +194,13 @@
 		FF00010000000000000000A5 /* QuestionEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionEditorView.swift; sourceTree = "<group>"; };
 		FF00010000000000000000A6 /* QuestionSetEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionSetEditorView.swift; sourceTree = "<group>"; };
 		FF00010000000000000000A7 /* QuestionSetsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionSetsListView.swift; sourceTree = "<group>"; };
+		FF00010000000000000000A8 /* CardDeck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardDeck.swift; sourceTree = "<group>"; };
+		FF00010000000000000000A9 /* CardDeck+Dictionary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CardDeck+Dictionary.swift"; sourceTree = "<group>"; };
+		FF00010000000000000000AA /* CardDecksViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardDecksViewModel.swift; sourceTree = "<group>"; };
+		FF00010000000000000000AB /* CardDecksListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardDecksListView.swift; sourceTree = "<group>"; };
+		FF00010000000000000000AC /* CardDeckEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardDeckEditorView.swift; sourceTree = "<group>"; };
+		FF00010000000000000000AD /* CardEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardEditorView.swift; sourceTree = "<group>"; };
+		FF00010000000000000000AE /* CardTypeBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardTypeBadge.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -244,6 +260,7 @@
 				DAE3F4C32ED695660055DBAB /* DirectionsSheet.swift */,
 				14990EFD2ED97BA500DFD3E5 /* MapToolsSheet.swift */,
 				1409C9C32EE620FB003166E7 /* Map Tools Subviews */,
+				71330F0B2F9AC7A2003D1292 /* DiceRollerView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -313,6 +330,7 @@
 				143B7FE22EDAD1070093A0C6 /* UIImage+Compression.swift */,
 				147A951B2EEB4A8900BD3CA9 /* Date+FirebaseTimestamp.swift */,
 				14990EFF2ED984F200DFD3E5 /* GameModels+Dictionary.swift */,
+				FF00010000000000000000A9 /* CardDeck+Dictionary.swift */,
 				14990EF32ED9654A00DFD3E5 /* MKMapItem+Address.swift */,
 				1409C9C12EE62045003166E7 /* MKCoordinateRegion+Equality.swift */,
 			);
@@ -335,6 +353,7 @@
 				1474BE852ED65F8200568A90 /* MapSearchViewModel.swift */,
 				14990F012ED9878100DFD3E5 /* MapToolsViewModel.swift */,
 				FF00010000000000000000A2 /* QuestionSetsViewModel.swift */,
+				FF00010000000000000000AA /* CardDecksViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -360,6 +379,7 @@
 				1474BE732ED5164B00568A90 /* Gameplay */,
 				14990EF22ED95A3700DFD3E5 /* Components */,
 				FF00030000000000000000C1 /* QuestionSets */,
+				FF00030000000000000000C2 /* CardDecks */,
 				147A95072EE902FF00BD3CA9 /* Card.swift */,
 				147A950B2EE9033B00BD3CA9 /* HandView.swift */,
 			);
@@ -385,6 +405,7 @@
 				14E268EF2EC9649300FBCF90 /* Lobby.swift */,
 				1409C9DF2EE624E6003166E7 /* QuestionCategory.swift */,
 				FF00010000000000000000A1 /* QuestionSet.swift */,
+				FF00010000000000000000A8 /* CardDeck.swift */,
 				14990EEF2ED94E0700DFD3E5 /* TransportType.swift */,
 				149AB4C32EE2A3EE005F7D7E /* MapToolsData.swift */,
 				142066B52ECBDE200084F53C /* CityRegions.swift */,
@@ -437,6 +458,17 @@
 				FF00010000000000000000A4 /* CategoryIcon.swift */,
 			);
 			path = QuestionSets;
+			sourceTree = "<group>";
+		};
+		FF00030000000000000000C2 /* CardDecks */ = {
+			isa = PBXGroup;
+			children = (
+				FF00010000000000000000AB /* CardDecksListView.swift */,
+				FF00010000000000000000AC /* CardDeckEditorView.swift */,
+				FF00010000000000000000AD /* CardEditorView.swift */,
+				FF00010000000000000000AE /* CardTypeBadge.swift */,
+			);
+			path = CardDecks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -596,8 +628,16 @@
 				FF00020000000000000000B3 /* CategoryEditorView.swift in Sources */,
 				FF00020000000000000000B4 /* CategoryIcon.swift in Sources */,
 				FF00020000000000000000B5 /* QuestionEditorView.swift in Sources */,
+				71330F0C2F9AC7A2003D1292 /* DiceRollerView.swift in Sources */,
 				FF00020000000000000000B6 /* QuestionSetEditorView.swift in Sources */,
 				FF00020000000000000000B7 /* QuestionSetsListView.swift in Sources */,
+				FF00020000000000000000B8 /* CardDeck.swift in Sources */,
+				FF00020000000000000000B9 /* CardDeck+Dictionary.swift in Sources */,
+				FF00020000000000000000BA /* CardDecksViewModel.swift in Sources */,
+				FF00020000000000000000BB /* CardDecksListView.swift in Sources */,
+				FF00020000000000000000BC /* CardDeckEditorView.swift in Sources */,
+				FF00020000000000000000BD /* CardEditorView.swift in Sources */,
+				FF00020000000000000000BE /* CardTypeBadge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

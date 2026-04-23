@@ -26,6 +26,7 @@ struct Lobby: Codable, Equatable {
     var questionSetName: String? = nil
     var cardDeckId: String? = nil
     var cardDeckName: String? = nil
+    var maxHandSize: Int = 5
 
     var totalPlayers: Int {
         return players.count
@@ -135,7 +136,8 @@ extension Lobby {
             "createdAt": createdAt.toFirebaseTimestamp(),
             "expiresAt": expiresAt.toFirebaseTimestamp(),
             "isActive": isActive,
-            "bannedUsers": bannedUsers
+            "bannedUsers": bannedUsers,
+            "maxHandSize": maxHandSize
         ]
         
         if let gameId = gameId {
@@ -184,6 +186,7 @@ extension Lobby {
         let city = GameCity(rawValue: cityRaw) ?? .boston
         let isActive = dictionary["isActive"] as? Bool ?? true
         let bannedUsers = dictionary["bannedUsers"] as? [String] ?? []
+        let maxHandSize = dictionary["maxHandSize"] as? Int ?? 5
         
         let createdAt = Date.fromFirebaseTimestamp(createdAtTimestamp)
         let expiresAt = Date.fromFirebaseTimestamp(expiresAtTimestamp)
@@ -220,7 +223,8 @@ extension Lobby {
             questionSetId: questionSetId,
             questionSetName: questionSetName,
             cardDeckId: cardDeckId,
-            cardDeckName: cardDeckName
+            cardDeckName: cardDeckName,
+            maxHandSize: maxHandSize
         )
     }
 }

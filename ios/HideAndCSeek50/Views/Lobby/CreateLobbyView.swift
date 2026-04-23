@@ -26,6 +26,7 @@ struct CreateLobbyView: View {
     @State private var selectedQuestionSetId: String = QuestionSet.defaultId
     @State private var availableDecks: [CardDeck] = []
     @State private var selectedCardDeckId: String = CardDeck.defaultId
+    @State private var maxHandSize: Int = 5
     @State private var isLoading = false
     @State private var errorMessage: String?
     @FocusState private var isHidingTimeFieldFocused: Bool
@@ -143,6 +144,19 @@ struct CreateLobbyView: View {
                         }
                     }
                     .pickerStyle(.menu)
+
+                    HStack {
+                        Text("Max Hand Size")
+                        Spacer()
+                        Stepper(
+                            value: $maxHandSize,
+                            in: 1...20
+                        ) {
+                            Text("\(maxHandSize)")
+                                .foregroundColor(.blue)
+                                .fontWeight(.semibold)
+                        }
+                    }
                 }
 
                 Section("Privacy") {
@@ -278,7 +292,8 @@ struct CreateLobbyView: View {
                 questionSetId: selectedQuestionSetId,
                 questionSetName: selectedSetName,
                 cardDeckId: selectedCardDeckId,
-                cardDeckName: selectedDeckName
+                cardDeckName: selectedDeckName,
+                maxHandSize: maxHandSize
             )
             
             await MainActor.run {

@@ -442,6 +442,7 @@ extension GameSettings {
         if let cardDeck {
             dict["cardDeck"] = try cardDeck.toDictionary()
         }
+        dict["maxHandSize"] = maxHandSize
         return dict
     }
 
@@ -472,6 +473,7 @@ extension GameSettings {
         if let deckData = dictionary["cardDeck"] as? [String: Any] {
             settings.cardDeck = try? CardDeck.fromDictionary(deckData)
         }
+        settings.maxHandSize = dictionary["maxHandSize"] as? Int ?? 5
 
         return settings
     }

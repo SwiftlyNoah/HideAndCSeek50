@@ -38,6 +38,7 @@ struct GameView: View {
     @State private var showingTimerActions = false
     @State private var showingMapToolsView = false
     @State private var showingHandView = false
+    @State private var showingDiceRoller = false
     
     static let CrosshairYOffsetFraction = 0.35
     
@@ -121,6 +122,7 @@ struct GameView: View {
         .sheet(isPresented: $showingQuestionView) { questionSheet }
         .sheet(isPresented: $showingTimerActions) { timerActionsSheet }
         .sheet(isPresented: $showingHandView) { handSheet }
+        .sheet(isPresented: $showingDiceRoller) { DiceRollerView() }
         .confirmationDialog("Skip Hiding Phase", isPresented: $showingSkipConfirmation, titleVisibility: .visible) {
             Button("Skip", role: .destructive) { skipHidingPhase() }
             Button("Cancel", role: .cancel) {}
@@ -306,6 +308,13 @@ struct GameView: View {
                         Circle().fill(Color.purple.opacity(0.8)).frame(width: 56, height: 56)
                         Image(systemName: "timer").font(.title2).foregroundColor(.white)
                     }
+                }
+            }
+
+            Button(action: { showingDiceRoller = true }) {
+                ZStack {
+                    Circle().fill(Color.red.opacity(0.8)).frame(width: 56, height: 56)
+                    Image(systemName: "dice.fill").font(.title2).foregroundColor(.white)
                 }
             }
 

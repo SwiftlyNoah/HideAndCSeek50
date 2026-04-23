@@ -109,7 +109,7 @@ class GameManager: ObservableObject {
     }
     
     // MARK: - Lobby Management
-    func createLobby(hostUID: String, hostName: String, gameName: String, isPublic: Bool = true, maxHiders: Int = 2, maxSeekers: Int = 2, hidingTime: Int = 30, city: GameCity = .boston, questionSetId: String? = nil, questionSetName: String? = nil, cardDeckId: String? = nil, cardDeckName: String? = nil) async throws -> String {
+    func createLobby(hostUID: String, hostName: String, gameName: String, isPublic: Bool = true, maxHiders: Int = 2, maxSeekers: Int = 2, hidingTime: Int = 30, city: GameCity = .boston, questionSetId: String? = nil, questionSetName: String? = nil, cardDeckId: String? = nil, cardDeckName: String? = nil, maxHandSize: Int = 5) async throws -> String {
         let code = generateLobbyCode()
 
         var lobby = Lobby(
@@ -127,7 +127,8 @@ class GameManager: ObservableObject {
             questionSetId: questionSetId,
             questionSetName: questionSetName,
             cardDeckId: cardDeckId,
-            cardDeckName: cardDeckName
+            cardDeckName: cardDeckName,
+            maxHandSize: maxHandSize
         )
         
         // Add host as first player (default to hiders)
@@ -218,14 +219,15 @@ class GameManager: ObservableObject {
         }
     }
     
-    func updateLobbySettings(code: String, maxHiders: Int, maxSeekers: Int, isPublic: Bool, hidingTime: Int, city: GameCity, questionSetId: String? = nil, questionSetName: String? = nil, cardDeckId: String? = nil, cardDeckName: String? = nil) async throws {
+    func updateLobbySettings(code: String, maxHiders: Int, maxSeekers: Int, isPublic: Bool, hidingTime: Int, city: GameCity, questionSetId: String? = nil, questionSetName: String? = nil, cardDeckId: String? = nil, cardDeckName: String? = nil, maxHandSize: Int = 5) async throws {
         let lobbyRef = DatabaseReference.lobby(code)
         var updates: [String: Any] = [
             "maxHiders": maxHiders,
             "maxSeekers": maxSeekers,
             "isPublic": isPublic,
             "hidingTime": hidingTime,
-            "city": city.rawValue
+            "city": city.rawValue,
+            "maxHandSize": maxHandSize
         ]
         if let questionSetId {
             updates["questionSetId"] = questionSetId
@@ -376,6 +378,7 @@ class GameManager: ObservableObject {
         settings.questionSet = snapshotSet
         settings.cardDeckId = cardDeckId
         settings.cardDeck = snapshotDeck
+        settings.maxHandSize = lobby.maxHandSize
 
         let info = GameInfo(
             gameId: gameId,

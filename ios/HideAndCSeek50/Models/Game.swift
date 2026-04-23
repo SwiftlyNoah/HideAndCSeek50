@@ -87,6 +87,7 @@ struct GameSettings: Codable {
     var questionSet: QuestionSet? = nil
     var cardDeckId: String? = nil
     var cardDeck: CardDeck? = nil
+    var maxHandSize: Int = 5
 
     init(hidingTime: Int, city: GameCity) {
         self.hidingTime = hidingTime

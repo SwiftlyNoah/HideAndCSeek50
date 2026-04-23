@@ -18,7 +18,10 @@ struct HandView: View {
     let currentUser: User?
     let currentPlayerTeam: Team
 
+    // Normal draw mode: which drawn cards to keep
     @State private var selectedCards: Set<String> = []
+    // Over-limit mode: which cards (drawn + hand) to keep. Pre-populated on entry.
+    @State private var keptCardIds: Set<String> = []
     @State private var isProcessing = false
     @State private var gameObserver: AnyCancellable?
     @State private var sharedCardId: String?
@@ -35,6 +38,16 @@ struct HandView: View {
     }
     var isInDrawMode: Bool {
         pendingQuestionWithReward != nil
+    }
+
+    private var maxHandSize: Int {
+        gameManager.currentGame?.info.settings.maxHandSize ?? 5
+    }
+
+    /// Whether keeping all `keepCount` reward cards would exceed the hand limit.
+    private var isOverLimit: Bool {
+        guard let action = pendingDrawAction, let state = deckState else { return false }
+        return state.hand.count + action.keepCount > maxHandSize
     }
 
     var body: some View {
@@ -168,6 +181,8 @@ struct HandView: View {
                 }
 
                 // Draw card button
+                let isAtHandLimit = state.hand.count >= maxHandSize
+                let isDeckEmpty = state.deck.isEmpty && state.discardPile.isEmpty
                 Button {
                     drawCardManually()
                 } label: {
@@ -176,23 +191,19 @@ struct HandView: View {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle())
                         } else {
-                            Image(systemName: "plus.rectangle.on.rectangle")
-                            Text("Draw Card")
+                            Image(systemName: isAtHandLimit ? "hand.raised.slash" : "plus.rectangle.on.rectangle")
+                            Text(isAtHandLimit ? "Hand Full (\(state.hand.count)/\(maxHandSize))" : "Draw Card")
                         }
                     }
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(
-                        (state.deck.isEmpty && state.discardPile.isEmpty)
-                            ? Color.gray
-                            : Color.indigo
-                    )
+                    .background(isAtHandLimit || isDeckEmpty ? Color.gray : Color.indigo)
                     .foregroundColor(.white)
                     .cornerRadius(10)
                 }
-                .disabled(isDrawingCard || (state.deck.isEmpty && state.discardPile.isEmpty))
+                .disabled(isDrawingCard || isDeckEmpty || isAtHandLimit)
             }
         }
         .padding()
@@ -204,10 +215,6 @@ struct HandView: View {
     private func drawModeHeader(action: DrawAction) -> some View {
         VStack(spacing: 12) {
             HStack {
-                Image(systemName: "sparkles")
-                    .font(.title2)
-                    .foregroundColor(.orange)
-
                 Text("Question Reward")
                     .font(.title)
                     .fontWeight(.bold)
@@ -217,9 +224,29 @@ struct HandView: View {
                 .font(.headline)
                 .foregroundColor(.orange)
 
-            Text("Select \(action.keepCount) card\(action.keepCount == 1 ? "" : "s") to keep")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            if isOverLimit {
+                VStack(spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
+                        Text("Hand limit reached (\(maxHandSize) max)")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.red)
+                    }
+                    Text("Select the \(maxHandSize) cards from the draw and your existing hand that you want to keep.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(10)
+                .background(Color.red.opacity(0.08))
+                .cornerRadius(10)
+            } else {
+                Text("Select \(action.keepCount) card\(action.keepCount == 1 ? "" : "s") to keep")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
         }
         .padding()
         .background(Color.orange.opacity(0.1))
@@ -291,6 +318,16 @@ struct HandView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 60)
             } else {
+                Color.clear
+                    .frame(height: 0)
+                    .onAppear {
+                        // Pre-populate keptCardIds with all existing hand cards when entering over-limit mode
+                        if isOverLimit && keptCardIds.isEmpty {
+                            keptCardIds = Set(state.hand.map(\.id))
+                        }
+                    }
+
+                // MARK: Drawn cards section
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Drawn Cards")
                         .font(.headline)
@@ -302,11 +339,15 @@ struct HandView: View {
                         ForEach(drawnCards) { card in
                             CardView(
                                 card: card,
-                                isSelected: selectedCards.contains(card.id),
+                                isSelected: isOverLimit ? keptCardIds.contains(card.id) : selectedCards.contains(card.id),
                                 isInteractive: true
                             )
                             .onTapGesture {
-                                toggleCardSelection(card)
+                                if isOverLimit {
+                                    toggleOverLimitCard(card, isDrawnCard: true)
+                                } else {
+                                    toggleCardSelection(card)
+                                }
                             }
                         }
                     }
@@ -314,6 +355,7 @@ struct HandView: View {
 
                 Divider()
 
+                // MARK: Existing hand section
                 if !state.hand.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Existing Hand")
@@ -324,8 +366,21 @@ struct HandView: View {
                             GridItem(.adaptive(minimum: 140, maximum: 180), spacing: 16)
                         ], spacing: 16) {
                             ForEach(state.hand) { card in
-                                CardView(card: card, isSelected: false, isInteractive: false)
-                                    .opacity(0.6)
+                                if isOverLimit {
+                                    // Tappable — toggling kept/discarded
+                                    CardView(
+                                        card: card,
+                                        isSelected: keptCardIds.contains(card.id),
+                                        isInteractive: true
+                                    )
+                                    .onTapGesture {
+                                        toggleOverLimitCard(card, isDrawnCard: false)
+                                    }
+                                } else {
+                                    // Normal: existing hand is read-only
+                                    CardView(card: card, isSelected: false, isInteractive: false)
+                                        .opacity(0.6)
+                                }
                             }
                         }
                     }
@@ -338,7 +393,7 @@ struct HandView: View {
     // MARK: - Actions
 
     private func drawModeActions(action: DrawAction) -> some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             Button(action: { confirmSelection() }) {
                 if isProcessing {
                     ProgressView()
@@ -355,9 +410,15 @@ struct HandView: View {
             .cornerRadius(12)
             .disabled(!canConfirmSelection || isProcessing)
 
-            Text("\(selectedCards.count) of \(action.keepCount) selected")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            if isOverLimit {
+                Text("\(keptCardIds.count) of \(maxHandSize) selected")
+                    .font(.caption)
+                    .foregroundColor(keptCardIds.count == maxHandSize ? .green : .secondary)
+            } else {
+                Text("\(selectedCards.count) of \(action.keepCount) selected")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
         .padding(.horizontal)
         .padding(.bottom)
@@ -371,16 +432,41 @@ struct HandView: View {
 
         let drawCount = action.drawCount
         let drawnCards = Array(state.deck.prefix(drawCount))
-        return drawnCards.count >= drawCount && selectedCards.count == action.keepCount
+        guard drawnCards.count >= drawCount else { return false }
+
+        if isOverLimit {
+            // Must have selected exactly maxHandSize cards to keep
+            return keptCardIds.count == maxHandSize
+        } else {
+            return selectedCards.count == action.keepCount
+        }
     }
 
+    // Normal mode: toggle a drawn card in/out of the keep set
     private func toggleCardSelection(_ card: Card) {
         guard let action = pendingDrawAction else { return }
-
         if selectedCards.contains(card.id) {
             selectedCards.remove(card.id)
         } else if selectedCards.count < action.keepCount {
             selectedCards.insert(card.id)
+        }
+    }
+
+    // Over-limit mode: toggle a card in/out of the unified keep set.
+    // Drawn cards are capped at keepCount; hand cards are capped only by maxHandSize total.
+    private func toggleOverLimitCard(_ card: Card, isDrawnCard: Bool) {
+        guard let action = pendingDrawAction else { return }
+        if keptCardIds.contains(card.id) {
+            keptCardIds.remove(card.id)
+        } else if keptCardIds.count < maxHandSize {
+            if isDrawnCard {
+                // Count how many drawn cards are already kept
+                let keptDrawnCount = keptCardIds.filter { id in
+                    action.drawCount > 0 && (deckState?.deck.prefix(action.drawCount).contains(where: { $0.id == id }) ?? false)
+                }.count
+                guard keptDrawnCount < action.keepCount else { return }
+            }
+            keptCardIds.insert(card.id)
         }
     }
 
@@ -395,13 +481,30 @@ struct HandView: View {
         Task {
             do {
                 let drawnCards = Array(state.deck.prefix(action.drawCount))
-                let cardsToKeep = drawnCards.filter { selectedCards.contains($0.id) }
-                let cardsToDiscard = drawnCards.filter { !selectedCards.contains($0.id) }
+
+                let newHand: [Card]
+                let discardedFromDraw: [Card]
+                let discardedFromHand: [Card]
+
+                if isOverLimit {
+                    // Keep only cards in keptCardIds, across both drawn and existing hand
+                    let keptDrawn = drawnCards.filter { keptCardIds.contains($0.id) }
+                    let keptHand = state.hand.filter { keptCardIds.contains($0.id) }
+                    newHand = keptHand + keptDrawn
+                    discardedFromDraw = drawnCards.filter { !keptCardIds.contains($0.id) }
+                    discardedFromHand = state.hand.filter { !keptCardIds.contains($0.id) }
+                } else {
+                    // Normal: keep selected drawn cards, existing hand unchanged
+                    let keptDrawn = drawnCards.filter { selectedCards.contains($0.id) }
+                    newHand = state.hand + keptDrawn
+                    discardedFromDraw = drawnCards.filter { !selectedCards.contains($0.id) }
+                    discardedFromHand = []
+                }
 
                 let newDeckState = DeckState(
                     deck: Array(state.deck.suffix(state.deck.count - action.drawCount)),
-                    hand: state.hand + cardsToKeep,
-                    discardPile: state.discardPile + cardsToDiscard
+                    hand: newHand,
+                    discardPile: state.discardPile + discardedFromDraw + discardedFromHand
                 )
 
                 try await gameManager.updateDeckState(gameId: gameId, deckState: newDeckState)
@@ -415,6 +518,7 @@ struct HandView: View {
                 await MainActor.run {
                     pendingQuestionWithReward = nil
                     selectedCards.removeAll()
+                    keptCardIds.removeAll()
                     isProcessing = false
                     gameObserver?.cancel()
                     dismiss()

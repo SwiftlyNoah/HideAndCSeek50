@@ -25,6 +25,7 @@ struct LobbySettingsView: View {
     @State private var availableSets: [QuestionSet] = []
     @State private var selectedCardDeckId: String
     @State private var availableDecks: [CardDeck] = []
+    @State private var maxHandSize: Int
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -38,6 +39,7 @@ struct LobbySettingsView: View {
         self._selectedCity = State(initialValue: lobby.city)
         self._selectedQuestionSetId = State(initialValue: lobby.questionSetId ?? QuestionSet.defaultId)
         self._selectedCardDeckId = State(initialValue: lobby.cardDeckId ?? CardDeck.defaultId)
+        self._maxHandSize = State(initialValue: lobby.maxHandSize)
     }
 
     private var selectedSetName: String {
@@ -149,6 +151,19 @@ struct LobbySettingsView: View {
                         }
                     }
                     .pickerStyle(.menu)
+
+                    HStack {
+                        Text("Max Hand Size")
+                        Spacer()
+                        Stepper(
+                            value: $maxHandSize,
+                            in: 1...20
+                        ) {
+                            Text("\(maxHandSize)")
+                                .foregroundColor(.blue)
+                                .fontWeight(.semibold)
+                        }
+                    }
                 }
 
                 Section("Privacy") {
@@ -218,7 +233,8 @@ struct LobbySettingsView: View {
                hidingTime != lobby.hidingTime ||
                selectedCity != lobby.city ||
                selectedQuestionSetId != (lobby.questionSetId ?? QuestionSet.defaultId) ||
-               selectedCardDeckId != (lobby.cardDeckId ?? CardDeck.defaultId)
+               selectedCardDeckId != (lobby.cardDeckId ?? CardDeck.defaultId) ||
+               maxHandSize != lobby.maxHandSize
     }
 
     private func loadQuestionSets() {
@@ -271,7 +287,8 @@ struct LobbySettingsView: View {
                 questionSetId: selectedQuestionSetId,
                 questionSetName: selectedSetName,
                 cardDeckId: selectedCardDeckId,
-                cardDeckName: selectedDeckName
+                cardDeckName: selectedDeckName,
+                maxHandSize: maxHandSize
             )
 
             await MainActor.run {

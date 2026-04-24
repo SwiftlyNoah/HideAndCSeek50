@@ -86,6 +86,7 @@ struct GameSettingsView: View {
                 try await gameManager.leaveGame(
                     gameId: gameId,
                     playerUID: currentUser.uid,
+                    playerName: currentUser.displayName,
                     lobbyCode: lobbyCode
                 )
                 

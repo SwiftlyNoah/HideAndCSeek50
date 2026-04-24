@@ -437,7 +437,7 @@ class GameManager: ObservableObject {
         ])
     }
     
-    func leaveGame(gameId: String, playerUID: String, lobbyCode: String? = nil) async throws {
+    func leaveGame(gameId: String, playerUID: String, playerName: String? = nil, lobbyCode: String? = nil) async throws {
         let gameRef = DatabaseReference.game(gameId)
         
         // Remove from both teams (in case they switched)
@@ -459,10 +459,11 @@ class GameManager: ObservableObject {
         clearGamePersistence()
         
         // Log leave event
+        let leaveDetails = playerName.map { "\($0) left the game" } ?? "A player left the game"
         try await sendEventMessage(
             gameId: gameId,
             type: .playerLeft,
-            details: "A player left the game"
+            details: leaveDetails
         )
     }
     

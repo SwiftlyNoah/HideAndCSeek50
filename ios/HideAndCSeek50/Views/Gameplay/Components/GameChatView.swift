@@ -466,24 +466,32 @@ struct MessageBubble: View {
                     
                     // Show photo if attached
                     if let photoURL = message.attachments?.photoURL {
-                        AsyncImage(url: URL(string: photoURL)) { phase in
-                            switch phase {
-                            case .empty:
-                                ProgressView()
-                                    .frame(height: 150)
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(height: 150)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                            case .failure:
-                                Text("Failed to load photo")
-                                    .font(.caption)
-                                    .foregroundColor(.white.opacity(0.7))
-                            @unknown default:
-                                EmptyView()
+                        Button {
+                            showFullImage = true
+                        } label: {
+                            AsyncImage(url: URL(string: photoURL)) { phase in
+                                switch phase {
+                                case .empty:
+                                    ProgressView()
+                                        .frame(height: 150)
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(height: 150)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                case .failure:
+                                    Text("Failed to load photo")
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.7))
+                                @unknown default:
+                                    EmptyView()
+                                }
                             }
+                        }
+                        .buttonStyle(.plain)
+                        .sheet(isPresented: $showFullImage) {
+                            FullScreenImageView(imageURL: photoURL)
                         }
                     }
                     
